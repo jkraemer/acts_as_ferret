@@ -240,17 +240,16 @@ module FerretMixin
               query = query_parser.parse(q)
             end
             logger.debug "parsed query for <#{q}> : <#{query}>" 
-            result = []
+            id_array = []
             hits = index_searcher.search(query, options)
             hits.each do |hit, score|
-              id = index_searcher.reader.get_document(hit)[:id]
-              begin
-                res = self.find(id)
-                result << res if res
-                logger.debug "result id: #{id}, result: #{res}"
-              rescue
-                logger.debug "no data for id #{id}"
-              end
+              id_array << index_searcher.reader.get_document(hit)[:id]
+            end
+            begin
+              result = self.find(id_array)
+              logger.debug "Result id_array: #{id_array.inspect}, result: #{result}"
+            rescue
+              logger.debug "REBUILD YOUR INDEX! One of the id's didn't have an associated record: #{id_array}"
             end
             return result
           end 
