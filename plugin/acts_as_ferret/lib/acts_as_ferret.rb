@@ -183,7 +183,17 @@ module FerretMixin
               end
             EOV
             FerretMixin::Acts::ARFerret::ensure_directory configuration[:index_dir]
-          end                   
+            rebuild_index unless File.file? "#{configuration[:index_dir]}/segments"
+          end
+
+          def rebuild_index
+            index = Ferret::Index::Index.new(:path => class_index_dir, :create => true)
+            self.find_all.each { |content| index << content.to_doc }
+            logger.debug("Created Ferret index in: #{class_index_dir}")
+            index.flush
+            index.optimize
+            index.close
+          end                                                            
 
           # Index instances are stored in a hash, using the index directory
           # as the key.
