@@ -100,7 +100,7 @@ module FerretMixin
                              }
             default_opts.update(options) if options.is_a?(Hash) 
             fields_for_ferret << field 
-            define_method ("#{field}_to_ferret".to_sym) do                              
+            define_method("#{field}_to_ferret".to_sym) do                              
                 val = self[field] || self.instance_variable_get("@#{field.to_s}".to_sym)
                 logger.debug("Adding field #{field} with value '#{val}' to index")
                 Ferret::Document::Field.new(field.to_s, val, 
@@ -209,7 +209,7 @@ module FerretMixin
             ferret_indexes[class_index_dir] ||= Index::Index.new(ferret_configuration)
           end 
 
-          # Finds instances by contents. Terms are ANDed by default, can be circumvented 
+          # Finds instances by contents. Terms are ANDed by defaut, can be circumvented 
           # by using OR between terms. 
           # options:
           # :first_doc - first hit to retrieve (useful for paging)
