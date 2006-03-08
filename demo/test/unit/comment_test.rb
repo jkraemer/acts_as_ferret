@@ -15,7 +15,18 @@ class CommentTest < Test::Unit::TestCase
   def test_find_by_contents
     comment = Comment.new( :author => 'john doe', :content => 'This is a useless comment' )
     comment.save
+    comment2 = Comment.new( :author => 'another', :content => 'content' )
+    comment2.save
 
+    comments_from_ferret = Comment.find_by_contents('anoth* OR jo*')
+    assert_equal 2, comments_from_ferret.size
+    assert comments_from_ferret.include?(comment)
+    assert comments_from_ferret.include?(comment2)
+    
+    comments_from_ferret = Comment.find_by_contents('another')
+    assert_equal 1, comments_from_ferret.size
+    assert_equal comment2.id, comments_from_ferret.first.id
+    
     comments_from_ferret = Comment.find_by_contents('doe')
     assert_equal 1, comments_from_ferret.size
     assert_equal comment.id, comments_from_ferret.first.id

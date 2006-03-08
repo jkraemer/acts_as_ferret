@@ -64,6 +64,22 @@ class ContentTest < Test::Unit::TestCase
     contents_from_ferret = Content.find_by_contents('"useless description"')
     assert_equal 1, contents_from_ferret.size
     assert_equal @content.id, contents_from_ferret.first.id
+
+    # wildcard query
+    contents_from_ferret = Content.find_by_contents('use*')
+    assert_equal 1, contents_from_ferret.size
+
+    # ferret-bug ? wildcard queries don't seem to get lowercased even when
+    # using StandardAnalyzer:
+    # contents_from_ferret = Content.find_by_contents('Ti*')
+    # we should find both 'Title' and 'title'
+    # assert_equal 2, contents_from_ferret.size 
+    # theory: :wild_lower parser option isn't used
+
+    contents_from_ferret = Content.find_by_contents('ti*')
+    # this time we find both 'Title' and 'title'
+    assert_equal 2, contents_from_ferret.size
+    
    end
 
    def test_find_by_contents_options
