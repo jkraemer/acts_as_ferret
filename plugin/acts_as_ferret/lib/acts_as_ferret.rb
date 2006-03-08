@@ -119,33 +119,48 @@ module FerretMixin
           @@ferret_indexes = Hash.new
           def ferret_indexes; @@ferret_indexes end
 
-          @@index_searchers = Hash.new
-          def index_searchers; @@index_searchers end
-
           # declares a class as ferret-searchable. 
           #
           # options are:
-          # The mandatory :fields property names all fields to include in the index.
-          # :index_dir declares the directory where to put the index for this class.
-          # The default is RAILS_ROOT/index/RAILS_ENV/CLASSNAME. 
-          # The index directory will be created if it doesn't exist.
           #
-          # parser_options:
-          # occur_default - declares whether query terms are required by
+          # fields:: names all fields to include in the index. If not given,
+          #   all attributes of the class will be indexed.
+          #
+          # index_dir:: declares the directory where to put the index for this class.
+          #   The default is RAILS_ROOT/index/RAILS_ENV/CLASSNAME. 
+          #   The index directory will be created if it doesn't exist.
+          #
+          # ferret_options may be:
+          # occur_default:: - whether query terms are required by
           #   default (the default), or not. Specify one of 
           #   Ferret::Search::BooleanClause::Occur::MUST or 
-          #   Ferret::Search::BooleanClause::Occur::SHOULD 
-          # analyzer - the analyzer to use for query parsing (default: nil,
-          # wihch means the ferret default Analyzer gets used)
-          def acts_as_ferret(options={}, parser_options={})
-            configuration = { :index_dir => "#{FerretMixin::Acts::ARFerret::index_dir}/#{self.name}" }
-            configuration.update(options) if options.is_a?(Hash)
-
-            parser_configuration = {
-              :occur_default => Search::BooleanClause::Occur::MUST,
-              :analyzer => nil
+          #   Ferret::Search::BooleanClause::Occur::SHOULD
+          # 
+          # analyzer:: the analyzer to use for query parsing (default: nil,
+          #   wihch means the ferret default Analyzer gets used)
+          #
+          def acts_as_ferret(options={}, ferret_options={})
+            configuration = { 
+              :fields => nil,
+              :index_dir => "#{FerretMixin::Acts::ARFerret::index_dir}/#{self.name}" 
             }
-            parser_configuration.update(parser_options) if parser_options.is_a? Hash
+            ferret_configuration = {
+              :occur_default => Search::BooleanClause::Occur::MUST,
+              :handle_parse_errors => true,
+              :default_search_field => '*',
+              # :analyzer => Analysis::StandardAnalyzer.new,
+              # :wild_lower => true
+            }
+            configuration.update(options) if options.is_a?(Hash)
+            ferret_configuration.update(ferret_options) if ferret_options.is_a?(Hash)
+            # these properties are somewhat vital to the plugin and shouldn't
+            # be overwritten by the user:
+            ferret_configuration.update(
+              :key               => :id,
+              :path              => configuration[:index_dir],
+              :auto_flush        => true,
+              :create_if_missing => true
+            )
 
             class_eval <<-EOV
               include FerretMixin::Acts::ARFerret::InstanceMethods
@@ -156,18 +171,11 @@ module FerretMixin
               
               cattr_accessor :fields_for_ferret   
               cattr_accessor :class_index_dir
-              cattr_accessor :parser_configuration
+              cattr_accessor :ferret_configuration
               
               @@fields_for_ferret = Array.new
               @@class_index_dir = configuration[:index_dir]
-              @@parser_configuration = parser_configuration
-
-              # TODO: make occur_default configurable 
-              def self.query_parser
-                @@query_parser ||= 
-                  QueryParser.new( fields_for_ferret, 
-                                   parser_configuration )
-              end
+              @@ferret_configuration = ferret_configuration
 
               # private
               if configuration[:fields].respond_to?(:each_pair)
@@ -176,10 +184,10 @@ module FerretMixin
                 end
               elsif configuration[:fields].respond_to?(:each)
                 configuration[:fields].each do |field| 
-                        define_to_field_method(field)
+                  define_to_field_method(field)
                 end                
               else
-                #need to handle :all case
+                @@fields_for_ferret = nil
               end
             EOV
             FerretMixin::Acts::ARFerret::ensure_directory configuration[:index_dir]
@@ -187,7 +195,7 @@ module FerretMixin
           end
 
           def rebuild_index
-            index = Ferret::Index::Index.new(:path => class_index_dir, :create => true)
+            index = Index::Index.new(:path => class_index_dir, :create => true)
             self.find_all.each { |content| index << content.to_doc }
             logger.debug("Created Ferret index in: #{class_index_dir}")
             index.flush
@@ -198,52 +206,19 @@ module FerretMixin
           # Index instances are stored in a hash, using the index directory
           # as the key.
           def ferret_index
-            ferret_indexes[class_index_dir] ||= 
-              Index::Index.new(:key               => :id,
-                               :path              => class_index_dir,
-                               :auto_flush        => true,
-                               :create_if_missing => true)
+            ferret_indexes[class_index_dir] ||= Index::Index.new(ferret_configuration)
           end 
 
-          # returns the searcher for the index that is used for this class. A
-          # new searcher will be opened if the segments file is newer than
-          # the existing searcher instance. That way modifications of the index
-          # will always be reflected by the searcher.
-          # Searcher instances are stored in a hash, where the index directory
-          # a searcher is working on is the key.
-          def index_searcher
-            if searcher = index_searchers[class_index_dir]
-              last_index_modification = File.mtime "#{class_index_dir}/segments"
-              if last_index_modification > searcher.creation_time
-                searcher.close
-                index_searchers.delete class_index_dir 
-              end
-            end
-            index_searchers[class_index_dir] ||= new_index_searcher
-          end
-
-          def new_index_searcher
-            searcher = Search::IndexSearcher.new(class_index_dir)
-            searcher.creation_time = Time.now
-            searcher
-          end
-  
           # Finds instances by contents. Terms are ANDed by default, can be circumvented 
           # by using OR between terms. 
           # options:
           # :first_doc - first hit to retrieve (useful for paging)
           # :num_docs - number of hits to retrieve
           def find_by_contents(q, options = {})
-            if q.is_a? Search::Query
-              query = q
-            else  
-              query = query_parser.parse(q)
-            end
-            logger.debug "parsed query for <#{q}> : <#{query}>" 
             id_array = []
-            hits = index_searcher.search(query, options)
+            hits = ferret_index.search(q, options)
             hits.each do |hit, score|
-              id_array << index_searcher.reader.get_document(hit)[:id]
+              id_array << ferret_index[hit][:id]
             end
             begin
               result = self.find(id_array)
@@ -286,8 +261,23 @@ module FerretMixin
                                         Document::Field::Store::YES, 
                                         Document::Field::Index::UNTOKENIZED )
             # iterate through the fields and add them to the document
-            fields_for_ferret.each do |field|
+            if fields_for_ferret
+              # have user defined fields
+              fields_for_ferret.each do |field|
                 doc << self.send("#{field}_to_ferret")
+              end
+            else
+              # take all fields
+              self.attributes.each_pair do |key,val|
+                unless key == :id
+                  logger.debug "add field #{key} with value #{val}"
+                  doc << Document::Field.new(
+                                    key, 
+                                    val.to_s, 
+                                    Ferret::Document::Field::Store::NO, 
+                                    Ferret::Document::Field::Index::TOKENIZED)
+                end
+              end
             end
             return doc
           end
@@ -301,11 +291,6 @@ end
 # them available to all our models if they want it
 ActiveRecord::Base.class_eval do
   include FerretMixin::Acts::ARFerret
-end
-
-# add creation time attribute to the IndexSearcher class
-Ferret::Search::IndexSearcher.class_eval do
-  attr_accessor :creation_time
 end
 
 # END acts_as_ferret.rb
