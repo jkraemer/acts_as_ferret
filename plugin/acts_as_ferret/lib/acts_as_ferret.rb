@@ -66,7 +66,7 @@ module FerretMixin
       def self.ensure_directory(dir)
         Dir.mkdir dir unless File.directory? dir
       end
-        
+      
       # make sure the default index base dir exists. by default, all indexes are created
       # under RAILS_ROOT/index/RAILS_ENV
       def self.init_index_basedir
@@ -75,94 +75,94 @@ module FerretMixin
         @@index_dir = "#{index_base}/#{RAILS_ENV}"
         ensure_directory @@index_dir
       end
-
+      
       mattr_accessor :index_dir
       init_index_basedir
-
+      
       def self.append_features(base)
         super
         base.extend(ClassMethods)
       end
-
-        # declare the class level helper methods
-        # which will load the relevant instance methods defined below when invoked
-        module ClassMethods
-          include Ferret         
-
-          # helper that defines a method that adds the given field to a lucene 
-          # document instance
-          def define_to_field_method(field, options = {})         
-            default_opts = { :store => Ferret::Document::Field::Store::NO, 
-                             :index => Ferret::Document::Field::Index::TOKENIZED, 
-                             :term_vector => Ferret::Document::Field::TermVector::NO,
-                             :binary => false,
-                             :boost => 1.0
-                             }
-            default_opts.update(options) if options.is_a?(Hash) 
-            fields_for_ferret << field 
-            define_method("#{field}_to_ferret".to_sym) do                              
-                val = self[field] || self.instance_variable_get("@#{field.to_s}".to_sym)
-                logger.debug("Adding field #{field} with value '#{val}' to index")
-                Ferret::Document::Field.new(field.to_s, val, 
-                                            default_opts[:store], 
-                                            default_opts[:index], 
-                                            default_opts[:term_vector], 
-                                            default_opts[:binary], 
-                                            default_opts[:boost]) 
-            end
+      
+      # declare the class level helper methods
+      # which will load the relevant instance methods defined below when invoked
+      module ClassMethods
+        include Ferret         
+        
+        # helper that defines a method that adds the given field to a lucene 
+        # document instance
+        def define_to_field_method(field, options = {})         
+          default_opts = { :store => Ferret::Document::Field::Store::NO, 
+            :index => Ferret::Document::Field::Index::TOKENIZED, 
+            :term_vector => Ferret::Document::Field::TermVector::NO,
+            :binary => false,
+            :boost => 1.0
+          }
+          default_opts.update(options) if options.is_a?(Hash) 
+          fields_for_ferret << field 
+          define_method("#{field}_to_ferret".to_sym) do                              
+            val = self[field] || self.instance_variable_get("@#{field.to_s}".to_sym)
+            logger.debug("Adding field #{field} with value '#{val}' to index")
+            Ferret::Document::Field.new(field.to_s, val, 
+                                        default_opts[:store], 
+                                        default_opts[:index], 
+                                        default_opts[:term_vector], 
+                                        default_opts[:binary], 
+                                        default_opts[:boost]) 
           end
-
-          # TODO: do we need to define this at this level ? Maybe it's
-          # sufficient to do this only in classes calling acts_as_ferret ?
-          def reloadable?; false end
-
-          @@ferret_indexes = Hash.new
-          def ferret_indexes; @@ferret_indexes end
-
-          # declares a class as ferret-searchable. 
-          #
-          # options are:
-          #
-          # fields:: names all fields to include in the index. If not given,
-          #   all attributes of the class will be indexed.
-          #
-          # index_dir:: declares the directory where to put the index for this class.
-          #   The default is RAILS_ROOT/index/RAILS_ENV/CLASSNAME. 
-          #   The index directory will be created if it doesn't exist.
-          #
-          # ferret_options may be:
-          # occur_default:: - whether query terms are required by
-          #   default (the default), or not. Specify one of 
-          #   Ferret::Search::BooleanClause::Occur::MUST or 
-          #   Ferret::Search::BooleanClause::Occur::SHOULD
-          # 
-          # analyzer:: the analyzer to use for query parsing (default: nil,
-          #   wihch means the ferret default Analyzer gets used)
-          #
-          def acts_as_ferret(options={}, ferret_options={})
-            configuration = { 
-              :fields => nil,
-              :index_dir => "#{FerretMixin::Acts::ARFerret::index_dir}/#{self.name}" 
-            }
-            ferret_configuration = {
-              :occur_default => Search::BooleanClause::Occur::MUST,
-              :handle_parse_errors => true,
-              :default_search_field => '*',
-              # :analyzer => Analysis::StandardAnalyzer.new,
-              # :wild_lower => true
-            }
-            configuration.update(options) if options.is_a?(Hash)
-            ferret_configuration.update(ferret_options) if ferret_options.is_a?(Hash)
-            # these properties are somewhat vital to the plugin and shouldn't
-            # be overwritten by the user:
-            ferret_configuration.update(
-              :key               => :id,
-              :path              => configuration[:index_dir],
-              :auto_flush        => true,
-              :create_if_missing => true
-            )
-
-            class_eval <<-EOV
+        end
+        
+        # TODO: do we need to define this at this level ? Maybe it's
+        # sufficient to do this only in classes calling acts_as_ferret ?
+        def reloadable?; false end
+        
+        @@ferret_indexes = Hash.new
+        def ferret_indexes; @@ferret_indexes end
+        
+        # declares a class as ferret-searchable. 
+        #
+        # options are:
+        #
+        # fields:: names all fields to include in the index. If not given,
+        #   all attributes of the class will be indexed.
+        #
+        # index_dir:: declares the directory where to put the index for this class.
+        #   The default is RAILS_ROOT/index/RAILS_ENV/CLASSNAME. 
+        #   The index directory will be created if it doesn't exist.
+        #
+        # ferret_options may be:
+        # occur_default:: - whether query terms are required by
+        #   default (the default), or not. Specify one of 
+        #   Ferret::Search::BooleanClause::Occur::MUST or 
+        #   Ferret::Search::BooleanClause::Occur::SHOULD
+        # 
+        # analyzer:: the analyzer to use for query parsing (default: nil,
+        #   wihch means the ferret default Analyzer gets used)
+        #
+        def acts_as_ferret(options={}, ferret_options={})
+          configuration = { 
+            :fields => nil,
+            :index_dir => "#{FerretMixin::Acts::ARFerret::index_dir}/#{self.name}" 
+          }
+          ferret_configuration = {
+            :occur_default => Search::BooleanClause::Occur::MUST,
+            :handle_parse_errors => true,
+            :default_search_field => '*',
+            # :analyzer => Analysis::StandardAnalyzer.new,
+            # :wild_lower => true
+          }
+          configuration.update(options) if options.is_a?(Hash)
+          ferret_configuration.update(ferret_options) if ferret_options.is_a?(Hash)
+          # these properties are somewhat vital to the plugin and shouldn't
+          # be overwritten by the user:
+          ferret_configuration.update(
+                                      :key               => :id,
+                                      :path              => configuration[:index_dir],
+                                      :auto_flush        => true,
+                                      :create_if_missing => true
+          )
+          
+          class_eval <<-EOV
               include FerretMixin::Acts::ARFerret::InstanceMethods
 
               after_create :ferret_create
@@ -177,7 +177,6 @@ module FerretMixin
               @@class_index_dir = configuration[:index_dir]
               @@ferret_configuration = ferret_configuration
 
-              # private
               if configuration[:fields].respond_to?(:each_pair)
                 configuration[:fields].each_pair do |key,val|
                   define_to_field_method(key,val)                  
@@ -190,100 +189,127 @@ module FerretMixin
                 @@fields_for_ferret = nil
               end
             EOV
-            FerretMixin::Acts::ARFerret::ensure_directory configuration[:index_dir]
-            rebuild_index unless File.file? "#{configuration[:index_dir]}/segments"
-          end
-
-          def rebuild_index
-            index = Index::Index.new(:path => class_index_dir, :create => true)
-            self.find_all.each { |content| index << content.to_doc }
-            logger.debug("Created Ferret index in: #{class_index_dir}")
-            index.flush
-            index.optimize
-            index.close
-          end                                                            
-
-          # Index instances are stored in a hash, using the index directory
-          # as the key.
-          def ferret_index
-            ferret_indexes[class_index_dir] ||= Index::Index.new(ferret_configuration)
-          end 
-
-          # Finds instances by contents. Terms are ANDed by defaut, can be circumvented 
-          # by using OR between terms. 
-          # options:
-          # :first_doc - first hit to retrieve (useful for paging)
-          # :num_docs - number of hits to retrieve
-          def find_by_contents(q, options = {})
-            id_array = []
-            hits = ferret_index.search(q, options)
-            hits.each do |hit, score|
-              id_array << ferret_index[hit][:id]
-            end
-            begin
-              result = self.find(id_array)
-              logger.debug "Result id_array: #{id_array.inspect}, result: #{result}"
-            rescue
-              logger.debug "REBUILD YOUR INDEX! One of the id's didn't have an associated record: #{id_array}"
-            end
-            return result
-          end 
-
+          FerretMixin::Acts::ARFerret::ensure_directory configuration[:index_dir]
+          rebuild_index unless File.file? "#{configuration[:index_dir]}/segments"
         end
-
-
-        module InstanceMethods
-          include Ferret         
-
-          # add to index
-          def ferret_create
-            logger.debug "ferret_create/update: #{self.class.name} : #{self.id}"
-            self.class.ferret_index << self.to_doc
+        
+        def rebuild_index
+          index = Index::Index.new(:path => class_index_dir, :create => true)
+          self.find_all.each { |content| index << content.to_doc }
+          logger.debug("Created Ferret index in: #{class_index_dir}")
+          index.flush
+          index.optimize
+          index.close
+        end                                                            
+        
+        # Index instances are stored in a hash, using the index directory
+        # as the key.
+        def ferret_index
+          ferret_indexes[class_index_dir] ||= Index::Index.new(ferret_configuration)
+        end 
+        
+        # Finds instances by contents. Terms are ANDed by default, can be circumvented 
+        # by using OR between terms. 
+        # options:
+        # :first_doc - first hit to retrieve (useful for paging)
+        # :num_docs - number of hits to retrieve
+        def find_by_contents(q, options = {})
+          id_array = []
+          find_id_by_contents(q, options).each do |element|
+            id_array << element[:id]
           end
-          alias :ferret_update :ferret_create
-          
-          # remove from index
-          def ferret_destroy
-            begin
-              self.class.ferret_index.query_delete("+id:#{self.id}")
-            rescue
-              logger.warn("Could not find indexed value for this object")
-            end
+          begin
+            result = self.find(id_array)
+            logger.debug "Result id_array: #{id_array.inspect}, result: #{result}"
+          rescue
+            logger.debug "REBUILD YOUR INDEX! One of the id's didn't have an associated record: #{id_array}"
           end
-          
-          # convert instance to ferret document
-          def to_doc
-            logger.debug "creating doc for class: #{self.class.name}"
-            # Churn through the complete Active Record and add it to the Ferret document
-            doc = Document::Document.new
-            # store the id of each item
-            doc << Document::Field.new( "id", self.id, 
-                                        Document::Field::Store::YES, 
-                                        Document::Field::Index::UNTOKENIZED )
-            # iterate through the fields and add them to the document
-            if fields_for_ferret
-              # have user defined fields
-              fields_for_ferret.each do |field|
-                doc << self.send("#{field}_to_ferret")
-              end
-            else
-              # take all fields
-              self.attributes.each_pair do |key,val|
-                unless key == :id
-                  logger.debug "add field #{key} with value #{val}"
-                  doc << Document::Field.new(
-                                    key, 
-                                    val.to_s, 
-                                    Ferret::Document::Field::Store::NO, 
-                                    Ferret::Document::Field::Index::TOKENIZED)
-                end
-              end
-            end
-            return doc
+          return result
+        end 
+        
+        # Finds instance model name, ids and scores by contents. 
+        # Useful if you want to search across models
+        # Terms are ANDed by default, can be circumvented by using OR between terms.
+        #
+        # Example controller code (not tested):
+        # def multi_search(query)
+        #   result = []
+        #   result << (Model1.find_id_by_contents query)
+        #   result << (Model2.find_id_by_contents query)
+        #   result << (Model3.find_id_by_contents query)
+        #   result.flatten!
+        #   result.sort! {|element| element[:score]}
+        #   # Figure out for yourself how to retreive and present the data from modelname and id 
+        # end
+        #
+        # options:
+        # :first_doc - first hit to retrieve (useful for paging)
+        # :num_docs - number of hits to retrieve      
+        def find_id_by_contents(q, options = {})
+          result = []
+          hits = ferret_index.search(q, options)
+          hits.each do |hit, score|
+            result << {:model => self.name, :id => ferret_index[hit][:id], :score => score}
           end
+          logger.debug "id_score_model array: #{result.inspect}"
+          result
+        end
+        
+      end
       
+      
+      module InstanceMethods
+        include Ferret         
+        
+        # add to index
+        def ferret_create
+          logger.debug "ferret_create/update: #{self.class.name} : #{self.id}"
+          self.class.ferret_index << self.to_doc
         end
-     end
+        alias :ferret_update :ferret_create
+        
+        # remove from index
+        def ferret_destroy
+          begin
+            self.class.ferret_index.query_delete("+id:#{self.id}")
+          rescue
+            logger.warn("Could not find indexed value for this object")
+          end
+        end
+        
+        # convert instance to ferret document
+        def to_doc
+          logger.debug "creating doc for class: #{self.class.name}"
+          # Churn through the complete Active Record and add it to the Ferret document
+          doc = Document::Document.new
+          # store the id of each item
+          doc << Document::Field.new( "id", self.id, 
+          Document::Field::Store::YES, 
+          Document::Field::Index::UNTOKENIZED )
+          # iterate through the fields and add them to the document
+          if fields_for_ferret
+            # have user defined fields
+            fields_for_ferret.each do |field|
+              doc << self.send("#{field}_to_ferret")
+            end
+          else
+            # take all fields
+            self.attributes.each_pair do |key,val|
+              unless key == :id
+                logger.debug "add field #{key} with value #{val}"
+                doc << Document::Field.new(
+                                           key, 
+                                           val.to_s, 
+                                           Ferret::Document::Field::Store::NO, 
+                                           Ferret::Document::Field::Index::TOKENIZED)
+              end
+            end
+          end
+          return doc
+        end
+        
+      end
+    end
   end
 end
 
@@ -294,4 +320,3 @@ ActiveRecord::Base.class_eval do
 end
 
 # END acts_as_ferret.rb
-
