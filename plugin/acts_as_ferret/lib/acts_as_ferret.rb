@@ -190,9 +190,14 @@ module FerretMixin
               end
             EOV
           FerretMixin::Acts::ARFerret::ensure_directory configuration[:index_dir]
-          rebuild_index unless File.file? "#{configuration[:index_dir]}/segments"
         end
         
+        # rebuild the index from all data stored for this model.
+        # This is called automatically when no index exists yet.
+        #
+        # TODO: this only works if every model class has it's 
+        # own index, otherwise the index will get populated only
+        # with instances from the first model loaded
         def rebuild_index
           index = Index::Index.new(:path => class_index_dir, :create => true)
           self.find_all.each { |content| index << content.to_doc }
@@ -202,11 +207,22 @@ module FerretMixin
           index.close
         end                                                            
         
+        # Retrieve the Ferret::Index::Index instance for this model class.
+        # 
         # Index instances are stored in a hash, using the index directory
-        # as the key.
+        # as the key. So model classes sharing a single index will share their
+        # Index object, too.
         def ferret_index
-          ferret_indexes[class_index_dir] ||= Index::Index.new(ferret_configuration)
+          ferret_indexes[class_index_dir] ||= create_index_instance
         end 
+
+        # creates a new Index::Index instance. Before that, a check is done
+        # to see if the index exists in the file system. If not, index rebuild
+        # from all model data retrieved by find(:all) is triggered.
+        def create_index_instance
+          rebuild_index unless File.file? "#{class_index_dir}/segments"
+          Index::Index.new(ferret_configuration)
+        end
         
         # Finds instances by contents. Terms are ANDed by default, can be circumvented 
         # by using OR between terms. 
@@ -241,6 +257,12 @@ module FerretMixin
         #   result.sort! {|element| element[:score]}
         #   # Figure out for yourself how to retreive and present the data from modelname and id 
         # end
+        #
+        # Note that the scores retrieved this way aren't normalized across
+        # indexes, so that the order of results after sorting by score will
+        # differ from the order you would get when running the same query
+        # on a single index containing all the data from Model1, Model2 
+        # and Model3.
         #
         # options:
         # :first_doc - first hit to retrieve (useful for paging)
