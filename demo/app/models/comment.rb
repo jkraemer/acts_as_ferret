@@ -2,8 +2,16 @@ require 'ferret'
 
 class Comment < ActiveRecord::Base
   belongs_to :parent, :class_name => 'Content'
-  # just index all fields:
-  acts_as_ferret 
+  
+  # simplest case: just index all fields of this model:
+  # acts_as_ferret
+  
+  # we use :store_class_name => true so that we can use 
+  # the multi_search method to run queries across multiple
+  # models
+  acts_as_ferret :store_class_name => true
+
+  # only index the named fields:
   #acts_as_ferret :fields => ['author', 'content' ]
 
   # you can override the default to_doc method 

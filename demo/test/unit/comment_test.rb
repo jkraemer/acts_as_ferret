@@ -82,6 +82,9 @@ class CommentTest < Test::Unit::TestCase
     comments_from_ferret = Comment.find_by_contents('"useless comment"')
     assert_equal 1, comments_from_ferret.size
     assert_equal comment.id, comments_from_ferret.first.id
+
+    comment.destroy
+    comment2.destroy
    end
 
 end
