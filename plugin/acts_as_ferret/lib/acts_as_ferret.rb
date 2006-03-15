@@ -119,6 +119,9 @@ module FerretMixin
         @@ferret_indexes = Hash.new
         def ferret_indexes; @@ferret_indexes end
         
+        @@multi_indexes = Hash.new
+        def multi_indexes; @@multi_indexes end
+        
         # declares a class as ferret-searchable. 
         #
         # options are:
@@ -129,6 +132,10 @@ module FerretMixin
         # index_dir:: declares the directory where to put the index for this class.
         #   The default is RAILS_ROOT/index/RAILS_ENV/CLASSNAME. 
         #   The index directory will be created if it doesn't exist.
+        #
+        # store_class_name:: to make search across multiple models useful, set
+        # this to true. the model class name will be stored in a keyword field 
+        # named class_name
         #
         # ferret_options may be:
         # occur_default:: - whether query terms are required by
@@ -142,7 +149,8 @@ module FerretMixin
         def acts_as_ferret(options={}, ferret_options={})
           configuration = { 
             :fields => nil,
-            :index_dir => "#{FerretMixin::Acts::ARFerret::index_dir}/#{self.name}" 
+            :index_dir => "#{FerretMixin::Acts::ARFerret::index_dir}/#{self.name}",
+            :store_class_name => false
           }
           ferret_configuration = {
             :occur_default => Search::BooleanClause::Occur::MUST,
@@ -170,13 +178,13 @@ module FerretMixin
               after_destroy :ferret_destroy      
               
               cattr_accessor :fields_for_ferret   
-              cattr_accessor :class_index_dir
+              cattr_accessor :configuration
               cattr_accessor :ferret_configuration
               
               @@fields_for_ferret = Array.new
-              @@class_index_dir = configuration[:index_dir]
+              @@configuration = configuration
               @@ferret_configuration = ferret_configuration
-
+              
               if configuration[:fields].respond_to?(:each_pair)
                 configuration[:fields].each_pair do |key,val|
                   define_to_field_method(key,val)                  
@@ -190,6 +198,10 @@ module FerretMixin
               end
             EOV
           FerretMixin::Acts::ARFerret::ensure_directory configuration[:index_dir]
+        end
+
+        def class_index_dir
+          configuration[:index_dir]
         end
         
         # rebuild the index from all data stored for this model.
@@ -276,9 +288,113 @@ module FerretMixin
           logger.debug "id_score_model array: #{result.inspect}"
           result
         end
-        
+
+        # requires the store_class_name option of acts_as_ferret to be true
+        # for all models queried this way.
+        #
+        # TODO: not optimal as each instance is fetched in a db call for it's
+        # own.
+        def multi_search(query, additional_models = [], options = {})
+          result = []
+          id_multi_search(query, additional_models, options).each { |hit|
+            result << class_for_name(hit[:model]).find(hit[:id].to_i)
+          }
+          result
+        end
+
+        # returns an array of hashes, each containing :class_name,
+        # :id and :score for a hit.
+        #
+        def id_multi_search(query, additional_models = [], options = {})
+          additional_models << self
+          searcher = multi_index(additional_models)
+          result = []
+          hits = searcher.search(query, options)
+          hits.each { |hit, score|
+            doc = searcher.doc(hit)
+            result << { :model => doc[:class_name], :id => doc[:id], :score => score }
+          }
+          result
+        end
+
+        # returns a MultiIndex instance operating on a MultiReader
+        def multi_index(model_classes)
+          model_classes.sort! { |a, b| a.name <=> b.name }
+          key = model_classes.inject("") { |s, clazz| s << clazz.name }
+          @@multi_indexes[key] ||= MultiIndex.new(model_classes, ferret_configuration)
+        end
+
+        # TODO: maybe cache class objects ?
+        def class_for_name(name)
+          class_eval name
+        end
+
       end
       
+
+      # not threadsafe
+      class MultiIndex
+        include Ferret
+        
+        attr_reader :reader
+        
+        # todo: check for necessary index rebuilds in this place, too
+        # idea - each class gets a create_reader method that does this
+        def initialize(model_classes, options = {})
+          @model_classes = model_classes
+          @options = { 
+            :default_search_field => '*',
+            :analyzer => Analysis::WhiteSpaceAnalyzer.new
+          }.update(options)
+          ensure_reader
+        end
+
+        def search(query, options={})
+          query = process_query(query)
+          searcher.search(query, options)
+        end
+
+        def ensure_reader
+          create_new_multi_reader unless @reader
+          unless @reader.latest?
+            if @searcher
+              @searcher.close # will close the multi_reader and all sub_readers as well
+            else
+              @reader.close # just close the reader
+            end
+            create_new_multi_reader
+            @searcher = nil
+          end
+        end
+
+        def searcher
+          ensure_reader
+          @searcher ||= Search::IndexSearcher.new(@reader)
+        end
+
+        def doc(i)
+          searcher.doc(i)
+        end
+
+        def query_parser
+          @query_parser ||= QueryParser.new(@options[:default_search_field], @options)
+        end
+
+        def process_query(query)
+          query = query_parser.parse(query) if query.is_a?(String)
+          return query
+        end
+
+        # creates a new MultiReader to search the given Models
+        def create_new_multi_reader
+          sub_readers = @model_classes.map { |clazz| 
+            Index::IndexReader.open(clazz.class_index_dir) 
+          }
+          @reader = Index::MultiReader.new(sub_readers)
+          query_parser.fields = @reader.get_field_names.to_a
+        end
+ 
+      end
       
       module InstanceMethods
         include Ferret         
@@ -306,8 +422,14 @@ module FerretMixin
           doc = Document::Document.new
           # store the id of each item
           doc << Document::Field.new( "id", self.id, 
-          Document::Field::Store::YES, 
-          Document::Field::Index::UNTOKENIZED )
+            Document::Field::Store::YES, 
+            Document::Field::Index::UNTOKENIZED )
+          # store the class name if configured to do so
+          if configuration[:store_class_name]
+            doc << Document::Field.new( "class_name", self.class.name, 
+              Document::Field::Store::YES, 
+              Document::Field::Index::UNTOKENIZED )
+          end
           # iterate through the fields and add them to the document
           if fields_for_ferret
             # have user defined fields
@@ -339,6 +461,13 @@ end
 # them available to all our models if they want it
 ActiveRecord::Base.class_eval do
   include FerretMixin::Acts::ARFerret
+end
+
+class Ferret::Index::MultiReader
+  def latest?
+    @sub_readers.each { |r| return false unless r.latest? }
+    true
+  end
 end
 
 # END acts_as_ferret.rb
