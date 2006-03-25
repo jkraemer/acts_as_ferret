@@ -101,7 +101,7 @@ module FerretMixin
           default_opts.update(options) if options.is_a?(Hash) 
           fields_for_ferret << field 
           define_method("#{field}_to_ferret".to_sym) do                              
-            val = self[field] || self.instance_variable_get("@#{field.to_s}".to_sym)
+            val = self[field] || self.instance_variable_get("@#{field.to_s}".to_sym) || self.method(field).call
             logger.debug("Adding field #{field} with value '#{val}' to index")
             Ferret::Document::Field.new(field.to_s, val, 
                                         default_opts[:store], 
@@ -127,7 +127,9 @@ module FerretMixin
         # options are:
         #
         # fields:: names all fields to include in the index. If not given,
-        #   all attributes of the class will be indexed.
+        #   all attributes of the class will be indexed. You may also give
+        #   symbols pointing to instance methods of your model here, i.e. 
+        #   to retrieve and index data from a related model.
         #
         # index_dir:: declares the directory where to put the index for this class.
         #   The default is RAILS_ROOT/index/RAILS_ENV/CLASSNAME. 
