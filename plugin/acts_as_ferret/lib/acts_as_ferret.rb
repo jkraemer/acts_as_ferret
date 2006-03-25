@@ -166,7 +166,7 @@ module FerretMixin
           # these properties are somewhat vital to the plugin and shouldn't
           # be overwritten by the user:
           ferret_configuration.update(
-                                      :key               => :id,
+                                      :key               => 'id',
                                       :path              => configuration[:index_dir],
                                       :auto_flush        => true,
                                       :create_if_missing => true
