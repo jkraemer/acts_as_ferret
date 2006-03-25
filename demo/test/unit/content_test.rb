@@ -15,6 +15,10 @@ class ContentTest < Test::Unit::TestCase
     @comment.save
     @comment2 = Comment.new( :author => 'another', :content => 'content' )
     @comment2.save
+
+    @another_content.comments << @comment
+    @another_content.comments << @comment2
+    @another_content.save
   end
   
   def teardown
@@ -30,6 +34,14 @@ class ContentTest < Test::Unit::TestCase
 
   def test_class_index_dir
     assert_equal "#{RAILS_ROOT}/index/test/Content", Content.class_index_dir
+  end
+
+  def test_indexed_method
+    assert_equal 2, @another_content.comments.size
+    # retrieve all content objects having more than 1 comments
+    result = Content.find_by_contents('comment_count:[2 TO 1000]')
+    assert_equal 1, result.size
+    assert_equal @another_content.id, result.first.id
   end
 
   def test_multi_index
