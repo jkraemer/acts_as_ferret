@@ -167,17 +167,19 @@ module FerretMixin
           # be overwritten by the user:
           ferret_configuration.update(
                                       :key               => 'id',
-                                      :path              => configuration[:index_dir],
-                                      :auto_flush        => true,
-                                      :create_if_missing => true
+          :path              => configuration[:index_dir],
+          :auto_flush        => true,
+          :create_if_missing => true
           )
           
           class_eval <<-EOV
               include FerretMixin::Acts::ARFerret::InstanceMethods
 
-              after_create :ferret_create
-              after_update :ferret_update
+              before_update :ferret_before_update 
+              after_create  :ferret_create
+              after_update  :ferret_update
               after_destroy :ferret_destroy      
+              
               
               cattr_accessor :fields_for_ferret   
               cattr_accessor :configuration
@@ -201,7 +203,7 @@ module FerretMixin
             EOV
           FerretMixin::Acts::ARFerret::ensure_directory configuration[:index_dir]
         end
-
+        
         def class_index_dir
           configuration[:index_dir]
         end
@@ -229,7 +231,7 @@ module FerretMixin
         def ferret_index
           ferret_indexes[class_index_dir] ||= create_index_instance
         end 
-
+        
         # creates a new Index::Index instance. Before that, a check is done
         # to see if the index exists in the file system. If not, index rebuild
         # from all model data retrieved by find(:all) is triggered.
@@ -248,6 +250,7 @@ module FerretMixin
           find_id_by_contents(q, options).each do |element|
             id_array << element[:id]
           end
+          logger.debug "id_array: #{id_array.inspect}"
           begin
             result = self.find(id_array)
             logger.debug "Result id_array: #{id_array.inspect}, result: #{result}"
@@ -276,7 +279,7 @@ module FerretMixin
         # indexes, so that the order of results after sorting by score will
         # differ from the order you would get when running the same query
         # on a single index containing all the data from Model1, Model2 
-        # and Model3.
+        # and Model
         #
         # options:
         # :first_doc - first hit to retrieve (useful for paging)
@@ -290,7 +293,7 @@ module FerretMixin
           logger.debug "id_score_model array: #{result.inspect}"
           result
         end
-
+        
         # requires the store_class_name option of acts_as_ferret to be true
         # for all models queried this way.
         #
@@ -303,7 +306,7 @@ module FerretMixin
           }
           result
         end
-
+        
         # returns an array of hashes, each containing :class_name,
         # :id and :score for a hit.
         #
@@ -318,22 +321,22 @@ module FerretMixin
           }
           result
         end
-
+        
         # returns a MultiIndex instance operating on a MultiReader
         def multi_index(model_classes)
           model_classes.sort! { |a, b| a.name <=> b.name }
           key = model_classes.inject("") { |s, clazz| s << clazz.name }
           @@multi_indexes[key] ||= MultiIndex.new(model_classes, ferret_configuration)
         end
-
+        
         # TODO: maybe cache class objects ?
         def class_for_name(name)
           class_eval name
         end
-
+        
       end
       
-
+      
       # not threadsafe
       class MultiIndex
         include Ferret
@@ -350,12 +353,12 @@ module FerretMixin
           }.update(options)
           ensure_reader
         end
-
+        
         def search(query, options={})
           query = process_query(query)
           searcher.search(query, options)
         end
-
+        
         def ensure_reader
           create_new_multi_reader unless @reader
           unless @reader.latest?
@@ -368,25 +371,25 @@ module FerretMixin
             @searcher = nil
           end
         end
-
+        
         def searcher
           ensure_reader
           @searcher ||= Search::IndexSearcher.new(@reader)
         end
-
+        
         def doc(i)
           searcher.doc(i)
         end
-
+        
         def query_parser
           @query_parser ||= QueryParser.new(@options[:default_search_field], @options)
         end
-
+        
         def process_query(query)
           query = query_parser.parse(query) if query.is_a?(String)
           return query
         end
-
+        
         # creates a new MultiReader to search the given Models
         def create_new_multi_reader
           sub_readers = @model_classes.map { |clazz| 
@@ -395,16 +398,37 @@ module FerretMixin
           @reader = Index::MultiReader.new(sub_readers)
           query_parser.fields = @reader.get_field_names.to_a
         end
- 
+        
       end
       
       module InstanceMethods
         include Ferret         
+        @fields_for_ferret_tainted = false
+        
+        # check to see if there are any changes relevant to the ferret index
+        def ferret_before_update
+          res = true
+          current = self.class.find(self.id)
+          if fields_for_ferret && current
+            fields_for_ferret.each do |field|
+              res = res && (self.send(field) == current.send(field))
+            end
+            @fields_for_ferret_tainted = !res
+          else
+            @fields_for_ferret_tainted = true
+          end
+          logger.debug "fields_for_ferret_tainted(before_update): #{@fields_for_ferret_tainted}"
+          true
+        end
         
         # add to index
         def ferret_create
-          logger.debug "ferret_create/update: #{self.class.name} : #{self.id}"
-          self.class.ferret_index << self.to_doc
+          logger.debug "fields_for_ferret_tainted(create): #{@fields_for_ferret_tainted}"
+          if @fields_for_ferret_tainted
+            self.class.ferret_index << self.to_doc 
+            logger.debug "ferret_create/update: #{self.class.name} : #{self.id}"
+          end
+          @fields_for_ferret_tainted = false
         end
         alias :ferret_update :ferret_create
         
@@ -424,13 +448,13 @@ module FerretMixin
           doc = Document::Document.new
           # store the id of each item
           doc << Document::Field.new( "id", self.id, 
-            Document::Field::Store::YES, 
-            Document::Field::Index::UNTOKENIZED )
+          Document::Field::Store::YES, 
+          Document::Field::Index::UNTOKENIZED )
           # store the class name if configured to do so
           if configuration[:store_class_name]
             doc << Document::Field.new( "class_name", self.class.name, 
-              Document::Field::Store::YES, 
-              Document::Field::Index::UNTOKENIZED )
+            Document::Field::Store::YES, 
+            Document::Field::Index::UNTOKENIZED )
           end
           # iterate through the fields and add them to the document
           if fields_for_ferret
