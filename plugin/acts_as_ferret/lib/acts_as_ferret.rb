@@ -175,11 +175,12 @@ module FerretMixin
           class_eval <<-EOV
               include FerretMixin::Acts::ARFerret::InstanceMethods
 
-              before_update :ferret_before_update 
-              after_create  :ferret_create
-              after_update  :ferret_update
+              before_create :ferret_before_create
+              before_update :ferret_before_update
+              after_create :ferret_create
+              after_update :ferret_update
+
               after_destroy :ferret_destroy      
-              
               
               cattr_accessor :fields_for_ferret   
               cattr_accessor :configuration
@@ -403,32 +404,32 @@ module FerretMixin
       
       module InstanceMethods
         include Ferret         
-        @fields_for_ferret_tainted = false
+        attr_reader :fields_for_ferret_tainted
+        @fields_for_ferret_tainted = true
         
         # check to see if there are any changes relevant to the ferret index
         def ferret_before_update
-          res = true
-          current = self.class.find(self.id)
-          if fields_for_ferret && current
+          @fields_for_ferret_tainted = true
+          if self.id && fields_for_ferret
+            res = true
+            current = self.class.find(self.id)
             fields_for_ferret.each do |field|
               res = res && (self.send(field) == current.send(field))
             end
             @fields_for_ferret_tainted = !res
-          else
-            @fields_for_ferret_tainted = true
           end
           logger.debug "fields_for_ferret_tainted(before_update): #{@fields_for_ferret_tainted}"
           true
         end
+        alias :ferret_before_create :ferret_before_update
         
         # add to index
         def ferret_create
+          logger.debug "ferret_create/update: #{self.class.name} : #{self.id}"
+          self.class.ferret_index << self.to_doc if @fields_for_ferret_tainted
           logger.debug "fields_for_ferret_tainted(create): #{@fields_for_ferret_tainted}"
-          if @fields_for_ferret_tainted
-            self.class.ferret_index << self.to_doc 
-            logger.debug "ferret_create/update: #{self.class.name} : #{self.id}"
-          end
-          @fields_for_ferret_tainted = false
+          @fields_for_ferret_tainted = true
+          true
         end
         alias :ferret_update :ferret_create
         
@@ -439,6 +440,7 @@ module FerretMixin
           rescue
             logger.warn("Could not find indexed value for this object")
           end
+          true
         end
         
         # convert instance to ferret document
