@@ -179,7 +179,6 @@ module FerretMixin
               before_update :ferret_before_update
               after_create :ferret_create
               after_update :ferret_update
-
               after_destroy :ferret_destroy      
               
               cattr_accessor :fields_for_ferret   
@@ -404,31 +403,19 @@ module FerretMixin
       
       module InstanceMethods
         include Ferret         
-        attr_reader :fields_for_ferret_tainted
-        @fields_for_ferret_tainted = true
+        attr_reader :reindex
+        @ferret_reindex = true
         
-        # check to see if there are any changes relevant to the ferret index
         def ferret_before_update
-          @fields_for_ferret_tainted = true
-          if self.id && fields_for_ferret
-            res = true
-            current = self.class.find(self.id)
-            fields_for_ferret.each do |field|
-              res = res && (self.send(field) == current.send(field))
-            end
-            @fields_for_ferret_tainted = !res
-          end
-          logger.debug "fields_for_ferret_tainted(before_update): #{@fields_for_ferret_tainted}"
-          true
+          @ferret_reindex = true
         end
         alias :ferret_before_create :ferret_before_update
         
         # add to index
         def ferret_create
           logger.debug "ferret_create/update: #{self.class.name} : #{self.id}"
-          self.class.ferret_index << self.to_doc if @fields_for_ferret_tainted
-          logger.debug "fields_for_ferret_tainted(create): #{@fields_for_ferret_tainted}"
-          @fields_for_ferret_tainted = true
+          self.class.ferret_index << self.to_doc if @ferret_reindex
+          @ferret_reindex = true
           true
         end
         alias :ferret_update :ferret_create
@@ -493,7 +480,14 @@ end
 
 class Ferret::Index::MultiReader
   def latest?
-    @sub_readers.each { |r| return false unless r.latest? }
+    # TODO: Exception handling added to resolve ticket #6. 
+    # It should be clarified wether this is a bug in Ferret
+    # in which case a bug report should be posted on the Ferret Trac. 
+    begin
+      @sub_readers.each { |r| return false unless r.latest? }
+    rescue
+      return false
+    end
     true
   end
 end
