@@ -19,7 +19,9 @@
 # SOFTWARE.
 
 require 'active_record'
-require 'ferret'
+require_gem 'ferret', '=0.3.2'
+#require 'rferret'
+#require 'ferret'
 
 # Yet another Ferret Mixin.
 #
@@ -215,7 +217,7 @@ module FerretMixin
         # own index, otherwise the index will get populated only
         # with instances from the first model loaded
         def rebuild_index
-          index = Index::Index.new(:path => class_index_dir, :create => true)
+          index = Index::Index.new(ferret_configuration.merge(:create => true))
           self.find_all.each { |content| index << content.to_doc }
           logger.debug("Created Ferret index in: #{class_index_dir}")
           index.flush
@@ -302,7 +304,7 @@ module FerretMixin
         def multi_search(query, additional_models = [], options = {})
           result = []
           id_multi_search(query, additional_models, options).each { |hit|
-            result << class_for_name(hit[:model]).find(hit[:id].to_i)
+            result << Object.const_get(hit[:model]).find(hit[:id].to_i)
           }
           result
         end
@@ -327,11 +329,6 @@ module FerretMixin
           model_classes.sort! { |a, b| a.name <=> b.name }
           key = model_classes.inject("") { |s, clazz| s << clazz.name }
           @@multi_indexes[key] ||= MultiIndex.new(model_classes, ferret_configuration)
-        end
-        
-        # TODO: maybe cache class objects ?
-        def class_for_name(name)
-          class_eval name
         end
         
       end
