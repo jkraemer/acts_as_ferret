@@ -101,7 +101,12 @@ module FerretMixin
           default_opts.update(options) if options.is_a?(Hash) 
           fields_for_ferret << field 
           define_method("#{field}_to_ferret".to_sym) do                              
-            val = self[field] || self.instance_variable_get("@#{field.to_s}".to_sym) || self.method(field).call
+            begin
+              val = self[field] || self.instance_variable_get("@#{field.to_s}".to_sym) || self.method(field).call
+            rescue
+              logger.debug("Error retrieving value for field #{field}: #{$!}")
+              val = ''
+            end
             logger.debug("Adding field #{field} with value '#{val}' to index")
             Ferret::Document::Field.new(field.to_s, val, 
                                         default_opts[:store], 
