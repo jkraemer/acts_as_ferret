@@ -211,7 +211,8 @@ module FerretMixin
         # rebuild the index from all data stored for this model.
         # This is called automatically when no index exists yet.
         #
-        # TODO: this only works if every model class has it's 
+        # TODO: the automatic index initialization only works if 
+        # every model class has it's 
         # own index, otherwise the index will get populated only
         # with instances from the first model loaded
         def rebuild_index
@@ -252,11 +253,19 @@ module FerretMixin
           end
           logger.debug "id_array: #{id_array.inspect}"
           begin
-            result = self.find(id_array)
-            logger.debug "Result id_array: #{id_array.inspect}, result: #{result}"
+            if self.superclass == ActiveRecord::Base
+              result = self.find(id_array)
+            else
+              # no direct subclass of Base --> STI
+              # TODO: AR will filter out hits from other classes for us, but this
+              # will lead to less results retrieved --> scoping of ferret query
+              # to self.class is still needed.
+              result = self.find(:all, :conditions => ["id in (?)",id_array])
+            end 
           rescue
             logger.debug "REBUILD YOUR INDEX! One of the id's didn't have an associated record: #{id_array}"
           end
+          logger.debug "Result id_array: #{id_array.inspect}, result: #{result}"
           return result
         end 
         
