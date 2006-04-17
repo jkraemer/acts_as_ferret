@@ -19,9 +19,7 @@
 # SOFTWARE.
 
 require 'active_record'
-require_gem 'ferret', '=0.3.2'
-#require 'rferret'
-#require 'ferret'
+require 'ferret'
 
 # Yet another Ferret Mixin.
 #
