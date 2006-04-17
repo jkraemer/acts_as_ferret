@@ -1,8 +1,10 @@
 drop table if exists contents;
 create table contents (
   id int not null auto_increment,
+  type varchar(255) not null,
   title varchar(100) not null,
   description text not null,
+  special varchar(255) not null,
   primary key (id)
 ) TYPE=InnoDB DEFAULT CHARSET=utf8;
 

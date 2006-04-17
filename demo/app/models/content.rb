@@ -6,7 +6,7 @@ class Content < ActiveRecord::Base
   #
   # we use the store_class_name flag to be able to retrieve model instances when
   # searching multiple indexes at once.
-  acts_as_ferret :fields => { :comment_count => {}, 'title' => { :boost => 2 }, 'description' => { :boost => 1 } }, :store_class_name => true
+  acts_as_ferret :fields => { :comment_count => {}, 'title' => { :boost => 2 }, 'description' => { :boost => 1 }, :special => {} }, :store_class_name => true
 
   # use this instead to not assign special boost values:
   #acts_as_ferret :fields => [ 'title', 'description' ]

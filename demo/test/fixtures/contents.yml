@@ -1,5 +1,14 @@
 # Read about fixtures at http://ar.rubyonrails.org/classes/Fixtures.html
 first:
   id: 1
+  title: My Title
+  description: A useless description
+  type: Content
 another:
   id: 2
+  type: Content
+special:
+  id: 3
+  title: single table inheritance
+  special: special field
+  type: SpecialContent

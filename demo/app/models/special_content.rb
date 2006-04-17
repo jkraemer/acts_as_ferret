@@ -1,0 +1,3 @@
+class SpecialContent < Content
+
+end

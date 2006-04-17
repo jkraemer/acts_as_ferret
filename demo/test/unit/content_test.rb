@@ -6,8 +6,8 @@ class ContentTest < Test::Unit::TestCase
   fixtures :contents, :comments
 
   def setup
-    @content = Content.new( :title => 'My Title', :description => 'A useless description' )
-    @content.save
+    Content.rebuild_index
+    Comment.rebuild_index
     @another_content = Content.new( :title => 'Another Content item', 
                                     :description => 'this is not the title' )
     @another_content.save
@@ -22,7 +22,6 @@ class ContentTest < Test::Unit::TestCase
   end
   
   def teardown
-    @content.destroy if @content
     @another_content.destroy if @another_content
     @comment.destroy if @comment
     @comment2.destroy if @comment2
@@ -39,22 +38,21 @@ class ContentTest < Test::Unit::TestCase
   def test_update
     contents_from_ferret = Content.find_by_contents('useless')
     assert_equal 1, contents_from_ferret.size
-    assert_equal @content.id, contents_from_ferret.first.id
-    @content.description = 'Updated description, still useless'
-    @content.save
+    assert_equal contents(:first).id, contents_from_ferret.first.id
+    contents(:first).description = 'Updated description, still useless'
+    contents(:first).save
     contents_from_ferret = Content.find_by_contents('useless')
     assert_equal 1, contents_from_ferret.size
-    assert_equal @content.id, contents_from_ferret.first.id
+    assert_equal contents(:first).id, contents_from_ferret.first.id
     contents_from_ferret = Content.find_by_contents('updated AND description')
     assert_equal 1, contents_from_ferret.size
-    assert_equal @content.id, contents_from_ferret.first.id
+    assert_equal contents(:first).id, contents_from_ferret.first.id
     contents_from_ferret = Content.find_by_contents('updated OR description')
     assert_equal 1, contents_from_ferret.size
-    assert_equal @content.id, contents_from_ferret.first.id
+    assert_equal contents(:first).id, contents_from_ferret.first.id
   end
 
   def test_indexed_method
-    #Content.rebuild_index
     assert_equal 2, @another_content.comment_count
     assert_equal 2, contents(:first).comment_count
     assert_equal 1, contents(:another).comment_count
@@ -102,7 +100,7 @@ class ContentTest < Test::Unit::TestCase
     assert_equal 4, Content.find(:all).size
     contents_from_ferret = Content.multi_search('*:title')
     assert_equal 2, contents_from_ferret.size
-    assert_equal @content.id, contents_from_ferret.first.id
+    assert_equal contents(:first).id, contents_from_ferret.first.id
     assert_equal @another_content.id, contents_from_ferret.last.id
     
     contents_from_ferret = Content.multi_search('title OR comment', [Comment])
@@ -113,7 +111,7 @@ class ContentTest < Test::Unit::TestCase
     assert_equal 4, Content.find(:all).size
     contents_from_ferret = Content.id_multi_search('*:title')
     assert_equal 2, contents_from_ferret.size
-    assert_equal @content.id, contents_from_ferret.first[:id].to_i
+    assert_equal contents(:first).id, contents_from_ferret.first[:id].to_i
     assert_equal @another_content.id, contents_from_ferret.last[:id].to_i
     
     contents_from_ferret = Content.id_multi_search('title OR comment', [Comment])
@@ -124,14 +122,14 @@ class ContentTest < Test::Unit::TestCase
 
     contents_from_ferret = Content.find_by_contents('title')
     assert_equal 2, contents_from_ferret.size
-    # the title field has a higher boost value, so @content must be first in the list
-    assert_equal @content.id, contents_from_ferret.first.id 
+    # the title field has a higher boost value, so contents(:first) must be first in the list
+    assert_equal contents(:first).id, contents_from_ferret.first.id 
     assert_equal @another_content.id, contents_from_ferret.last.id
     
     # limit result set size to 1
     contents_from_ferret = Content.find_by_contents('title', :num_docs => 1)
     assert_equal 1, contents_from_ferret.size
-    assert_equal @content.id, contents_from_ferret.first.id 
+    assert_equal contents(:first).id, contents_from_ferret.first.id 
     
     # limit result set size to 1, starting with the second result
     contents_from_ferret = Content.find_by_contents('title', :num_docs => 1, :first_doc => 1)
@@ -141,7 +139,7 @@ class ContentTest < Test::Unit::TestCase
 
     contents_from_ferret = Content.find_by_contents('useless')
     assert_equal 1, contents_from_ferret.size
-    assert_equal @content.id, contents_from_ferret.first.id
+    assert_equal contents(:first).id, contents_from_ferret.first.id
     
     # no monkeys here
     contents_from_ferret = Content.find_by_contents('monkey')
@@ -153,13 +151,13 @@ class ContentTest < Test::Unit::TestCase
     # ...unless you connect them by OR
     contents_from_ferret = Content.find_by_contents('monkey OR description')
     assert_equal 1, contents_from_ferret.size
-    assert_equal @content.id, contents_from_ferret.first.id
+    assert_equal contents(:first).id, contents_from_ferret.first.id
 
     # multiple terms, each term has to occur in a document to be found, 
     # but they may occur in different fields
     contents_from_ferret = Content.find_by_contents('useless title')
     assert_equal 1, contents_from_ferret.size
-    assert_equal @content.id, contents_from_ferret.first.id
+    assert_equal contents(:first).id, contents_from_ferret.first.id
     
 
     # search for an exact string by enclosing it in "
@@ -167,7 +165,7 @@ class ContentTest < Test::Unit::TestCase
     assert contents_from_ferret.empty?
     contents_from_ferret = Content.find_by_contents('"useless description"')
     assert_equal 1, contents_from_ferret.size
-    assert_equal @content.id, contents_from_ferret.first.id
+    assert_equal contents(:first).id, contents_from_ferret.first.id
 
     # wildcard query
     contents_from_ferret = Content.find_by_contents('use*')
@@ -184,7 +182,7 @@ class ContentTest < Test::Unit::TestCase
     # this time we find both 'Title' and 'title'
     assert_equal 2, contents_from_ferret.size
 
-    @content.destroy
+    contents(:first).destroy
     contents_from_ferret = Content.find_by_contents('ti*')
     # should find only one now
     assert_equal 1, contents_from_ferret.size
