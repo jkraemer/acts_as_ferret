@@ -19,7 +19,9 @@
 # SOFTWARE.
 
 require 'active_record'
-require 'ferret'
+require_gem 'ferret', '=0.3.2'
+#require 'rferret'
+#require 'ferret'
 
 # Yet another Ferret Mixin.
 #
@@ -253,10 +255,11 @@ module FerretMixin
         # :num_docs - number of hits to retrieve
         def find_by_contents(q, options = {})
           id_array = []
+          scores_by_id = {}
           find_id_by_contents(q, options).each do |element|
-            id_array << element[:id]
+            id_array << id = element[:id].to_i
+            scores_by_id[id] = element[:score] 
           end
-          logger.debug "id_array: #{id_array.inspect}"
           begin
             if self.superclass == ActiveRecord::Base
               result = self.find(id_array)
@@ -270,7 +273,11 @@ module FerretMixin
           rescue
             logger.debug "REBUILD YOUR INDEX! One of the id's didn't have an associated record: #{id_array}"
           end
-          logger.debug "Result id_array: #{id_array.inspect}, result: #{result}"
+
+          # sort results by score (descending)
+          result.sort! { |b, a| scores_by_id[a.id] <=> scores_by_id[b.id] }
+          
+          logger.debug "Query: #{q}\nResult id_array: #{id_array.inspect},\nresult: #{result},\nscores: #{scores_by_id.inspect}"
           return result
         end 
         
