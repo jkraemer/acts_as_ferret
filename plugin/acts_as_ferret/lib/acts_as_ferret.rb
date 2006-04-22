@@ -256,7 +256,7 @@ module FerretMixin
         def find_by_contents(q, options = {})
           id_array = []
           scores_by_id = {}
-          find_id_by_contents(q, options).each do |element|
+          find_id_by_contents(q, options) do |element|
             id_array << id = element[:id].to_i
             scores_by_id[id] = element[:score] 
           end
@@ -305,11 +305,19 @@ module FerretMixin
         # options:
         # :first_doc - first hit to retrieve (useful for paging)
         # :num_docs - number of hits to retrieve      
+        #
+        # a block can be given too, it will be executed with every result hash:
+        # find_id_by_contents(q, options) do |element|
+        #    id_array << id = element[:id].to_i
+        #    scores_by_id[id] = element[:score] 
+        # end
+        # 
         def find_id_by_contents(q, options = {})
           result = []
           hits = ferret_index.search(q, options)
           hits.each do |hit, score|
             result << {:model => self.name, :id => ferret_index[hit][:id], :score => score}
+            yield result.last if block_given?
           end
           logger.debug "id_score_model array: #{result.inspect}"
           result
