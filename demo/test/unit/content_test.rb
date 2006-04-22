@@ -118,6 +118,35 @@ class ContentTest < Test::Unit::TestCase
     assert_equal 5, contents_from_ferret.size
   end
 
+  def test_find_id_by_contents
+    contents_from_ferret = Content.find_id_by_contents('title:title OR description:title')
+    assert_equal 2, contents_from_ferret.size
+    #puts "first (id=#{contents_from_ferret.first[:id]}): #{contents_from_ferret.first[:score]}"
+    #puts "last  (id=#{contents_from_ferret.last[:id]}): #{contents_from_ferret.last[:score]}"
+    assert_equal contents(:first).id, contents_from_ferret.first[:id].to_i 
+    assert_equal @another_content.id, contents_from_ferret.last[:id].to_i
+    assert contents_from_ferret.first[:score] > contents_from_ferret.last[:score]
+     
+    # give description field higher boost:
+    contents_from_ferret = Content.find_id_by_contents('title:title OR description:title^10')
+    assert_equal 2, contents_from_ferret.size
+    #puts "first (id=#{contents_from_ferret.first[:id]}): #{contents_from_ferret.first[:score]}"
+    #puts "last  (id=#{contents_from_ferret.last[:id]}): #{contents_from_ferret.last[:score]}"
+    assert_equal @another_content.id, contents_from_ferret.first[:id].to_i
+    assert_equal contents(:first).id, contents_from_ferret.last[:id].to_i 
+    assert contents_from_ferret.first[:score] > contents_from_ferret.last[:score]
+     
+  end
+  
+  def test_find_by_contents_boost
+
+    # give description field higher boost:
+    contents_from_ferret = Content.find_by_contents('title:title OR description:title^10')
+    assert_equal 2, contents_from_ferret.size
+    assert_equal @another_content.id, contents_from_ferret.first.id
+    assert_equal contents(:first).id, contents_from_ferret.last.id 
+  end
+  
   def test_find_by_contents
 
     contents_from_ferret = Content.find_by_contents('title')
