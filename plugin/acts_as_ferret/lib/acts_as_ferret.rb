@@ -257,7 +257,7 @@ module FerretMixin
           id_array = []
           scores_by_id = {}
           find_id_by_contents(q, options) do |element|
-            id_array << id = element[:id]
+            id_array << id = element[:id].to_i
             scores_by_id[id] = element[:score] 
           end
           begin
