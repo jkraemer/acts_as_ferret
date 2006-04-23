@@ -87,7 +87,6 @@ module FerretMixin
       # declare the class level helper methods
       # which will load the relevant instance methods defined below when invoked
       module ClassMethods
-        include Ferret         
         
         # helper that defines a method that adds the given field to a lucene 
         # document instance
@@ -160,7 +159,7 @@ module FerretMixin
             :store_class_name => false
           }
           ferret_configuration = {
-            :occur_default => Search::BooleanClause::Occur::MUST,
+            :occur_default => Ferret::Search::BooleanClause::Occur::MUST,
             :handle_parse_errors => true,
             :default_search_field => '*',
             # :analyzer => Analysis::StandardAnalyzer.new,
@@ -221,7 +220,7 @@ module FerretMixin
         # own index, otherwise the index will get populated only
         # with instances from the first model loaded
         def rebuild_index
-          index = Index::Index.new(ferret_configuration.merge(:create => true))
+          index = Ferret::Index::Index.new(ferret_configuration.merge(:create => true))
           self.find_all.each { |content| index << content.to_doc }
           logger.debug("Created Ferret index in: #{class_index_dir}")
           index.flush
@@ -243,7 +242,7 @@ module FerretMixin
         # from all model data retrieved by find(:all) is triggered.
         def create_index_instance
           rebuild_index unless File.file? "#{class_index_dir}/segments"
-          Index::Index.new(ferret_configuration)
+          Ferret::Index::Index.new(ferret_configuration)
         end
         
         # Finds instances by contents. Terms are ANDed by default, can be circumvented 
@@ -361,7 +360,6 @@ module FerretMixin
       
       # not threadsafe
       class MultiIndex
-        include Ferret
         
         attr_reader :reader
         
@@ -371,7 +369,7 @@ module FerretMixin
           @model_classes = model_classes
           @options = { 
             :default_search_field => '*',
-            :analyzer => Analysis::WhiteSpaceAnalyzer.new
+            :analyzer => Ferret::Analysis::WhiteSpaceAnalyzer.new
           }.update(options)
           ensure_reader
         end
@@ -396,7 +394,7 @@ module FerretMixin
         
         def searcher
           ensure_reader
-          @searcher ||= Search::IndexSearcher.new(@reader)
+          @searcher ||= Ferret::Search::IndexSearcher.new(@reader)
         end
         
         def doc(i)
@@ -404,7 +402,7 @@ module FerretMixin
         end
         
         def query_parser
-          @query_parser ||= QueryParser.new(@options[:default_search_field], @options)
+          @query_parser ||= Ferret::QueryParser.new(@options[:default_search_field], @options)
         end
         
         def process_query(query)
@@ -415,16 +413,15 @@ module FerretMixin
         # creates a new MultiReader to search the given Models
         def create_new_multi_reader
           sub_readers = @model_classes.map { |clazz| 
-            Index::IndexReader.open(clazz.class_index_dir) 
+            Ferret::Index::IndexReader.open(clazz.class_index_dir) 
           }
-          @reader = Index::MultiReader.new(sub_readers)
+          @reader = Ferret::Index::MultiReader.new(sub_readers)
           query_parser.fields = @reader.get_field_names.to_a
         end
         
       end
       
       module InstanceMethods
-        include Ferret         
         attr_reader :reindex
         @ferret_reindex = true
         
@@ -456,16 +453,16 @@ module FerretMixin
         def to_doc
           logger.debug "creating doc for class: #{self.class.name}"
           # Churn through the complete Active Record and add it to the Ferret document
-          doc = Document::Document.new
+          doc = Ferret::Document::Document.new
           # store the id of each item
-          doc << Document::Field.new( "id", self.id, 
-          Document::Field::Store::YES, 
-          Document::Field::Index::UNTOKENIZED )
+          doc << Ferret::Document::Field.new( "id", self.id, 
+          Ferret::Document::Field::Store::YES, 
+          Ferret::Document::Field::Index::UNTOKENIZED )
           # store the class name if configured to do so
           if configuration[:store_class_name]
-            doc << Document::Field.new( "class_name", self.class.name, 
-            Document::Field::Store::YES, 
-            Document::Field::Index::UNTOKENIZED )
+            doc << Ferret::Document::Field.new( "class_name", self.class.name, 
+            Ferret::Document::Field::Store::YES, 
+            Ferret::Document::Field::Index::UNTOKENIZED )
           end
           # iterate through the fields and add them to the document
           if fields_for_ferret
@@ -478,7 +475,7 @@ module FerretMixin
             self.attributes.each_pair do |key,val|
               unless key == :id
                 logger.debug "add field #{key} with value #{val}"
-                doc << Document::Field.new(
+                doc << Ferret::Document::Field.new(
                                            key, 
                                            val.to_s, 
                                            Ferret::Document::Field::Store::NO, 
