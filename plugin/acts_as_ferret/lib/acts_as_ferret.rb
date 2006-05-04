@@ -25,7 +25,7 @@ require 'active_record'
 # C-only Ferret 0.9.1, but still fast enough for common scenarios and work
 # loads. Until Ferret 0.9.x stabilizes, you should consider this
 # version for production scenarios.
-require_gem 'ferret', '=0.3.2'
+#require_gem 'ferret', '=0.3.2'
 
 # Ferret >=0.9, Ruby-only, is much slower than 0.3.2 with it's small C
 # extension, so it's not really an option.
@@ -37,7 +37,7 @@ require_gem 'ferret', '=0.3.2'
 # 0.9.1 in the C-flavour. Difficult topic, as some parts of the API is not 
 # accessible yet. Several tests fail with this version, but basic single-index
 # functionality is there and working.
-#require 'ferret'
+require 'ferret'
 
 # Yet another Ferret Mixin.
 #
