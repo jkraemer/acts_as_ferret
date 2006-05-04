@@ -268,7 +268,10 @@ module FerretMixin
         # options:
         # :first_doc - first hit to retrieve (useful for paging)
         # :num_docs - number of hits to retrieve
-        def find_by_contents(q, options = {})
+        #
+        # find_options is a hash passed on to active_record's find when
+        # retrieving the data from db, useful to i.e. prefetch relationships.
+        def find_by_contents(q, options = {}, find_options = {})
           id_array = []
           scores_by_id = {}
           find_id_by_contents(q, options) do |element|
@@ -277,13 +280,14 @@ module FerretMixin
           end
           begin
             if self.superclass == ActiveRecord::Base
-              result = self.find(id_array)
+              result = self.find(id_array, find_options)
             else
               # no direct subclass of Base --> STI
               # TODO: AR will filter out hits from other classes for us, but this
               # will lead to less results retrieved --> scoping of ferret query
               # to self.class is still needed.
-              result = self.find(:all, :conditions => ["id in (?)",id_array])
+              result = self.find(:all, 
+                                 find_options.merge(:conditions => ["id in (?)",id_array]))
             end 
           rescue
             logger.debug "REBUILD YOUR INDEX! One of the id's didn't have an associated record: #{id_array}"
