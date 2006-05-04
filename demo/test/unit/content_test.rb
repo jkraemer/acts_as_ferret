@@ -31,6 +31,20 @@ class ContentTest < Test::Unit::TestCase
     assert_kind_of Content, contents(:first)
   end
 
+  def test_more_like_this
+    assert Content.find_by_contents('lorem ipsum').empty?
+    @c1 = Content.new( :title => 'Content item 1', 
+                       :description => 'lorem ipsum dolor sit amet. lorem.' )
+    @c1.save
+    @c2 = Content.new( :title => 'Content item 2', 
+                       :description => 'lorem ipsum dolor sit amet. lorem ipsum.' )
+    @c2.save
+    assert_equal 2, Content.find_by_contents('lorem ipsum').size
+    similar = @c1.more_like_this(:field_names => ['description'], :min_doc_freq => 1, :min_term_freq => 1)
+    assert_equal 1, similar.size
+    assert_equal @c2, similar.first
+  end
+
   def test_class_index_dir
     assert_equal "#{RAILS_ROOT}/index/test/Content", Content.class_index_dir
   end
