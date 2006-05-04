@@ -25,7 +25,7 @@ require 'active_record'
 # C-only Ferret 0.9.1, but still fast enough for common scenarios and work
 # loads. Until Ferret 0.9.x stabilizes, you should consider this
 # version for production scenarios.
-#require_gem 'ferret', '=0.3.2'
+require_gem 'ferret', '=0.3.2'
 
 # Ferret >=0.9, Ruby-only, is much slower than 0.3.2 with it's small C
 # extension, so it's not really an option.
@@ -37,7 +37,7 @@ require 'active_record'
 # 0.9.1 in the C-flavour. Difficult topic, as some parts of the API is not 
 # accessible yet. Several tests fail with this version, but basic single-index
 # functionality is there and working.
-require 'ferret'
+#require 'ferret'
 
 # Yet another Ferret Mixin.
 #
@@ -82,7 +82,7 @@ module FerretMixin
     module ARFerret #:nodoc:
       
       def self.ensure_directory(dir)
-        Dir.mkdir dir unless File.directory? dir
+        FileUtils.mkdir_p dir unless File.directory? dir
       end
       
       # make sure the default index base dir exists. by default, all indexes are created
@@ -173,7 +173,7 @@ module FerretMixin
         def acts_as_ferret(options={}, ferret_options={})
           configuration = { 
             :fields => nil,
-            :index_dir => "#{FerretMixin::Acts::ARFerret::index_dir}/#{self.name}",
+            :index_dir => "#{FerretMixin::Acts::ARFerret::index_dir}/#{self.name.underscore}",
             :store_class_name => false
           }
           ferret_configuration = {
