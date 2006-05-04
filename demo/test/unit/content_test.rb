@@ -46,7 +46,7 @@ class ContentTest < Test::Unit::TestCase
   end
 
   def test_class_index_dir
-    assert_equal "#{RAILS_ROOT}/index/test/Content", Content.class_index_dir
+    assert_equal "#{RAILS_ROOT}/index/test/content", Content.class_index_dir
   end
 
   def test_update

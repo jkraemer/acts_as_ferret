@@ -9,7 +9,7 @@ class CommentTest < Test::Unit::TestCase
   end
 
   def test_class_index_dir
-    assert_equal "#{RAILS_ROOT}/index/test/Comment", Comment.class_index_dir
+    assert_equal "#{RAILS_ROOT}/index/test/comment", Comment.class_index_dir
   end
 
   # tests the automatic building of an index when none exists
