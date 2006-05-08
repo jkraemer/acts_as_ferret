@@ -119,7 +119,8 @@ module FerretMixin
           fields_for_ferret << field 
           define_method("#{field}_to_ferret".to_sym) do                              
             begin
-              val = self[field] || self.instance_variable_get("@#{field.to_s}".to_sym) || self.method(field).call
+              #val = self[field] || self.instance_variable_get("@#{field.to_s}".to_sym) || self.method(field).call
+              val = content_for_field_name(field)
             rescue
               logger.debug("Error retrieving value for field #{field}: #{$!}")
               val = ''
@@ -539,7 +540,9 @@ module FerretMixin
         # implementation to use
         # :analyzer => Ferret::Analysis::StandardAnalyzer.new # the analyzer to
         # use
-        def more_like_this(options={})
+        # :append_to_query => nil # proc taking a query object as argument, which will be called after generating the query. can be used to further manipulate the query used to find related documents, i.e. to constrain the search to a given class in single table inheritance scenarios
+        # find_options : options handed over to find_by_contents
+        def more_like_this(options = {}, find_options = {})
           options = {
             :field_names => nil,  # Default field names
             :min_term_freq => 2,  # Ignore terms with less than this frequency in the source doc.
@@ -550,7 +553,9 @@ module FerretMixin
             :max_num_tokens => 5000,
             :boost => false,      
             :similarity => Ferret::Search::Similarity.default,
-            :analyzer => Ferret::Analysis::StandardAnalyzer.new
+            :analyzer => Ferret::Analysis::StandardAnalyzer.new,
+            :append_to_query => nil,
+            :base_class => self.class # base class to use for querying, useful in STI scenarios where BaseClass.find_by_contents can be used to retrieve results from other classes, too
           }.update(options)
           index = self.class.ferret_index
           begin
@@ -563,14 +568,15 @@ module FerretMixin
           term_freq_map = retrieve_terms(document_number, reader, options)
           priority_queue = create_queue(term_freq_map, reader, options)
           query = create_query(priority_queue, options)
-          self.class.find_by_contents(query)
+          options[:append_to_query].call(query) if options[:append_to_query]
+          options[:base_class].find_by_contents(query, find_options)
         end
 
         
         def create_query(priority_queue, options={})
           query = Ferret::Search::BooleanQuery.new
           qterms = 0
-          best_score = 0
+          best_score = nil
           while(cur = priority_queue.pop)
             term_query = Ferret::Search::TermQuery.new(cur.to_term)
             
@@ -607,27 +613,32 @@ module FerretMixin
           field_names = options[:field_names]
           max_num_tokens = options[:max_num_tokens]
           term_freq_map = Hash.new(0)
+          doc = nil
           field_names.each do |field|
             term_freq_vector = reader.get_term_vector(document_number, field)
             if term_freq_vector
               # use stored term vector
               # TODO untested
               term_freq_vector.terms.each_with_index do |term, i|
-                term_freq_map[term] += term_freq_vector.freqs[i] unless noise_word?(term)
+                term_freq_map[term] += term_freq_vector.freqs[i] unless noise_word?(term, options)
               end
             else
-              # no term vector stored, extract terms from document content
-              # TODO: if no content stored, maybe use content from self ?
-              doc = reader.get_document(doc_number)
+              # no term vector stored, but we have stored the contents in the index
+              # -> extract terms from there
+              doc ||= reader.get_document(doc_number)
+              content = doc[field]
+              unless content
+                # no term vector, no stored content, so try content from this instance
+                content = content_for_field_name(field)
+              end
               token_count = 0
               
               # C-Ferret >=0.9 again, no #each in tokenstream :-(
-              ts = options[:analyzer].token_stream(field, doc[field])
+              ts = options[:analyzer].token_stream(field, content)
               while token = ts.next
               #options[:analyzer].token_stream(field, doc[field]).each do |token|
                 break if (token_count+=1) > max_num_tokens
-                
-                next if noise_word?(token_text(token))
+                next if noise_word?(token_text(token), options)
                 term_freq_map[token_text(token)] += 1
               end
             end
@@ -675,8 +686,17 @@ module FerretMixin
           return pq
         end
         
-        def noise_word?(text)
-          false
+        def noise_word?(text, options)
+          len = text.length
+          (
+            (options[:min_word_length] > 0 && len < options[:min_word_length]) ||
+            (options[:max_word_length] > 0 && len > options[:max_word_length]) ||
+            (options[:stop_words] && options.include?(text))
+          )
+        end
+
+        def content_for_field_name(field)
+          self[field] || self.instance_variable_get("@#{field.to_s}".to_sym) || self.method(field).call
         end
 
       end
