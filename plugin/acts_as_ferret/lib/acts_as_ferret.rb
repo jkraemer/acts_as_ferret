@@ -547,10 +547,10 @@ module FerretMixin
             :field_names => nil,  # Default field names
             :min_term_freq => 2,  # Ignore terms with less than this frequency in the source doc.
             :min_doc_freq => 5,   # Ignore words which do not occur in at least this many docs
-            :min_word_length => nil, # Ignore words if less than this len.
-            :max_word_length => nil, # Ignore words if greater than this len.
+            :min_word_length => 0, # Ignore words if less than this len. Default is not to ignore any words.
+            :max_word_length => 0, # Ignore words if greater than this len. Default is not to ignore any words.
             :max_query_terms => 25,  # maximum number of terms in the query built
-            :max_num_tokens => 5000,
+            :max_num_tokens => 5000, # maximum number of tokens to analyze when analyzing contents
             :boost => false,      
             :similarity => Ferret::Search::Similarity.default,
             :analyzer => Ferret::Analysis::StandardAnalyzer.new,
