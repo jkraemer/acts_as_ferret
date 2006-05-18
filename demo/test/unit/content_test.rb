@@ -30,6 +30,18 @@ class ContentTest < Test::Unit::TestCase
     assert_kind_of Content, contents(:first)
   end
 
+  def test_unicode
+    content = Content.new(:title => 'Title with some Ümläuts - äöü', 
+                          :description => 'look - an ß')
+    content.save
+    result = Content.find_by_contents('äöü')
+    assert_equal result.first, content
+    result = Content.find_by_contents('üml*')
+    assert_equal result.first, content
+    result = Content.find_by_contents('ß')
+    assert_equal result.first, content
+  end
+
   def test_more_like_this
     assert Content.find_by_contents('lorem ipsum').empty?
     @c1 = Content.new( :title => 'Content item 1', 
