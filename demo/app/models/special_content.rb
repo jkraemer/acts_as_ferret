@@ -1,3 +1,3 @@
-class SpecialContent < Content
+class SpecialContent < ContentBase
 
 end

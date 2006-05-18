@@ -1,4 +1,5 @@
 require File.dirname(__FILE__) + '/../test_helper'
+      require 'pp'
 
 class ContentTest < Test::Unit::TestCase
   include Ferret::Index
@@ -6,25 +7,23 @@ class ContentTest < Test::Unit::TestCase
   fixtures :contents, :comments
 
   def setup
-    Content.rebuild_index
-    Comment.rebuild_index
+    #make sure the fixtures are in the index
+    ContentBase.find(:all).each { |c| c.save }
+    Comment.find(:all).each { |c| c.save }
+
+    
     @another_content = Content.new( :title => 'Another Content item', 
                                     :description => 'this is not the title' )
     @another_content.save
-    @comment = Comment.new( :author => 'john doe', :content => 'This is a useless comment' )
-    @comment.save
-    @comment2 = Comment.new( :author => 'another', :content => 'content' )
-    @comment2.save
-
-    @another_content.comments << @comment
-    @another_content.comments << @comment2
-    @another_content.save
+    @comment = @another_content.comments.create(:author => 'john doe', :content => 'This is a useless comment')
+    @comment2 = @another_content.comments.create(:author => 'another', :content => 'content')
+    @another_content.save # to update comment_count in ferret-index
+    #puts "\n### another content: #{@another_content.id}\n"
   end
   
   def teardown
-    @another_content.destroy if @another_content
-    @comment.destroy if @comment
-    @comment2.destroy if @comment2
+    ContentBase.find(:all).each { |c| c.destroy }
+    Comment.find(:all).each { |c| c.destroy }
   end
   
   def test_truth
@@ -46,7 +45,7 @@ class ContentTest < Test::Unit::TestCase
   end
 
   def test_class_index_dir
-    assert_equal "#{RAILS_ROOT}/index/test/content", Content.class_index_dir
+    assert_equal "#{RAILS_ROOT}/index/test/content_base", Content.class_index_dir
   end
 
   def test_update
@@ -90,46 +89,66 @@ class ContentTest < Test::Unit::TestCase
     hits = i.search(qp.parse("title"))
     assert_equal 1, hits.score_docs.size
     
-    qp = Ferret::QueryParser.new("*", 
+    qp = Ferret::QueryParser.new("*", :fields => ['title', 'content', 'description'],
                       :analyzer => Ferret::Analysis::WhiteSpaceAnalyzer.new)
-    qp.fields = i.reader.get_field_names.to_a
+    # TODO '*' doesn't seem to work in 0.9 anymore - there's no .fields method
+    # either :-(
+    #qp.fields = i.reader.get_field_names.to_a
+    #qp.fields = ['title','content']
     hits = i.search(qp.parse("title"))
     assert_equal 2, hits.score_docs.size
-
-    hits = i.search("title")
+    hits = i.search(qp.parse("title:title OR description:title"))
     assert_equal 2, hits.score_docs.size
-    
+
+    hits = i.search("title:title OR description:title OR title:comment OR description:comment OR content:comment")
+    assert_equal 5, hits.score_docs.size
+
     hits = i.search("title OR comment")
     assert_equal 5, hits.score_docs.size
   end
 
-  def test_multi_reader
-    r = MultiReader.new([IndexReader.open(Content.class_index_dir), IndexReader.open(Comment.class_index_dir)])
-    s = IndexSearcher.new(r)
+  def test_multi_searcher
+    s = MultiSearcher.new([IndexSearcher.new(Content.class_index_dir), IndexSearcher.new(Comment.class_index_dir)])
     hits = s.search(TermQuery.new(Term.new("title","title")))
     assert_equal 1, hits.score_docs.size
   end
-    
+  
   def test_multi_search
-    assert_equal 4, Content.find(:all).size
+    assert_equal 4, ContentBase.find(:all).size
+    
+    contents_from_ferret = Content.multi_search('title:title')
+    assert_equal 1, contents_from_ferret.size
+    
+    contents_from_ferret = Content.multi_search('title:title OR description:title')
+    assert_equal 2, contents_from_ferret.size
     contents_from_ferret = Content.multi_search('*:title')
     assert_equal 2, contents_from_ferret.size
+    contents_from_ferret = Content.multi_search('title')
+    assert_equal 2, contents_from_ferret.size
+    
     assert_equal contents(:first).id, contents_from_ferret.first.id
     assert_equal @another_content.id, contents_from_ferret.last.id
     
+    contents_from_ferret = Content.multi_search('title:(title OR comment) OR description:(title OR comment) OR content:(title OR comment)', [Comment])
+    assert_equal 5, contents_from_ferret.size
     contents_from_ferret = Content.multi_search('title OR comment', [Comment])
     assert_equal 5, contents_from_ferret.size
   end
 
   def test_id_multi_search
-    assert_equal 4, Content.find(:all).size
-    contents_from_ferret = Content.id_multi_search('*:title')
-    assert_equal 2, contents_from_ferret.size
-    assert_equal contents(:first).id, contents_from_ferret.first[:id].to_i
-    assert_equal @another_content.id, contents_from_ferret.last[:id].to_i
+    assert_equal 4, ContentBase.find(:all).size
     
-    contents_from_ferret = Content.id_multi_search('title OR comment', [Comment])
-    assert_equal 5, contents_from_ferret.size
+    ['*:title', 'title:title OR description:title OR content:title', 'title'].each do |query|
+      contents_from_ferret = Content.id_multi_search(query)
+      assert_equal 2, contents_from_ferret.size
+      assert_equal contents(:first).id, contents_from_ferret.first[:id].to_i
+      assert_equal @another_content.id, contents_from_ferret.last[:id].to_i
+    end
+
+    ['title OR comment', 'title:(title OR comment) OR description:(title OR comment) OR content:(title OR comment)'].each do |query|
+      contents_from_ferret = Content.id_multi_search(query, [Comment])
+      assert_equal 5, contents_from_ferret.size
+    end
   end
 
   def test_find_id_by_contents

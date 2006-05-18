@@ -1,6 +1,7 @@
-class Content < ActiveRecord::Base
-  has_many :comments
-  
+# common base class for Content and SpecialContent
+class ContentBase < ActiveRecord::Base
+  set_table_name 'contents'
+
   # a higher boost means more importance for the field --> documents having a
   # match in a field with a higher boost value will be ranked better
   #
@@ -13,6 +14,14 @@ class Content < ActiveRecord::Base
 
   # use this instead to not assign special boost values:
   #acts_as_ferret :fields => [ 'title', 'description' ]
+
+  def comment_count; 0 end
+
+end
+
+class Content < ContentBase #ActiveRecord::Base
+
+  has_many :comments
 
   # returns the number of comments attached to this content.
   # the value returned by this method will be indexed, too.
