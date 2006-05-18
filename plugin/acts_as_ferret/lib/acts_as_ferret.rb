@@ -19,24 +19,8 @@
 # SOFTWARE.
 
 require 'active_record'
+require 'set'
 
-# Ferret 0.3.2 is considered the most reliable ferret version for now, all unit
-# tests should pass (with or w/o the C extension). Speed is not as good as with the
-# C-only Ferret 0.9.1, but still fast enough for common scenarios and work
-# loads. Until Ferret 0.9.x stabilizes, you should consider this
-# version for production scenarios.
-#require_gem 'ferret', '=0.3.2'
-
-# Ferret >=0.9, Ruby-only, is much slower than 0.3.2 with it's small C
-# extension, so it's not really an option.
-# some tests related to searching multiple indexes at once are failing here
-# (returning more results than expected) 
-#require 'rferret'
-
-# This will use the most recent installed ferret version, usually this will be
-# 0.9.1 in the C-flavour. Difficult topic, as some parts of the API is not 
-# accessible yet. Several tests fail with this version, but basic single-index
-# functionality is there and working.
 require 'ferret'
 
 # Yet another Ferret Mixin.
@@ -181,7 +165,7 @@ module FerretMixin
             :occur_default => Ferret::Search::BooleanClause::Occur::MUST,
             :handle_parse_errors => true,
             :default_search_field => '*',
-            # :analyzer => Analysis::StandardAnalyzer.new,
+            :analyzer => Ferret::Analysis::StandardAnalyzer.new,
             # :wild_lower => true
           }
           configuration.update(options) if options.is_a?(Hash)
@@ -287,8 +271,12 @@ module FerretMixin
               # TODO: AR will filter out hits from other classes for us, but this
               # will lead to less results retrieved --> scoping of ferret query
               # to self.class is still needed.
-              result = self.find(:all, 
-                                 find_options.merge(:conditions => ["id in (?)",id_array]))
+              if id_array.empty?
+                result = []
+              else
+                result = self.find(:all, 
+                                  find_options.merge(:conditions => ["id in (?)",id_array]))
+              end
             end 
           rescue
             logger.debug "REBUILD YOUR INDEX! One of the id's didn't have an associated record: #{id_array}"
@@ -394,30 +382,51 @@ module FerretMixin
             :default_search_field => '*',
             :analyzer => Ferret::Analysis::WhiteSpaceAnalyzer.new
           }.update(options)
-          ensure_reader
         end
         
         def search(query, options={})
+          #puts "querystring: #{query.to_s}"
           query = process_query(query)
+          #puts "parsed query: #{query.to_s}"
           searcher.search(query, options)
         end
-        
-        def ensure_reader
-          create_new_multi_reader unless @reader
-          unless @reader.latest?
-            if @searcher
-              @searcher.close # will close the multi_reader and all sub_readers as well
-            else
-              @reader.close # just close the reader
-            end
-            create_new_multi_reader
-            @searcher = nil
+
+        # checks if all our sub-searchers still are up to date
+        def latest?
+          return false unless @searcher
+          @sub_searchers.each do |s| 
+            return false unless s.reader.latest? 
+          end
+          true
+        end
+
+        def ensure_searcher
+          unless latest?
+            field_names = Set.new
+            @sub_searchers = @model_classes.map { |clazz| 
+              searcher = Ferret::Search::IndexSearcher.new(clazz.class_index_dir)
+              if searcher.reader.respond_to?(:get_field_names)
+                field_names << searcher.reader.send(:get_field_names)
+              elsif clazz.fields_for_ferret
+                field_names << clazz.fields_for_ferret.to_set
+              else
+                puts <<-END
+  unable to retrieve field names for class #{clazz.name}, please 
+  consider naming all indexed fields in your call to acts_as_ferret!
+                END
+                clazz.content_columns.each { |col| field_names << col.name }
+              end
+              searcher
+            }
+            @searcher = Ferret::Search::MultiSearcher.new(@sub_searchers)
+            @field_names = field_names.flatten.to_a
+            @query_parser = nil # trigger re-creation from new field_name array
           end
         end
-        
+         
         def searcher
-          ensure_reader
-          @searcher ||= Ferret::Search::IndexSearcher.new(@reader)
+          ensure_searcher
+          @searcher
         end
         
         def doc(i)
@@ -425,23 +434,21 @@ module FerretMixin
         end
         
         def query_parser
-          @query_parser ||= Ferret::QueryParser.new(@options[:default_search_field], @options)
+          unless @query_parser
+            ensure_searcher # we dont need the searcher, but the field_names array that is built by this function, too
+            @query_parser ||= Ferret::QueryParser.new(
+                                @options[:default_search_field],
+                                { :fields => @field_names }.merge(@options)
+                              )
+          end
+          @query_parser
         end
         
         def process_query(query)
           query = query_parser.parse(query) if query.is_a?(String)
           return query
         end
-        
-        # creates a new MultiReader to search the given Models
-        def create_new_multi_reader
-          sub_readers = @model_classes.map { |clazz| 
-            Ferret::Index::IndexReader.open(clazz.class_index_dir) 
-          }
-          @reader = Ferret::Index::MultiReader.new(sub_readers)
-          query_parser.fields = @reader.get_field_names.to_a
-        end
-        
+
       end
       
       module InstanceMethods
@@ -464,6 +471,7 @@ module FerretMixin
         
         # remove from index
         def ferret_destroy
+          logger.debug "ferret_destroy: #{self.class.name} : #{self.id}"
           begin
             self.class.ferret_index.query_delete("+id:#{self.id}")
           rescue
@@ -474,7 +482,7 @@ module FerretMixin
         
         # convert instance to ferret document
         def to_doc
-          logger.debug "creating doc for class: #{self.class.name}"
+          logger.debug "creating doc for class: #{self.class.name}, id: #{self.id}"
           # Churn through the complete Active Record and add it to the Ferret document
           doc = Ferret::Document::Document.new
           # store the id of each item
