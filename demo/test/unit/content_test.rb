@@ -194,6 +194,9 @@ class ContentTest < Test::Unit::TestCase
   
   def test_find_by_contents
 
+    contents_from_ferret = Content.find_by_contents('lorem ipsum not here')
+    assert contents_from_ferret.empty?
+
     contents_from_ferret = Content.find_by_contents('title')
     assert_equal 2, contents_from_ferret.size
     # the title field has a higher boost value, so contents(:first) must be first in the list

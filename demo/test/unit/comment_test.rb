@@ -52,6 +52,9 @@ class CommentTest < Test::Unit::TestCase
     assert_equal 1, comments_from_ferret.size
     assert comments_from_ferret.include?(comment2)
     
+    comments_from_ferret = Comment.find_by_contents('lorem ipsum not here')
+    assert comments_from_ferret.empty?
+
     comments_from_ferret = Comment.find_by_contents('another')
     assert_equal 1, comments_from_ferret.size
     assert_equal comment2.id, comments_from_ferret.first.id
