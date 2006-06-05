@@ -1,5 +1,5 @@
 require File.dirname(__FILE__) + '/../test_helper'
-      require 'pp'
+require 'pp'
 
 class ContentTest < Test::Unit::TestCase
   include Ferret::Index
@@ -35,11 +35,11 @@ class ContentTest < Test::Unit::TestCase
                           :description => 'look - an ß')
     content.save
     result = Content.find_by_contents('äöü')
-    assert_equal result.first, content
+    assert_equal content, result.first
     result = Content.find_by_contents('üml*')
-    assert_equal result.first, content
+    assert_equal content, result.first
     result = Content.find_by_contents('ß')
-    assert_equal result.first, content
+    assert_equal content, result.first
   end
 
   def test_more_like_this
@@ -199,6 +199,11 @@ class ContentTest < Test::Unit::TestCase
     # the title field has a higher boost value, so contents(:first) must be first in the list
     assert_equal contents(:first).id, contents_from_ferret.first.id 
     assert_equal @another_content.id, contents_from_ferret.last.id
+
+    # find options
+    contents_from_ferret = Content.find_by_contents('title', {}, :conditions => ["id=?",contents(:first).id])
+    assert_equal 1, contents_from_ferret.size
+    assert_equal contents(:first), contents_from_ferret.first
     
     # limit result set size to 1
     contents_from_ferret = Content.find_by_contents('title', :num_docs => 1)
