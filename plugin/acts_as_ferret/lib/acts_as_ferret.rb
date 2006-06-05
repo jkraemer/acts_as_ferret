@@ -264,20 +264,23 @@ module FerretMixin
             scores_by_id[id] = element[:score] 
           end
           begin
-            if self.superclass == ActiveRecord::Base
-              result = self.find(id_array, find_options)
+            # TODO: in case of STI AR will filter out hits from other 
+            # classes for us, but this
+            # will lead to less results retrieved --> scoping of ferret query
+            # to self.class is still needed.
+            if id_array.empty?
+              result = []
             else
-              # no direct subclass of Base --> STI
-              # TODO: AR will filter out hits from other classes for us, but this
-              # will lead to less results retrieved --> scoping of ferret query
-              # to self.class is still needed.
-              if id_array.empty?
-                result = []
-              else
-                result = self.find(:all, 
-                                  find_options.merge(:conditions => ["id in (?)",id_array]))
+              conditions = [ "id in (?)", id_array ]
+              # combine our conditions with those given by user, if any
+              if find_options[:conditions]
+                cust_opts = find_options[:conditions].dup
+                conditions.first << " and " << cust_opts.shift
+                conditions.concat(cust_opts)
               end
-            end 
+              result = self.find(:all, 
+                                 find_options.merge(:conditions => conditions))
+            end
           rescue
             logger.debug "REBUILD YOUR INDEX! One of the id's didn't have an associated record: #{id_array}"
           end
