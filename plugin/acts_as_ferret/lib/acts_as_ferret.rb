@@ -64,6 +64,18 @@ require 'ferret'
 module FerretMixin
   module Acts #:nodoc:
     module ARFerret #:nodoc:
+
+      # decorator that adds a total_hits accessor to search result arrays
+      class SearchResults
+        attr_reader :total_hits
+        def initialize(results, total_hits)
+          @results = results
+          @total_hits = total_hits
+        end
+        def method_missing(symbol, *args, &block)
+          @results.send(symbol, *args, &block)
+        end
+      end
       
       def self.ensure_directory(dir)
         FileUtils.mkdir_p dir unless File.directory? dir
@@ -146,6 +158,9 @@ module FerretMixin
         # this to true. the model class name will be stored in a keyword field 
         # named class_name
         #
+        # max_results:: number of results to retrieve for :num_docs => :all,
+        # default value is 1000
+        #
         # ferret_options may be:
         # occur_default:: - whether query terms are required by
         #   default (the default), or not. Specify one of 
@@ -159,7 +174,8 @@ module FerretMixin
           configuration = { 
             :fields => nil,
             :index_dir => "#{FerretMixin::Acts::ARFerret::index_dir}/#{self.name.underscore}",
-            :store_class_name => false
+            :store_class_name => false,
+            :max_results => 1000
           }
           ferret_configuration = {
             :occur_default => Ferret::Search::BooleanClause::Occur::MUST,
@@ -256,12 +272,17 @@ module FerretMixin
         #
         # find_options is a hash passed on to active_record's find when
         # retrieving the data from db, useful to i.e. prefetch relationships.
+        #
+        # this method returns a SearchResults instance, which really is an Array that has 
+        # been decorated with a total_hits accessor that delivers the total
+        # number of hits (including those not fetched because of a low num_docs
+        # value).
         def find_by_contents(q, options = {}, find_options = {})
           id_array = []
           scores_by_id = {}
-          find_id_by_contents(q, options) do |element|
-            id_array << id = element[:id].to_i
-            scores_by_id[id] = element[:score] 
+          total_hits = find_id_by_contents(q, options) do |model, id, score|
+            id_array << id
+            scores_by_id[id] = score 
           end
           begin
             # TODO: in case of STI AR will filter out hits from other 
@@ -289,7 +310,7 @@ module FerretMixin
           result.sort! { |b, a| scores_by_id[a.id] <=> scores_by_id[b.id] }
           
           logger.debug "Query: #{q}\nResult id_array: #{id_array.inspect},\nresult: #{result},\nscores: #{scores_by_id.inspect}"
-          return result
+          return SearchResults.new(result, total_hits)
         end 
         
         # Finds instance model name, ids and scores by contents. 
@@ -315,23 +336,34 @@ module FerretMixin
         #
         # options:
         # :first_doc - first hit to retrieve (useful for paging)
-        # :num_docs - number of hits to retrieve      
+        # :num_docs - number of hits to retrieve, or :all to retrieve
+        # max_results results, which by default is 1000 and can be changed in
+        # the call to acts_as_ferret or on demand like this:
+        # Model.configuration[:max_results] = 1000000
         #
-        # a block can be given too, it will be executed with every result hash:
-        # find_id_by_contents(q, options) do |element|
-        #    id_array << id = element[:id].to_i
-        #    scores_by_id[id] = element[:score] 
+        # a block can be given too, it will be executed with every result:
+        # find_id_by_contents(q, options) do |model, id, score|
+        #    id_array << id
+        #    scores_by_id[id] = score 
         # end
+        # NOTE: in case a block is given, the total_hits value will be returned
+        # instead of the result list!
         # 
         def find_id_by_contents(q, options = {})
+          options[:num_docs] = configuration[:max_results] if options[:num_docs] == :all
           result = []
-          hits = ferret_index.search(q, options)
+          index = self.ferret_index
+          hits = index.search(q, options)
           hits.each do |hit, score|
-            result << {:model => self.name, :id => ferret_index[hit][:id], :score => score}
-            yield result.last if block_given?
+            # only collect result data if we intend to return it
+            if block_given?
+              yield self.name, index[hit][:id].to_i, score
+            else
+              result << {:model => self.name, :id => index[hit][:id], :score => score}
+            end
           end
           logger.debug "id_score_model array: #{result.inspect}"
-          result
+          return block_given? ? hits.total_hits : result
         end
         
         # requires the store_class_name option of acts_as_ferret to be true
@@ -341,25 +373,33 @@ module FerretMixin
         # own.
         def multi_search(query, additional_models = [], options = {})
           result = []
-          id_multi_search(query, additional_models, options).each { |hit|
-            result << Object.const_get(hit[:model]).find(hit[:id].to_i)
-          }
-          result
+          total_hits = id_multi_search(query, additional_models, options) do |model, id, score|
+            result << Object.const_get(model).find(id)
+          end
+          SearchResults.new(result, total_hits)
         end
         
         # returns an array of hashes, each containing :class_name,
         # :id and :score for a hit.
         #
+        # if a block is given, class_name, id and score of each hit will 
+        # be yielded, and the total number of hits is returned.
+        #
         def id_multi_search(query, additional_models = [], options = {})
+          options[:num_docs] = configuration[:max_results] if options[:num_docs] == :all
           additional_models << self
           searcher = multi_index(additional_models)
           result = []
           hits = searcher.search(query, options)
           hits.each { |hit, score|
             doc = searcher.doc(hit)
-            result << { :model => doc[:class_name], :id => doc[:id], :score => score }
+            if block_given?
+              yield doc[:class_name], doc[:id].to_i, score
+            else
+              result << { :model => doc[:class_name], :id => doc[:id], :score => score }
+            end
           }
-          result
+          return block_given? ? hits.total_hits : result
         end
         
         # returns a MultiIndex instance operating on a MultiReader
@@ -452,7 +492,7 @@ module FerretMixin
           return query
         end
 
-      end
+      end # of class MultiIndex
       
       module InstanceMethods
         attr_reader :reindex
@@ -707,7 +747,7 @@ module FerretMixin
         end
 
         def content_for_field_name(field)
-          self[field] || self.instance_variable_get("@#{field.to_s}".to_sym) || self.method(field).call
+          self[field] || self.instance_variable_get("@#{field.to_s}".to_sym) || self.send(field)
         end
 
       end
