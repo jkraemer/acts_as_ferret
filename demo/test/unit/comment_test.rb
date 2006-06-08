@@ -14,7 +14,7 @@ class CommentTest < Test::Unit::TestCase
 
   # tests the automatic building of an index when none exists
   # delete index/test/* before running rake to make this useful
-  def test_index_rebuild
+  def test_automatic_index_build
     # TODO: check why this fails, but querying for 'comment fixture' works.
     # maybe different analyzers at index creation and searching time ?
     #comments_from_ferret = Comment.find_by_contents('"comment from fixture"')
@@ -22,6 +22,37 @@ class CommentTest < Test::Unit::TestCase
     assert_equal 2, comments_from_ferret.size
     assert comments_from_ferret.include?(comments(:first))
     assert comments_from_ferret.include?(comments(:another))
+  end
+
+  def test_rebuild_index
+    Comment.ferret_index.query_delete('comment')
+    comments_from_ferret = Comment.find_by_contents('comment AND fixture')
+    assert comments_from_ferret.empty?
+    Comment.rebuild_index
+    comments_from_ferret = Comment.find_by_contents('comment AND fixture')
+    assert_equal 2, comments_from_ferret.size
+  end
+
+  def test_total_hits
+    comments_from_ferret = Comment.find_by_contents('comment AND fixture', :num_docs => 1)
+    assert_equal 1, comments_from_ferret.size
+    assert_equal 2, comments_from_ferret.total_hits
+  end
+
+  def test_find_all
+    20.times do |i|
+      Comment.create( :author => 'multi-commenter', :content => "This is multicomment no #{i}" )
+    end
+    assert_equal 10, (res = Comment.find_by_contents('multicomment')).size
+    assert_equal 20, res.total_hits
+    assert_equal 15, (res = Comment.find_by_contents('multicomment', :num_docs => 15)).size
+    assert_equal 20, res.total_hits
+    assert_equal 20, (res = Comment.find_by_contents('multicomment', :num_docs => :all)).size
+    assert_equal 20, res.total_hits
+
+    Comment.configuration[:max_results] = 15
+    assert_equal 15, (res = Comment.find_by_contents('multicomment', :num_docs => :all)).size
+    assert_equal 20, res.total_hits
   end
 
   # tests the custom to_doc method defined in comment.rb
@@ -37,10 +68,8 @@ class CommentTest < Test::Unit::TestCase
   end
 
   def test_find_by_contents
-    comment = Comment.new( :author => 'john doe', :content => 'This is a useless comment' )
-    comment.save
-    comment2 = Comment.new( :author => 'another', :content => 'content' )
-    comment2.save
+    comment = Comment.create( :author => 'john doe', :content => 'This is a useless comment' )
+    comment2 = Comment.create( :author => 'another', :content => 'content' )
 
     comments_from_ferret = Comment.find_by_contents('anoth* OR jo*')
     assert_equal 2, comments_from_ferret.size
