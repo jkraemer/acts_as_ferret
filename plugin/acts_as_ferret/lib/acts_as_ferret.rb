@@ -21,7 +21,6 @@
 require 'active_record'
 require 'set'
 
-require 'ferret'
 
 # Yet another Ferret Mixin.
 #
@@ -31,20 +30,6 @@ require 'ferret'
 # Kasper Weibel and a modified version done by Thomas Lockney, which 
 # both can be found on 
 # http://ferret.davebalmain.com/trac/wiki/FerretOnRails
-#
-# Changes I did to the original version include:
-#
-# - automatic creation of missing index directories
-# - I took out the storage of class names in the index, as I prefer 
-#   the 'one model, one index'-approach. If needed, multiple models 
-#   can share one index by using a common superclass for these.
-# - separate index directories for different Rails environments, so
-#   unit tests don't mess up the production/development indexes.
-# - default to AND queries, as this is the behaviour most users expect
-# - index searcher instances are kept as class variables and will be re-used
-#   until an index change is detected, as opening a searcher is quite expensive
-#   this should improve search performance
-# - query parser is kept as a class variable
 #
 # usage:
 # include the following in your model class (specifiying the fields you want to get indexed):
@@ -97,7 +82,7 @@ module FerretMixin
         super
         base.extend(ClassMethods)
       end
-      
+
       # declare the class level helper methods
       # which will load the relevant instance methods defined below when invoked
       module ClassMethods
@@ -154,6 +139,12 @@ module FerretMixin
         #   The default is RAILS_ROOT/index/RAILS_ENV/CLASSNAME. 
         #   The index directory will be created if it doesn't exist.
         #
+        # single_index:: set this to true to let this class use a Ferret
+        # index that is shared by all classes having :single_index set to true.
+        # :store_class_name is set to true implicitly, as well as index_dir, so 
+        # don't bother setting these when using this option. the shared index
+        # will be located in index/<RAILS_ENV>/shared .
+        #
         # store_class_name:: to make search across multiple models useful, set
         # this to true. the model class name will be stored in a keyword field 
         # named class_name
@@ -175,6 +166,7 @@ module FerretMixin
             :fields => nil,
             :index_dir => "#{FerretMixin::Acts::ARFerret::index_dir}/#{self.name.underscore}",
             :store_class_name => false,
+            :single_index => false,
             :max_results => 1000
           }
           ferret_configuration = {
@@ -185,14 +177,19 @@ module FerretMixin
             # :wild_lower => true
           }
           configuration.update(options) if options.is_a?(Hash)
+          # apply appropriate settings for shared index
+          if configuration[:single_index] 
+            configuration[:index_dir] = "#{FerretMixin::Acts::ARFerret::index_dir}/shared" 
+            configuration[:store_class_name] = true 
+          end
           ferret_configuration.update(ferret_options) if ferret_options.is_a?(Hash)
           # these properties are somewhat vital to the plugin and shouldn't
           # be overwritten by the user:
           ferret_configuration.update(
-                                      :key               => 'id',
-          :path              => configuration[:index_dir],
-          :auto_flush        => true,
-          :create_if_missing => true
+            :key               => (configuration[:single_index] ? ['id', 'class_name'] : 'id'),
+            :path              => configuration[:index_dir],
+            :auto_flush        => true,
+            :create_if_missing => true
           )
           
           class_eval <<-EOV
@@ -238,9 +235,24 @@ module FerretMixin
         # every model class has it's 
         # own index, otherwise the index will get populated only
         # with instances from the first model loaded
-        def rebuild_index
+        #
+        # When calling this method manually, you can give any additional 
+        # model classes that should also go into this index as parameters. 
+        # Useful when using the :single_index option.
+        def rebuild_index(*additional_models)
           index = Ferret::Index::Index.new(ferret_configuration.merge(:create => true))
-          self.find_all.each { |content| index << content.to_doc }
+          additional_models << self
+          batch_size = 1000
+          additional_models.each do |model|
+            # index in batches of 1000 to limit memory consumption (fixes #24)
+            model.transaction do
+              0.step(model.count, batch_size) do |i|
+                model.find(:all, :limit => batch_size, :offset => i).each do |rec|
+                  index << rec.to_doc
+                end
+              end
+            end
+          end
           logger.debug("Created Ferret index in: #{class_index_dir}")
           index.flush
           index.optimize
@@ -268,8 +280,11 @@ module FerretMixin
         # by using OR between terms. 
         # options:
         # :first_doc - first hit to retrieve (useful for paging)
-        # :num_docs - number of hits to retrieve
-        #
+        # :num_docs - number of hits to retrieve, or :all to retrieve
+        # max_results results, which by default is 1000 and can be changed in
+        # the call to acts_as_ferret or on demand like this:
+        # Model.configuration[:max_results] = 1000000
+         #
         # find_options is a hash passed on to active_record's find when
         # retrieving the data from db, useful to i.e. prefetch relationships.
         #
@@ -278,11 +293,14 @@ module FerretMixin
         # number of hits (including those not fetched because of a low num_docs
         # value).
         def find_by_contents(q, options = {}, find_options = {})
+          # handle shared index
+          return single_index_find_by_contents(q, options, find_options) if configuration[:single_index]
           id_array = []
-          scores_by_id = {}
+          id_positions = {}
           total_hits = find_id_by_contents(q, options) do |model, id, score|
             id_array << id
-            scores_by_id[id] = score 
+            # store index of this id for later ordering of results
+            id_positions[id] = id_array.size
           end
           begin
             # TODO: in case of STI AR will filter out hits from other 
@@ -306,13 +324,73 @@ module FerretMixin
             logger.debug "REBUILD YOUR INDEX! One of the id's didn't have an associated record: #{id_array}"
           end
 
-          # sort results by score (descending)
-          result.sort! { |b, a| scores_by_id[a.id] <=> scores_by_id[b.id] }
+          # order results as they were found by ferret, unless an AR :order
+          # option was given
+          unless find_options[:order]
+            result.sort! { |a, b| id_positions[a.id] <=> id_positions[b.id] }
+          end
           
-          logger.debug "Query: #{q}\nResult id_array: #{id_array.inspect},\nresult: #{result},\nscores: #{scores_by_id.inspect}"
+          logger.debug "Query: #{q}\nResult id_array: #{id_array.inspect},\nresult: #{result}"
           return SearchResults.new(result, total_hits)
         end 
+
+        # determine all field names in the shared index
+        def single_index_field_names(models)
+          @single_index_field_names ||= (
+              searcher = Ferret::Search::IndexSearcher.new(class_index_dir)
+              if searcher.reader.respond_to?(:get_field_names)
+                (searcher.reader.send(:get_field_names) - ['id', 'class_name']).to_a
+              else
+                puts <<-END
+  unable to retrieve field names for class #{self.name}, please 
+  consider naming all indexed fields in your call to acts_as_ferret!
+                END
+                models.map { |m| m.content_columns.map { |col| col.name } }.flatten
+              end
+          )
+
+        end
         
+        # weiter: checken ob ferret-bug, dass wir die queries so selber bauen
+        # muessen - liegt am downcasen des qparsers ? - gucken ob jetzt mit
+        # ferret geht (content_cols) und dave um zugriff auf qp bitten, oder
+        # auf reader
+        def single_index_find_by_contents(q, options = {}, find_options = {})
+          result = []
+
+          unless options[:models] == :all # search needs to be restricted by one or more class names
+            options[:models] ||= [] 
+            # add this class to the list of given models
+            options[:models] << self unless options[:models].include?(self)
+            # build query parser TODO: cache these somehow
+            original_query = q
+            if q.is_a? String
+              #class_clauses = []
+              #options[:models].each do |model|
+              #  class_clauses << "class_name:#{model}"
+              #end
+              #q << " AND (#{class_clauses.join(' OR ')})"
+              qp = Ferret::QueryParser.new(ferret_configuration[:default_search_field], ferret_configuration.update(:fields => single_index_field_names(options[:models])))
+              original_query = qp.parse(q)
+            end
+            #else
+            q = Ferret::Search::BooleanQuery.new
+            q.add_query(original_query, Ferret::Search::BooleanClause::Occur::MUST)
+            model_query = Ferret::Search::BooleanQuery.new
+            options[:models].each do |model|
+              model_query.add_query(Ferret::Search::TermQuery.new(Ferret::Index::Term.new('class_name', model.name)), Ferret::Search::BooleanClause::Occur::SHOULD)
+            end
+            q.add_query(model_query, Ferret::Search::BooleanClause::Occur::MUST)
+            #end
+          end
+          #puts q.to_s
+          total_hits = find_id_by_contents(q, options) do |model, id, score|
+            result << Object.const_get(model).find(id, find_options.dup)
+          end
+          return SearchResults.new(result, total_hits)
+        end
+        protected :single_index_find_by_contents
+
         # Finds instance model name, ids and scores by contents. 
         # Useful if you want to search across models
         # Terms are ANDed by default, can be circumvented by using OR between terms.
@@ -356,10 +434,12 @@ module FerretMixin
           hits = index.search(q, options)
           hits.each do |hit, score|
             # only collect result data if we intend to return it
+            doc = index[hit]
+            model = configuration[:store_class_name] ? doc[:class_name] : self.name
             if block_given?
-              yield self.name, index[hit][:id].to_i, score
+              yield model, doc[:id].to_i, score
             else
-              result << {:model => self.name, :id => index[hit][:id], :score => score}
+              result << { :model => model, :id => doc[:id], :score => score }
             end
           end
           logger.debug "id_score_model array: #{result.inspect}"
@@ -412,88 +492,6 @@ module FerretMixin
       end
       
       
-      # not threadsafe
-      class MultiIndex
-        
-        attr_reader :reader
-        
-        # todo: check for necessary index rebuilds in this place, too
-        # idea - each class gets a create_reader method that does this
-        def initialize(model_classes, options = {})
-          @model_classes = model_classes
-          @options = { 
-            :default_search_field => '*',
-            :analyzer => Ferret::Analysis::WhiteSpaceAnalyzer.new
-          }.update(options)
-        end
-        
-        def search(query, options={})
-          #puts "querystring: #{query.to_s}"
-          query = process_query(query)
-          #puts "parsed query: #{query.to_s}"
-          searcher.search(query, options)
-        end
-
-        # checks if all our sub-searchers still are up to date
-        def latest?
-          return false unless @searcher
-          @sub_searchers.each do |s| 
-            return false unless s.reader.latest? 
-          end
-          true
-        end
-
-        def ensure_searcher
-          unless latest?
-            field_names = Set.new
-            @sub_searchers = @model_classes.map { |clazz| 
-              searcher = Ferret::Search::IndexSearcher.new(clazz.class_index_dir)
-              if searcher.reader.respond_to?(:get_field_names)
-                field_names << searcher.reader.send(:get_field_names)
-              elsif clazz.fields_for_ferret
-                field_names << clazz.fields_for_ferret.to_set
-              else
-                puts <<-END
-  unable to retrieve field names for class #{clazz.name}, please 
-  consider naming all indexed fields in your call to acts_as_ferret!
-                END
-                clazz.content_columns.each { |col| field_names << col.name }
-              end
-              searcher
-            }
-            @searcher = Ferret::Search::MultiSearcher.new(@sub_searchers)
-            @field_names = field_names.flatten.to_a
-            @query_parser = nil # trigger re-creation from new field_name array
-          end
-        end
-         
-        def searcher
-          ensure_searcher
-          @searcher
-        end
-        
-        def doc(i)
-          searcher.doc(i)
-        end
-        
-        def query_parser
-          unless @query_parser
-            ensure_searcher # we dont need the searcher, but the field_names array that is built by this function, too
-            @query_parser ||= Ferret::QueryParser.new(
-                                @options[:default_search_field],
-                                { :fields => @field_names }.merge(@options)
-                              )
-          end
-          @query_parser
-        end
-        
-        def process_query(query)
-          query = query_parser.parse(query) if query.is_a?(String)
-          return query
-        end
-
-      end # of class MultiIndex
-      
       module InstanceMethods
         attr_reader :reindex
         @ferret_reindex = true
@@ -516,9 +514,17 @@ module FerretMixin
         def ferret_destroy
           logger.debug "ferret_destroy: #{self.class.name} : #{self.id}"
           begin
-            self.class.ferret_index.query_delete("+id:#{self.id}")
+            query = Ferret::Search::TermQuery.new(Ferret::Index::Term.new('id',self.id.to_s))
+            if self.class.configuration[:single_index]
+              bq = Ferret::Search::BooleanQuery.new
+              bq.add_query(query, Ferret::Search::BooleanClause::Occur::MUST)
+              bq.add_query(Ferret::Search::TermQuery.new(Ferret::Index::Term.new('class_name', self.class.name)),
+                           Ferret::Search::BooleanClause::Occur::MUST)
+              query = bq
+            end
+            self.class.ferret_index.query_delete(query)
           rescue
-            logger.warn("Could not find indexed value for this object")
+            logger.warn("Could not find indexed value for this object: #{$!}")
           end
           true
         end
@@ -534,9 +540,9 @@ module FerretMixin
           Ferret::Document::Field::Index::UNTOKENIZED )
           # store the class name if configured to do so
           if configuration[:store_class_name]
-            doc << Ferret::Document::Field.new( "class_name", self.class.name, 
+            doc << Ferret::Document::Field.new( "class_name", self.class.name,
             Ferret::Document::Field::Store::YES, 
-            Ferret::Document::Field::Index::UNTOKENIZED )
+            Ferret::Document::Field::Index::UNTOKENIZED ) # have to tokenize to be able to use class_name field in queries ?!
           end
           # iterate through the fields and add them to the document
           if fields_for_ferret
@@ -747,7 +753,7 @@ module FerretMixin
         end
 
         def content_for_field_name(field)
-          self[field] || self.instance_variable_get("@#{field.to_s}".to_sym) || self.send(field)
+          self[field] || self.instance_variable_get("@#{field.to_s}".to_sym) || self.send(field.to_sym)
         end
 
       end
@@ -771,6 +777,7 @@ end
 ActiveRecord::Base.class_eval do
   include FerretMixin::Acts::ARFerret
 end
+
 
 class Ferret::Index::MultiReader
   def latest?
