@@ -6,7 +6,7 @@ class Comment < ActiveRecord::Base
   
   # we use :store_class_name => true so that we can use 
   # the multi_search method to run queries across multiple
-  # models
+  # models (where each model has it's own index directory)
   acts_as_ferret :store_class_name => true
 
   # only index the named fields:

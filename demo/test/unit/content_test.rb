@@ -141,25 +141,29 @@ class ContentTest < Test::Unit::TestCase
     assert_equal contents(:first).id, contents_from_ferret.first.id
     assert_equal @another_content.id, contents_from_ferret.last.id
     
-    contents_from_ferret = Content.multi_search('title:(title OR comment) OR description:(title OR comment) OR content:(title OR comment)', [Comment])
+    contents_from_ferret = Content.multi_search('title:title OR content:comment OR description:title', [Comment])
     assert_equal 5, contents_from_ferret.size
-    contents_from_ferret = Content.multi_search('title OR comment', [Comment])
+    contents_from_ferret = Content.multi_search('*:title OR *:comment', [Comment])
+    assert_equal 5, contents_from_ferret.size
+    contents_from_ferret = Content.multi_search('title:(title OR comment) OR description:(title OR comment) OR content:(title OR comment)', [Comment])
     assert_equal 5, contents_from_ferret.size
   end
 
   def test_id_multi_search
     assert_equal 4, ContentBase.find(:all).size
     
-    ['*:title', 'title:title OR description:title OR content:title', 'title'].each do |query|
+    [ 'title:title OR description:title OR content:title', 'title', '*:title'].each do |query|
       contents_from_ferret = Content.id_multi_search(query)
-      assert_equal 2, contents_from_ferret.size
+      assert_equal 2, contents_from_ferret.size, query
       assert_equal contents(:first).id, contents_from_ferret.first[:id].to_i
       assert_equal @another_content.id, contents_from_ferret.last[:id].to_i
     end
 
+    ContentBase.rebuild_index
+    Comment.rebuild_index
     ['title OR comment', 'title:(title OR comment) OR description:(title OR comment) OR content:(title OR comment)'].each do |query|
       contents_from_ferret = Content.id_multi_search(query, [Comment])
-      assert_equal 5, contents_from_ferret.size
+      assert_equal 5, contents_from_ferret.size, query
     end
   end
 
