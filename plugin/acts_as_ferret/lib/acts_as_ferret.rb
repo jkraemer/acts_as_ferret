@@ -310,7 +310,7 @@ module FerretMixin
             if id_array.empty?
               result = []
             else
-              conditions = [ "id in (?)", id_array ]
+              conditions = [ "#{self.table_name}.id in (?)", id_array ]
               # combine our conditions with those given by user, if any
               if find_options[:conditions]
                 cust_opts = find_options[:conditions].dup
