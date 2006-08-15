@@ -60,6 +60,9 @@ module FerretMixin
         def method_missing(symbol, *args, &block)
           @results.send(symbol, *args, &block)
         end
+        def respond_to?(name)
+          self.methods.include?(name) || @results.respond_to?(name)
+        end
       end
       
       def self.ensure_directory(dir)
