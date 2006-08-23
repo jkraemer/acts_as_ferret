@@ -21,6 +21,11 @@
 require 'active_record'
 require 'set'
 
+# 0.10 problems
+# Ferret::Search::Similarity, Ferret::Search::Similarity.default missing
+# IndexReader#latest? segfaults when used on multiple indexes
+# :offset and :limit get ignored by search_each
+# query_parser ignores or_default
 
 # Yet another Ferret Mixin.
 #
@@ -93,29 +98,35 @@ module FerretMixin
         # helper that defines a method that adds the given field to a lucene 
         # document instance
         def define_to_field_method(field, options = {})         
-          default_opts = { :store => Ferret::Document::Field::Store::NO, 
-            :index => Ferret::Document::Field::Index::TOKENIZED, 
-            :term_vector => Ferret::Document::Field::TermVector::NO,
-            :binary => false,
-            :boost => 1.0
-          }
-          default_opts.update(options) if options.is_a?(Hash) 
-          fields_for_ferret << field 
+          options = { 
+            :store => :no, 
+            :index => :yes, 
+            :term_vector => :with_positions_offsets,
+            :boost => 1.0 }.update(options)
+          fields_for_ferret[field] = options
           define_method("#{field}_to_ferret".to_sym) do                              
             begin
               #val = self[field] || self.instance_variable_get("@#{field.to_s}".to_sym) || self.method(field).call
               val = content_for_field_name(field)
             rescue
-              logger.debug("Error retrieving value for field #{field}: #{$!}")
+              logger.warn("Error retrieving value for field #{field}: #{$!}")
               val = ''
             end
             logger.debug("Adding field #{field} with value '#{val}' to index")
-            Ferret::Document::Field.new(field.to_s, val, 
-                                        default_opts[:store], 
-                                        default_opts[:index], 
-                                        default_opts[:term_vector], 
-                                        default_opts[:binary], 
-                                        default_opts[:boost]) 
+            val
+            #Ferret::Field.new(val, default_opts[:boost])
+          end
+        end
+
+        def add_fields(field_config)
+          if field_config.respond_to?(:each_pair)
+            field_config.each_pair do |key,val|
+              define_to_field_method(key,val)                  
+            end
+          elsif field_config.respond_to?(:each)
+            field_config.each do |field| 
+              define_to_field_method(field)
+            end                
           end
         end
         
@@ -136,7 +147,13 @@ module FerretMixin
         # fields:: names all fields to include in the index. If not given,
         #   all attributes of the class will be indexed. You may also give
         #   symbols pointing to instance methods of your model here, i.e. 
-        #   to retrieve and index data from a related model.
+        #   to retrieve and index data from a related model. 
+        #
+        # additional_fields:: names fields to include in the index, in addition 
+        #   to those derived from the db scheme. use if you want to add
+        #   custom fields derived from methods to the db fields (which will be picked 
+        #   by aaf). This option will be ignored when the fields option is given, in 
+        #   that case additional fields get specified there.
         #
         # index_dir:: declares the directory where to put the index for this class.
         #   The default is RAILS_ROOT/index/RAILS_ENV/CLASSNAME. 
@@ -156,30 +173,30 @@ module FerretMixin
         # default value is 1000
         #
         # ferret_options may be:
-        # occur_default:: - whether query terms are required by
-        #   default (the default), or not. Specify one of 
-        #   Ferret::Search::BooleanClause::Occur::MUST or 
-        #   Ferret::Search::BooleanClause::Occur::SHOULD
+        # or_default:: - whether query terms are required by
+        #   default (the default, false), or not (true)
         # 
         # analyzer:: the analyzer to use for query parsing (default: nil,
-        #   wihch means the ferret default Analyzer gets used)
+        #   wihch means the ferret StandardAnalyzer gets used)
         #
+        # TODO: handle additional_fields
         def acts_as_ferret(options={}, ferret_options={})
           configuration = { 
-            :fields => nil,
             :index_dir => "#{FerretMixin::Acts::ARFerret::index_dir}/#{self.name.underscore}",
             :store_class_name => false,
             :single_index => false,
             :max_results => 1000
           }
           ferret_configuration = {
-            :occur_default => Ferret::Search::BooleanClause::Occur::MUST,
-            :handle_parse_errors => true,
-            :default_search_field => '*',
-            :analyzer => Ferret::Analysis::StandardAnalyzer.new,
-            # :wild_lower => true
+            :or_default => false,
+            :handle_parser_errors => true,
+            #:max_clauses => 512,
+            #:default_field => '*',
+            #:analyzer => Ferret::Analysis::StandardAnalyzer.new,
+            # :wild_card_downcase => true
           }
           configuration.update(options) if options.is_a?(Hash)
+
           # apply appropriate settings for shared index
           if configuration[:single_index] 
             configuration[:index_dir] = "#{FerretMixin::Acts::ARFerret::index_dir}/shared" 
@@ -189,7 +206,8 @@ module FerretMixin
           # these properties are somewhat vital to the plugin and shouldn't
           # be overwritten by the user:
           ferret_configuration.update(
-            :key               => (configuration[:single_index] ? ['id', 'class_name'] : 'id'),
+
+            :key               => (configuration[:single_index] ? [:id, :class_name] : :id),
             :path              => configuration[:index_dir],
             :auto_flush        => true,
             :create_if_missing => true
@@ -208,20 +226,15 @@ module FerretMixin
               cattr_accessor :configuration
               cattr_accessor :ferret_configuration
               
-              @@fields_for_ferret = Array.new
+              @@fields_for_ferret = Hash.new
               @@configuration = configuration
               @@ferret_configuration = ferret_configuration
-              
-              if configuration[:fields].respond_to?(:each_pair)
-                configuration[:fields].each_pair do |key,val|
-                  define_to_field_method(key,val)                  
-                end
-              elsif configuration[:fields].respond_to?(:each)
-                configuration[:fields].each do |field| 
-                  define_to_field_method(field)
-                end                
+
+              if configuration[:fields]
+                add_fields(configuration[:fields])
               else
-                @@fields_for_ferret = nil
+                add_fields(self.new.attributes.keys.map { |k| k.to_sym })
+                add_fields(configuration[:additional_fields])
               end
             EOV
           FerretMixin::Acts::ARFerret::ensure_directory configuration[:index_dir]
@@ -242,11 +255,35 @@ module FerretMixin
         # When calling this method manually, you can give any additional 
         # model classes that should also go into this index as parameters. 
         # Useful when using the :single_index option.
-        def rebuild_index(*additional_models)
-          index = Ferret::Index::Index.new(ferret_configuration.merge(:create => true))
-          additional_models << self
+        # Note that attributes named the same in different models will share
+        # the same field options in the shared index.
+        def rebuild_index(*models)
+          models << self
+          # default attributes for fields
+          fi = Ferret::Index::FieldInfos.new(:store => :no, 
+                                             :index => :yes, 
+                                             :term_vector => :no,
+                                             :boost => 1.0)
+          # primary key
+          fi.add_field(:id, :store => :yes, :index => :untokenized) 
+          # class_name
+          if configuration[:store_class_name]
+            fi.add_field(:class_name, :store => :yes, :index => :untokenized) 
+          end
+          # collect field options from all models
+          fields = {}
+          models.each do |model|
+            fields.update(model.fields_for_ferret)
+          end
+          fields.each_pair do |field, options|
+            fi.add_field(field, { :store => :no, 
+                                  :index => :yes }.update(options)) 
+          end
+          fi.create_index(ferret_configuration[:path])
+
+          index = Ferret::Index::Index.new(ferret_configuration.dup.update(:auto_flush => false))
           batch_size = 1000
-          additional_models.each do |model|
+          models.each do |model|
             # index in batches of 1000 to limit memory consumption (fixes #24)
             model.transaction do
               0.step(model.count, batch_size) do |i|
@@ -340,7 +377,7 @@ module FerretMixin
         # determine all field names in the shared index
         def single_index_field_names(models)
           @single_index_field_names ||= (
-              searcher = Ferret::Search::IndexSearcher.new(class_index_dir)
+              searcher = Ferret::Search::Searcher.new(class_index_dir)
               if searcher.reader.respond_to?(:get_field_names)
                 (searcher.reader.send(:get_field_names) - ['id', 'class_name']).to_a
               else
@@ -373,17 +410,19 @@ module FerretMixin
               #  class_clauses << "class_name:#{model}"
               #end
               #q << " AND (#{class_clauses.join(' OR ')})"
-              qp = Ferret::QueryParser.new(ferret_configuration[:default_search_field], ferret_configuration.update(:fields => single_index_field_names(options[:models])))
+
+              qp = Ferret::QueryParser.new (ferret_configuration)
+              qp.fields = ferret_index.send(:reader).field_names
               original_query = qp.parse(q)
             end
             #else
             q = Ferret::Search::BooleanQuery.new
-            q.add_query(original_query, Ferret::Search::BooleanClause::Occur::MUST)
+            q.add_query(original_query, :must)
             model_query = Ferret::Search::BooleanQuery.new
             options[:models].each do |model|
-              model_query.add_query(Ferret::Search::TermQuery.new(Ferret::Index::Term.new('class_name', model.name)), Ferret::Search::BooleanClause::Occur::SHOULD)
+              model_query.add_query(Ferret::Search::TermQuery.new(:class_name, model.name), :should)
             end
-            q.add_query(model_query, Ferret::Search::BooleanClause::Occur::MUST)
+            q.add_query(model_query, :must)
             #end
           end
           #puts q.to_s
@@ -431,11 +470,14 @@ module FerretMixin
         # instead of the result list!
         # 
         def find_id_by_contents(q, options = {})
-          options[:num_docs] = configuration[:max_results] if options[:num_docs] == :all
+          deprecated_options_support(options)
+          options[:limit] = configuration[:max_results] if options[:limit] == :all
+
           result = []
           index = self.ferret_index
-          hits = index.search(q, options)
-          hits.each do |hit, score|
+          #hits = index.search(q, options)
+          #hits.each do |hit, score|
+          total_hits = index.search_each(q, options) do |hit, score|
             # only collect result data if we intend to return it
             doc = index[hit]
             model = configuration[:store_class_name] ? doc[:class_name] : self.name
@@ -446,7 +488,7 @@ module FerretMixin
             end
           end
           logger.debug "id_score_model array: #{result.inspect}"
-          return block_given? ? hits.total_hits : result
+          return block_given? ? total_hits : result
         end
         
         # requires the store_class_name option of acts_as_ferret to be true
@@ -469,20 +511,20 @@ module FerretMixin
         # be yielded, and the total number of hits is returned.
         #
         def id_multi_search(query, additional_models = [], options = {})
-          options[:num_docs] = configuration[:max_results] if options[:num_docs] == :all
+          deprecated_options_support(options)
+          options[:limit] = configuration[:max_results] if options[:limit] == :all
           additional_models << self
           searcher = multi_index(additional_models)
           result = []
-          hits = searcher.search(query, options)
-          hits.each { |hit, score|
-            doc = searcher.doc(hit)
+          total_hits = searcher.search_each (query, options) do |hit, score|
+            doc = searcher[hit]
             if block_given?
               yield doc[:class_name], doc[:id].to_i, score
             else
               result << { :model => doc[:class_name], :id => doc[:id], :score => score }
             end
-          }
-          return block_given? ? hits.total_hits : result
+          end
+          return block_given? ? total_hits : result
         end
         
         # returns a MultiIndex instance operating on a MultiReader
@@ -491,7 +533,17 @@ module FerretMixin
           key = model_classes.inject("") { |s, clazz| s << clazz.name }
           @@multi_indexes[key] ||= MultiIndex.new(model_classes, ferret_configuration)
         end
-        
+
+        def deprecated_options_support(options)
+          if options[:num_docs]
+            logger.warn ":num_docs is deprecated, use :limit instead!"
+            options[:limit] ||= options[:num_docs]
+          end
+          if options[:first_doc]
+            logger.warn ":first_doc is deprecated, use :offset instead!"
+            options[:offset] ||= options[:first_doc]
+          end
+        end
       end
       
       
@@ -507,7 +559,9 @@ module FerretMixin
         # add to index
         def ferret_create
           logger.debug "ferret_create/update: #{self.class.name} : #{self.id}"
-          self.class.ferret_index << self.to_doc if @ferret_reindex
+          if @ferret_reindex
+            self.class.ferret_index << self.to_doc
+          end
           @ferret_reindex = true
           true
         end
@@ -517,12 +571,11 @@ module FerretMixin
         def ferret_destroy
           logger.debug "ferret_destroy: #{self.class.name} : #{self.id}"
           begin
-            query = Ferret::Search::TermQuery.new(Ferret::Index::Term.new('id',self.id.to_s))
+            query = Ferret::Search::TermQuery.new(:id, self.id.to_s)
             if self.class.configuration[:single_index]
               bq = Ferret::Search::BooleanQuery.new
-              bq.add_query(query, Ferret::Search::BooleanClause::Occur::MUST)
-              bq.add_query(Ferret::Search::TermQuery.new(Ferret::Index::Term.new('class_name', self.class.name)),
-                           Ferret::Search::BooleanClause::Occur::MUST)
+              bq.add_query(query, :must)
+              bq.add_query(Ferret::Search::TermQuery.new(:class_name, self.class.name), :must)
               query = bq
             end
             self.class.ferret_index.query_delete(query)
@@ -536,36 +589,31 @@ module FerretMixin
         def to_doc
           logger.debug "creating doc for class: #{self.class.name}, id: #{self.id}"
           # Churn through the complete Active Record and add it to the Ferret document
-          doc = Ferret::Document::Document.new
+          doc = Ferret::Document.new
           # store the id of each item
-          doc << Ferret::Document::Field.new( "id", self.id, 
-          Ferret::Document::Field::Store::YES, 
-          Ferret::Document::Field::Index::UNTOKENIZED )
+          doc[:id] = self.id
+
           # store the class name if configured to do so
           if configuration[:store_class_name]
-            doc << Ferret::Document::Field.new( "class_name", self.class.name,
-            Ferret::Document::Field::Store::YES, 
-            Ferret::Document::Field::Index::UNTOKENIZED ) # have to tokenize to be able to use class_name field in queries ?!
+            doc[:class_name] = self.class.name
           end
           # iterate through the fields and add them to the document
-          if fields_for_ferret
+          #if fields_for_ferret
             # have user defined fields
-            fields_for_ferret.each do |field|
-              doc << self.send("#{field}_to_ferret")
-            end
-          else
-            # take all fields
-            self.attributes.each_pair do |key,val|
-              unless key == :id
-                logger.debug "add field #{key} with value #{val}"
-                doc << Ferret::Document::Field.new(
-                                           key, 
-                                           val.to_s, 
-                                           Ferret::Document::Field::Store::NO, 
-                                           Ferret::Document::Field::Index::TOKENIZED)
-              end
-            end
+          fields_for_ferret.each_pair do |field, config|
+            doc[field] = self.send("#{field}_to_ferret") unless config[:ignore]
           end
+          #else
+            # take all fields
+            # TODO shouldn't be needed any more
+          #  puts "remove me!"
+          #  self.attributes.each_pair do |key,val|
+          #    unless key == :id
+          #      logger.debug "add field #{key} with value #{val}"
+          #      doc[key] = val.to_s
+          #    end
+           # end
+          #end
           return doc
         end
 
@@ -647,7 +695,7 @@ module FerretMixin
               term_query.boost = cur.score / best_score
             end
             begin
-              query.add_query(term_query, Ferret::Search::BooleanClause::Occur::SHOULD) 
+              query.add_query(term_query, :should) 
             rescue Ferret::Search::BooleanQuery::TooManyClauses
               break
             end
@@ -656,8 +704,7 @@ module FerretMixin
           end
           # exclude ourselves
           t = Ferret::Index::Term.new('id', self.id.to_s)
-          query.add_query(Ferret::Search::TermQuery.new(t),
-                          Ferret::Search::BooleanClause::Occur::MUST_NOT)
+          query.add_query(Ferret::Search::TermQuery.new(t), :must_not)
           return query
         end
 

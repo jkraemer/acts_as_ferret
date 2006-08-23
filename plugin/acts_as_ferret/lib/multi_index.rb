@@ -4,15 +4,14 @@ module FerretMixin
       # not threadsafe
       class MultiIndex
         
-        attr_reader :reader
-        
         # todo: check for necessary index rebuilds in this place, too
         # idea - each class gets a create_reader method that does this
         def initialize(model_classes, options = {})
           @model_classes = model_classes
           @options = { 
-            :default_search_field => '*',
-            :analyzer => Ferret::Analysis::WhiteSpaceAnalyzer.new
+            :default_field => '*',
+            #:analyzer => Ferret::Analysis::WhiteSpaceAnalyzer.new
+            :analyzer => Ferret::Analysis::StandardAnalyzer.new
           }.update(options)
         end
         
@@ -23,39 +22,35 @@ module FerretMixin
           searcher.search(query, options)
         end
 
+        def search_each(query, options={}, &block)
+          query = process_query(query)
+          searcher.search_each(query, options={}, &block)
+        end
+
         # checks if all our sub-searchers still are up to date
         def latest?
-          return false unless @searcher
-          @sub_searchers.each do |s| 
-            return false unless s.reader.latest? 
+          return false unless @reader
+          # segfaults with 0.10.0 --> TODO report as bug @reader.latest?
+          @sub_readers.each do |r| 
+            return false unless r.latest? 
           end
           true
         end
 
         def ensure_searcher
           unless latest?
-            field_names = Set.new
-            @sub_searchers = @model_classes.map { |clazz| 
+            #field_names = Set.new
+            @sub_readers = @model_classes.map { |clazz| 
               begin
-                searcher = Ferret::Search::IndexSearcher.new(clazz.class_index_dir)
+                reader = Ferret::Index::IndexReader.new(clazz.class_index_dir)
               rescue Exception
                 puts "error opening #{clazz.class_index_dir}: #{$!}"
               end
-              if searcher.reader.respond_to?(:get_field_names)
-                field_names << searcher.reader.send(:get_field_names).to_set
-              elsif clazz.fields_for_ferret
-                field_names << clazz.fields_for_ferret.to_set
-              else
-                puts <<-END
-  unable to retrieve field names for class #{clazz.name}, please 
-  consider naming all indexed fields in your call to acts_as_ferret!
-                END
-                clazz.content_columns.each { |col| field_names << col.name }
-              end
-              searcher
+            #  field_names << reader.field_names.to_set
+              reader
             }
-            @searcher = Ferret::Search::MultiSearcher.new(@sub_searchers)
-            @field_names = field_names.flatten.to_a
+            @reader = Ferret::Index::IndexReader.new(@sub_readers)
+            @searcher = Ferret::Search::Searcher.new(@reader)
             @query_parser = nil # trigger re-creation from new field_name array
           end
         end
@@ -66,17 +61,16 @@ module FerretMixin
         end
         
         def doc(i)
-          searcher.doc(i)
+          searcher[i]
         end
+        alias :[] :doc
         
         def query_parser
+          ensure_searcher 
           unless @query_parser
-            ensure_searcher # we dont need the searcher, but the @field_names array is built by this function, too
-            @query_parser ||= Ferret::QueryParser.new(
-                                @options[:default_search_field],
-                                { :fields => @field_names }.merge(@options)
-                              )
+            @query_parser ||= Ferret::QueryParser.new(@options)
           end
+          @query_parser.fields = @reader.field_names
           @query_parser
         end
         
