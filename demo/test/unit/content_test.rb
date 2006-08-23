@@ -93,36 +93,36 @@ class ContentTest < Test::Unit::TestCase
 
   def test_multi_index
     i =  FerretMixin::Acts::ARFerret::MultiIndex.new([Content, Comment])
-    hits = i.search(TermQuery.new(Term.new("title","title")))
-    assert_equal 1, hits.score_docs.size
+    hits = i.search(TermQuery.new(:title,"title"))
+    assert_equal 1, hits.total_hits
 
-    qp = Ferret::QueryParser.new("title", 
-                      :analyzer => Ferret::Analysis::WhiteSpaceAnalyzer.new)
+    qp = Ferret::QueryParser.new(:default_field => "title", 
+                                :analyzer => Ferret::Analysis::WhiteSpaceAnalyzer.new)
     hits = i.search(qp.parse("title"))
-    assert_equal 1, hits.score_docs.size
+    assert_equal 1, hits.total_hits
     
-    qp = Ferret::QueryParser.new("*", :fields => ['title', 'content', 'description'],
+    qp = Ferret::QueryParser.new(:fields => ['title', 'content', 'description'],
                       :analyzer => Ferret::Analysis::WhiteSpaceAnalyzer.new)
     # TODO '*' doesn't seem to work in 0.9 anymore - there's no .fields method
     # either :-(
     #qp.fields = i.reader.get_field_names.to_a
     #qp.fields = ['title','content']
     hits = i.search(qp.parse("title"))
-    assert_equal 2, hits.score_docs.size
+    assert_equal 2, hits.total_hits
     hits = i.search(qp.parse("title:title OR description:title"))
-    assert_equal 2, hits.score_docs.size
+    assert_equal 2, hits.total_hits
 
     hits = i.search("title:title OR description:title OR title:comment OR description:comment OR content:comment")
-    assert_equal 5, hits.score_docs.size
+    assert_equal 5, hits.total_hits
 
     hits = i.search("title OR comment")
-    assert_equal 5, hits.score_docs.size
+    assert_equal 5, hits.total_hits
   end
 
   def test_multi_searcher
-    s = MultiSearcher.new([IndexSearcher.new(Content.class_index_dir), IndexSearcher.new(Comment.class_index_dir)])
-    hits = s.search(TermQuery.new(Term.new("title","title")))
-    assert_equal 1, hits.score_docs.size
+    s = MultiSearcher.new([Searcher.new(Content.class_index_dir), Searcher.new(Comment.class_index_dir)])
+    hits = s.search(TermQuery.new(:title,"title"))
+    assert_equal 1, hits.total_hits
   end
   
   def test_multi_search
@@ -188,7 +188,6 @@ class ContentTest < Test::Unit::TestCase
   end
   
   def test_find_by_contents_boost
-
     # give description field higher boost:
     contents_from_ferret = Content.find_by_contents('title:title OR description:title^10')
     assert_equal 2, contents_from_ferret.size
@@ -215,7 +214,7 @@ class ContentTest < Test::Unit::TestCase
     # limit result set size to 1
     contents_from_ferret = Content.find_by_contents('title', :num_docs => 1)
     assert_equal 1, contents_from_ferret.size
-    assert_equal contents(:first).id, contents_from_ferret.first.id 
+    assert_equal contents(:first), contents_from_ferret.first 
     
     # limit result set size to 1, starting with the second result
     contents_from_ferret = Content.find_by_contents('title', :num_docs => 1, :first_doc => 1)

@@ -7,7 +7,15 @@ class Comment < ActiveRecord::Base
   # we use :store_class_name => true so that we can use 
   # the multi_search method to run queries across multiple
   # models (where each model has it's own index directory)
-  acts_as_ferret :store_class_name => true
+  #
+  # use the :additional_fields property to specify fields you intend 
+  # to add in addition to those fields from your database table (which will be
+  # autodiscovered by acts_as_ferret)
+  # the :ignore flag tells aaf to not try to set this field's value itself (we
+  # do this in our custom to_doc method)
+  acts_as_ferret :store_class_name => true, :additional_fields => {
+    :added => { :index => :untokenized, :store => :yes, :ignore => true },
+  }
 
   # only index the named fields:
   #acts_as_ferret :fields => ['author', 'content' ]
@@ -19,10 +27,9 @@ class Comment < ActiveRecord::Base
     # just add another field to it:
     doc = super
     # add a field containing the current time
-    doc <<  Ferret::Document::Field.new(
-              'added', Time.now.to_i.to_s, 
-              Ferret::Document::Field::Store::YES, 
-              Ferret::Document::Field::Index::UNTOKENIZED)
+    doc['added'] = Time.now.to_i.to_s
+#              Ferret::Document::Field::Store::YES, 
+#              Ferret::Document::Field::Index::UNTOKENIZED)
     return doc
   end
 end

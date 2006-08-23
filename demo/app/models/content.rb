@@ -10,7 +10,12 @@ class ContentBase < ActiveRecord::Base
   # the contents of the description field are stored in the index for running
   # 'more like this' queries to find other content instances with similar
   # descriptions
-  acts_as_ferret :fields => { :comment_count => {}, 'title' => { :boost => 2 }, 'description' => { :boost => 1, :store => Ferret::Document::Field::Store::YES }, :special => {} }, :store_class_name => true
+  acts_as_ferret( :fields => { 
+    :comment_count => {},
+    :title         => { :boost => 2 }, 
+    :description   => { :boost => 1, :store => :yes },
+    :special       => {} 
+  }, :store_class_name => true)
 
   # use this instead to not assign special boost values:
   #acts_as_ferret :fields => [ 'title', 'description' ]

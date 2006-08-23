@@ -22,7 +22,7 @@ class CommentTest < Test::Unit::TestCase
     # TODO: check why this fails, but querying for 'comment fixture' works.
     # maybe different analyzers at index creation and searching time ?
     #comments_from_ferret = Comment.find_by_contents('"comment from fixture"')
-    comments_from_ferret = Comment.find_by_contents('comment AND fixture')
+    comments_from_ferret = Comment.find_by_contents('comment fixture')
     assert_equal 2, comments_from_ferret.size
     assert comments_from_ferret.include?(comments(:first))
     assert comments_from_ferret.include?(comments(:another))
@@ -49,7 +49,7 @@ class CommentTest < Test::Unit::TestCase
     end
     assert_equal 10, (res = Comment.find_by_contents('multicomment')).size
     assert_equal 20, res.total_hits
-    assert_equal 15, (res = Comment.find_by_contents('multicomment', :num_docs => 15)).size
+    assert_equal 15, (res = Comment.find_by_contents('multicomment', :limit => 15)).size
     assert_equal 20, res.total_hits
     assert_equal 20, (res = Comment.find_by_contents('multicomment', :num_docs => :all)).size
     assert_equal 20, res.total_hits
@@ -63,8 +63,8 @@ class CommentTest < Test::Unit::TestCase
   def test_custom_to_doc
     top_docs = Comment.ferret_index.search('"from fixture"')
     #top_docs = Comment.ferret_index.search('"comment from fixture"')
-    assert_equal 2, top_docs.score_docs.size
-    doc = Comment.ferret_index.doc(top_docs.score_docs[0].doc)
+    assert_equal 2, top_docs.total_hits
+    doc = Comment.ferret_index.doc(top_docs.hits[0].doc)
     # check for the special field added by the custom to_doc method
     assert_not_nil doc[:added]
     # still a valid int ?
@@ -135,20 +135,12 @@ class CommentTest < Test::Unit::TestCase
   # fixed with Ferret 0.9.6
   def test_stopwords_ferret_bug 
     i = Ferret::Index::Index.new(
-            :occur_default => Ferret::Search::BooleanClause::Occur::MUST,
-            :default_search_field => '*'
+            :or_default => false,
+            :default_field => '*'
             )
     d = Ferret::Document::Document.new
-    d << Ferret::Document::Field.new('id', '1', 
-                                     Ferret::Document::Field::Store::YES,
-                                     Ferret::Document::Field::Index::UNTOKENIZED,
-                                     Ferret::Document::Field::TermVector::NO,
-                                     false, 1.0)
-    d << Ferret::Document::Field.new('content', 'Move or shake', 
-                                     Ferret::Document::Field::Store::NO,
-                                     Ferret::Document::Field::Index::TOKENIZED,
-                                     Ferret::Document::Field::TermVector::NO,
-                                     false, 1.0)
+    d[:id] = '1'
+    d[:content] = 'Move or shake'
     i << d
     hits = i.search 'move nothere shake'
     assert_equal 0,hits.size
