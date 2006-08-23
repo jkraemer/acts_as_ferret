@@ -130,6 +130,47 @@ class CommentTest < Test::Unit::TestCase
 
     comment.destroy
     comment2.destroy
-   end
+  end
+
+  # fixed with Ferret 0.9.6
+  def test_stopwords_ferret_bug 
+    i = Ferret::Index::Index.new(
+            :occur_default => Ferret::Search::BooleanClause::Occur::MUST,
+            :default_search_field => '*'
+            )
+    d = Ferret::Document::Document.new
+    d << Ferret::Document::Field.new('id', '1', 
+                                     Ferret::Document::Field::Store::YES,
+                                     Ferret::Document::Field::Index::UNTOKENIZED,
+                                     Ferret::Document::Field::TermVector::NO,
+                                     false, 1.0)
+    d << Ferret::Document::Field.new('content', 'Move or shake', 
+                                     Ferret::Document::Field::Store::NO,
+                                     Ferret::Document::Field::Index::TOKENIZED,
+                                     Ferret::Document::Field::TermVector::NO,
+                                     false, 1.0)
+    i << d
+    hits = i.search 'move nothere shake'
+    assert_equal 0,hits.size
+    hits = i.search 'move shake'
+    assert_equal 1,hits.size
+    hits = i.search 'move or shake'
+    assert_equal 1,hits.size
+    hits = i.search 'move and shake'
+    assert_equal 1,hits.size
+  end
+
+  def test_stopwords
+    comment = Comment.create( :author => 'john doe', :content => 'Move or shake' )
+    ['move shake', 'Move shake', 'move Shake'].each do |q|
+      comments_from_ferret = Comment.find_by_contents(q)
+      assert_equal comment, comments_from_ferret.first, "query #{q} failed"
+    end
+
+    comments_from_ferret = Comment.find_by_contents('Move or shake')
+    assert_equal 1, comments_from_ferret.size
+    assert_equal comment, comments_from_ferret.first
+    comment.destroy
+  end
 
 end
