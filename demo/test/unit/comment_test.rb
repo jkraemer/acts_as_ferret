@@ -16,6 +16,10 @@ class CommentTest < Test::Unit::TestCase
     assert_equal "#{RAILS_ROOT}/index/test/comment", Comment.class_index_dir
   end
 
+  def test_reloadable
+    assert ! Comment.reloadable?
+  end
+
   # tests the automatic building of an index when none exists
   # delete index/test/* before running rake to make this useful
   def test_automatic_index_build
