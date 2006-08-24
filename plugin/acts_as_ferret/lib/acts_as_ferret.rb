@@ -179,7 +179,6 @@ module FerretMixin
         # analyzer:: the analyzer to use for query parsing (default: nil,
         #   wihch means the ferret StandardAnalyzer gets used)
         #
-        # TODO: handle additional_fields
         def acts_as_ferret(options={}, ferret_options={})
           configuration = { 
             :index_dir => "#{FerretMixin::Acts::ARFerret::index_dir}/#{self.name.underscore}",
@@ -275,6 +274,7 @@ module FerretMixin
           models.each do |model|
             fields.update(model.fields_for_ferret)
           end
+          logger.debug("class #{self.name}: fields for index: #{fields.keys.join(',')}")
           fields.each_pair do |field, options|
             fi.add_field(field, { :store => :no, 
                                   :index => :yes }.update(options)) 
