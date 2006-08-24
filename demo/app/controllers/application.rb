@@ -2,3 +2,4 @@
 # Likewise, all the methods added will be available for all controllers.
 class ApplicationController < ActionController::Base
 end
+
