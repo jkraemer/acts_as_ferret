@@ -104,9 +104,8 @@ module FerretMixin
             :term_vector => :with_positions_offsets,
             :boost => 1.0 }.update(options)
           fields_for_ferret[field] = options
-          define_method("#{field}_to_ferret".to_sym) do                              
+          define_method("#{field}_to_ferret".to_sym) do
             begin
-              #val = self[field] || self.instance_variable_get("@#{field.to_s}".to_sym) || self.method(field).call
               val = content_for_field_name(field)
             rescue
               logger.warn("Error retrieving value for field #{field}: #{$!}")
@@ -114,7 +113,6 @@ module FerretMixin
             end
             logger.debug("Adding field #{field} with value '#{val}' to index")
             val
-            #Ferret::Field.new(val, default_opts[:boost])
           end
         end
 
@@ -132,7 +130,10 @@ module FerretMixin
         
         # TODO: do we need to define this at this level ? Maybe it's
         # sufficient to do this only in classes calling acts_as_ferret ?
-        def reloadable?; false end
+        #
+        # moved below inside class_eval in #acts_as_ferret, let's see 
+        # what happens ;-)
+        #def reloadable?; false end
         
         @@ferret_indexes = Hash.new
         def ferret_indexes; @@ferret_indexes end
@@ -236,6 +237,8 @@ module FerretMixin
                 add_fields(self.new.attributes.keys.map { |k| k.to_sym })
                 add_fields(configuration[:additional_fields])
               end
+
+              def self.reloadable?; false end
             EOV
           FerretMixin::Acts::ARFerret::ensure_directory configuration[:index_dir]
         end
