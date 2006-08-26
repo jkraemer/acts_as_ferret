@@ -128,12 +128,7 @@ module FerretMixin
           end
         end
         
-        # TODO: do we need to define this at this level ? Maybe it's
-        # sufficient to do this only in classes calling acts_as_ferret ?
-        #
-        # moved below inside class_eval in #acts_as_ferret, let's see 
-        # what happens ;-)
-        #def reloadable?; false end
+        def reloadable?; false end
         
         @@ferret_indexes = Hash.new
         def ferret_indexes; @@ferret_indexes end
@@ -238,7 +233,6 @@ module FerretMixin
                 add_fields(configuration[:additional_fields])
               end
 
-              def self.reloadable?; false end
             EOV
           FerretMixin::Acts::ARFerret::ensure_directory configuration[:index_dir]
         end

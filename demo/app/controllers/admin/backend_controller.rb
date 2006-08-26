@@ -6,4 +6,9 @@ class Admin::BackendController < AdminAreaController
       @results = Content.find_by_contents @query
     end
   end
+
+  def show
+    @content = Content.find(params[:id])
+    render :template => 'content/show'
+  end
 end
