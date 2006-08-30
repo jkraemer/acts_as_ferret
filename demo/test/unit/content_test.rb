@@ -91,6 +91,16 @@ class ContentTest < Test::Unit::TestCase
     assert result.include?(contents(:first))
   end
 
+  def test_sorting
+    sorting = [ Ferret::Search::SortField.new(:id, :reverse => true) ]
+    result = Content.find_by_contents('comment_count:2', :sort => sorting)
+    assert result.first.id > result.last.id
+
+    sorting = [ Ferret::Search::SortField.new(:id) ]
+    result = Content.find_by_contents('comment_count:2', :sort => sorting)
+    assert result.first.id < result.last.id
+  end
+
   def test_multi_index
     i =  FerretMixin::Acts::ARFerret::MultiIndex.new([Content, Comment])
     hits = i.search(TermQuery.new(:title,"title"))
@@ -174,7 +184,7 @@ class ContentTest < Test::Unit::TestCase
     #puts "last  (id=#{contents_from_ferret.last[:id]}): #{contents_from_ferret.last[:score]}"
     assert_equal contents(:first).id, contents_from_ferret.first[:id].to_i 
     assert_equal @another_content.id, contents_from_ferret.last[:id].to_i
-    assert contents_from_ferret.first[:score] > contents_from_ferret.last[:score]
+    assert contents_from_ferret.first[:score] >= contents_from_ferret.last[:score]
      
     # give description field higher boost:
     contents_from_ferret = Content.find_id_by_contents('title:title OR description:title^10')
@@ -193,6 +203,22 @@ class ContentTest < Test::Unit::TestCase
     assert_equal 2, contents_from_ferret.size
     assert_equal @another_content.id, contents_from_ferret.first.id
     assert_equal contents(:first).id, contents_from_ferret.last.id 
+  end
+
+  def test_default_and_queries
+    # multiple terms are ANDed by default...
+    contents_from_ferret = Content.find_by_contents('monkey description')
+    assert contents_from_ferret.empty?
+    # ...unless you connect them by OR
+    contents_from_ferret = Content.find_by_contents('monkey OR description')
+    assert_equal 1, contents_from_ferret.size
+    assert_equal contents(:first).id, contents_from_ferret.first.id
+
+    # multiple terms, each term has to occur in a document to be found, 
+    # but they may occur in different fields
+    contents_from_ferret = Content.find_by_contents('useless title')
+    assert_equal 1, contents_from_ferret.size
+    assert_equal contents(:first).id, contents_from_ferret.first.id
   end
   
   def test_find_by_contents
@@ -230,19 +256,6 @@ class ContentTest < Test::Unit::TestCase
     contents_from_ferret = Content.find_by_contents('monkey')
     assert contents_from_ferret.empty?
     
-    # multiple terms are ANDed by default...
-    contents_from_ferret = Content.find_by_contents('monkey description')
-    assert contents_from_ferret.empty?
-    # ...unless you connect them by OR
-    contents_from_ferret = Content.find_by_contents('monkey OR description')
-    assert_equal 1, contents_from_ferret.size
-    assert_equal contents(:first).id, contents_from_ferret.first.id
-
-    # multiple terms, each term has to occur in a document to be found, 
-    # but they may occur in different fields
-    contents_from_ferret = Content.find_by_contents('useless title')
-    assert_equal 1, contents_from_ferret.size
-    assert_equal contents(:first).id, contents_from_ferret.first.id
     
 
     # search for an exact string by enclosing it in "

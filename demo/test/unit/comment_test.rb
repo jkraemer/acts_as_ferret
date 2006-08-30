@@ -16,9 +16,9 @@ class CommentTest < Test::Unit::TestCase
     assert_equal "#{RAILS_ROOT}/index/test/comment", Comment.class_index_dir
   end
 
-  def test_reloadable
-    assert ! Comment.reloadable?
-  end
+  #def test_reloadable
+  #  assert ! Comment.reloadable?
+  #end
 
   # tests the automatic building of an index when none exists
   # delete index/test/* before running rake to make this useful
@@ -138,22 +138,22 @@ class CommentTest < Test::Unit::TestCase
 
   # fixed with Ferret 0.9.6
   def test_stopwords_ferret_bug 
-    i = Ferret::Index::Index.new(
-            :or_default => false,
-            :default_field => '*'
-            )
-    d = Ferret::Document::Document.new
+    i = Ferret::I.new(:or_default => false, :default_field => '*' )
+    d = Ferret::Document.new
     d[:id] = '1'
     d[:content] = 'Move or shake'
     i << d
-    hits = i.search 'move nothere shake'
-    assert_equal 0,hits.size
-    hits = i.search 'move shake'
-    assert_equal 1,hits.size
-    hits = i.search 'move or shake'
-    assert_equal 1,hits.size
-    hits = i.search 'move and shake'
-    assert_equal 1,hits.size
+    hits = i.search 'move AND or AND shake'
+    assert_equal 1, hits.total_hits
+    hits = i.search 'move AND nothere AND shake'
+    assert_equal 0, hits.total_hits
+    hits = i.search 'move AND shake'
+    assert_equal 1, hits.total_hits
+    hits = i.search 'move OR shake'
+    assert_equal 1, hits.total_hits
+
+    hits = i.search 'move nothere'
+    assert_equal 0, hits.total_hits
   end
 
   def test_stopwords
