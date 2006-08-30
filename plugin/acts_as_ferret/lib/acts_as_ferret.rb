@@ -183,8 +183,7 @@ module FerretMixin
             :max_results => 1000
           }
           ferret_configuration = {
-            #:or_default => false, # lead to 'cannot convert false to Integer'
-            #in some cases
+            :or_default => false, 
             :handle_parser_errors => true
             #:max_clauses => 512,
             #:default_field => '*',
