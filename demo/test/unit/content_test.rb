@@ -41,6 +41,10 @@ class ContentTest < Test::Unit::TestCase
     content.save
     assert content.ferret_enabled?
     assert Content.find_by_contents('"find me"').empty?
+
+    content.save
+    assert content.ferret_enabled?
+    assert_equal content, Content.find_by_contents('"find me"').first
   end
 
   def test_ferret_disable_always
