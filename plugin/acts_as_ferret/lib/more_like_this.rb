@@ -4,6 +4,13 @@ module FerretMixin
 
       module MoreLikeThis
 
+        class DefaultAAFSimilarity
+          def idf(doc_freq, num_docs)
+            return 0.0 if num_docs == 0
+            return Math.log(num_docs.to_f/(doc_freq+1)) + 1.0
+          end
+        end
+
         # returns other instances of this class, which have similar contents
         # like this one. Basically works like this: find out n most interesting
         # (i.e. characteristic) terms from this document, and then build a
@@ -42,24 +49,26 @@ module FerretMixin
             :max_query_terms => 25,  # maximum number of terms in the query built
             :max_num_tokens => 5000, # maximum number of tokens to analyze when analyzing contents
             :boost => false,      
-            :similarity => Ferret::Search::Similarity.default,
+            :similarity => DefaultAAFSimilarity.new,
             :analyzer => Ferret::Analysis::StandardAnalyzer.new,
             :append_to_query => nil,
             :base_class => self.class # base class to use for querying, useful in STI scenarios where BaseClass.find_by_contents can be used to retrieve results from other classes, too
           }.update(options)
           index = self.class.ferret_index
-          begin
+          #index.search_each('id:*') do |doc, score|
+          #  puts "#{doc} == #{index[doc][:description]}"
+          #end
+          index.synchronize do # avoid that concurrent writes close our reader
+            index.send(:ensure_reader_open)
             reader = index.send(:reader)
-          rescue
-            # ferret >=0.9, C-Version doesn't allow access to Index#reader
-            reader = Ferret::Index::IndexReader.open(Ferret::Store::FSDirectory.new(self.class.class_index_dir, false))
+            doc_number = self.document_number
+            term_freq_map = retrieve_terms(document_number, reader, options)
+            priority_queue = create_queue(term_freq_map, reader, options)
+            query = create_query(priority_queue, options)
+            logger.debug "morelikethis-query: #{query}"
+            options[:append_to_query].call(query) if options[:append_to_query]
+            options[:base_class].find_by_contents(query, find_options)
           end
-          doc_number = self.document_number
-          term_freq_map = retrieve_terms(document_number, reader, options)
-          priority_queue = create_queue(term_freq_map, reader, options)
-          query = create_query(priority_queue, options)
-          options[:append_to_query].call(query) if options[:append_to_query]
-          options[:base_class].find_by_contents(query, find_options)
         end
 
         
@@ -68,7 +77,7 @@ module FerretMixin
           qterms = 0
           best_score = nil
           while(cur = priority_queue.pop)
-            term_query = Ferret::Search::TermQuery.new(cur.to_term)
+            term_query = Ferret::Search::TermQuery.new(cur.field, cur.word)
             
             if options[:boost]
               # boost term according to relative score
@@ -85,15 +94,15 @@ module FerretMixin
             break if options[:max_query_terms] > 0 && qterms >= options[:max_query_terms]
           end
           # exclude ourselves
-          t = Ferret::Index::Term.new('id', self.id.to_s)
-          query.add_query(Ferret::Search::TermQuery.new(t), :must_not)
+          query.add_query(Ferret::Search::TermQuery.new(:id, self.id.to_s), :must_not)
           return query
         end
 
         
         def document_number
-          hits = self.class.ferret_index.search("id:#{self.id}")
-          hits.each { |hit, score| return hit }
+          hits = self.class.ferret_index.search(Ferret::Search::TermQuery.new(:id, self.id.to_s))
+          return hits.hits.first.doc if hits.total_hits == 1
+          raise "cannot determine document number from primary key: #{self}"
         end
 
         # creates a term/term_frequency map for terms from the fields
@@ -104,41 +113,37 @@ module FerretMixin
           term_freq_map = Hash.new(0)
           doc = nil
           field_names.each do |field|
-            term_freq_vector = reader.get_term_vector(document_number, field)
+            #puts "field: #{field}"
+            term_freq_vector = reader.term_vector(document_number, field)
+            #if false
             if term_freq_vector
               # use stored term vector
-              # TODO untested
-              term_freq_vector.terms.each_with_index do |term, i|
-                term_freq_map[term] += term_freq_vector.freqs[i] unless noise_word?(term, options)
+              # puts 'using stored term vector'
+              term_freq_vector.terms.each do |term|
+                term_freq_map[term.text] += term.positions.size unless noise_word?(term.text, options)
               end
             else
+              # puts 'no stored term vector'
               # no term vector stored, but we have stored the contents in the index
               # -> extract terms from there
-              doc ||= reader.get_document(doc_number)
+              doc = reader[doc_number]
               content = doc[field]
               unless content
                 # no term vector, no stored content, so try content from this instance
-                content = content_for_field_name(field)
+                content = content_for_field_name(field.to_s)
               end
+              puts "have doc: #{doc[:id]} with #{field} == #{content}"
               token_count = 0
               
-              # C-Ferret >=0.9 again, no #each in tokenstream :-(
               ts = options[:analyzer].token_stream(field, content)
               while token = ts.next
-              #options[:analyzer].token_stream(field, doc[field]).each do |token|
                 break if (token_count+=1) > max_num_tokens
-                next if noise_word?(token_text(token), options)
-                term_freq_map[token_text(token)] += 1
+                next if noise_word?(token.text, options)
+                term_freq_map[token.text] += 1
               end
             end
           end
           term_freq_map
-        end
-
-        # extract textual value of a token
-        def token_text(token)
-          # token.term_text is for ferret 0.3.2
-          token.respond_to?(:text) ? token.text : token.term_text
         end
 
         # create an ordered(by score) list of word,fieldname,score 
@@ -156,7 +161,7 @@ module FerretMixin
             top_field = options[:field_names].first
             doc_freq = 0
             options[:field_names].each do |field_name| 
-              freq = reader.doc_freq(Ferret::Index::Term.new(field_name, word))
+              freq = reader.doc_freq(field_name, word)
               if freq > doc_freq 
                 top_field = field_name
                 doc_freq = freq
@@ -194,9 +199,6 @@ module FerretMixin
         attr_reader :word, :field, :score
         def initialize(word, field, score)
           @word = word; @field = field; @score = score
-        end
-        def to_term
-          Ferret::Index::Term.new(self.field, self.word)
         end
       end
 

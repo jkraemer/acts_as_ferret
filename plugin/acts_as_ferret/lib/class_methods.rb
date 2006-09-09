@@ -309,20 +309,16 @@ module FerretMixin
             options[:models] ||= [] 
             # add this class to the list of given models
             options[:models] << self unless options[:models].include?(self)
-            # build query parser TODO: cache these somehow
+            # keep original query 
             original_query = q
-            if q.is_a? String
-              #class_clauses = []
-              #options[:models].each do |model|
-              #  class_clauses << "class_name:#{model}"
-              #end
-              #q << " AND (#{class_clauses.join(' OR ')})"
+            
+            # work around ferret bug in #process_query (doesn't ensure the
+            # reader is open)
+            ferret_index.synchronize do
+              ferret_index.send(:ensure_reader_open)
+              original_query = ferret_index.process_query(q)
+            end if q.is_a? String
 
-              qp = Ferret::QueryParser.new (ferret_configuration)
-              qp.fields = ferret_index.send(:reader).field_names
-              original_query = qp.parse(q)
-            end
-            #else
             q = Ferret::Search::BooleanQuery.new
             q.add_query(original_query, :must)
             model_query = Ferret::Search::BooleanQuery.new
