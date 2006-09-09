@@ -99,6 +99,27 @@ class ContentTest < Test::Unit::TestCase
     assert_equal content, result.first
   end
 
+  def test_content_for_field_name
+    c = 'lorem ipsum dolor sit amet. lorem.'
+    @c1 = Content.new( :title => 'Content item 1', 
+                       :description => c )
+    assert_equal c, @c1.content_for_field_name(:description)
+  end
+
+  def test_document_number
+    c = 'lorem ipsum dolor sit amet. lorem.'
+    c1 = Content.new( :title => 'Content item 1', 
+                       :description => c )
+    c1.save
+    hits = Content.ferret_index.search('title:"Content item 1"')
+    assert_equal 1, hits.total_hits
+    expected_doc_num = hits.hits.first.doc
+    assert_equal c, Content.ferret_index[expected_doc_num][:description]
+    doc_num = c1.document_number
+    assert_equal expected_doc_num, doc_num
+    assert_equal c, Content.ferret_index[doc_num][:description]
+  end
+
   def test_more_like_this
     assert Content.find_by_contents('lorem ipsum').empty?
     @c1 = Content.new( :title => 'Content item 1', 
@@ -108,7 +129,7 @@ class ContentTest < Test::Unit::TestCase
                        :description => 'lorem ipsum dolor sit amet. lorem ipsum.' )
     @c2.save
     assert_equal 2, Content.find_by_contents('lorem ipsum').size
-    similar = @c1.more_like_this(:field_names => ['description'], :min_doc_freq => 1, :min_term_freq => 1)
+    similar = @c1.more_like_this(:field_names => [:description], :min_doc_freq => 1, :min_term_freq => 1)
     assert_equal 1, similar.size
     assert_equal @c2, similar.first
   end
