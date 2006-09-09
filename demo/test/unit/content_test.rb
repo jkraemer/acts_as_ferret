@@ -30,6 +30,12 @@ class ContentTest < Test::Unit::TestCase
     assert_kind_of Content, contents(:first)
   end
 
+  def test_highlight
+    highlight = @another_content.highlight('title')
+    assert_equal 1, highlight.size
+    assert_equal "this is not the <em>title</em>", highlight.first
+  end
+
   def test_disable_ferret_once
     content = Content.new(:title => 'should not get saved', :description => 'do not find me')
     assert_raises (ArgumentError) do
