@@ -30,6 +30,59 @@ class ContentTest < Test::Unit::TestCase
     assert_kind_of Content, contents(:first)
   end
 
+  def test_disable_ferret_once
+    content = Content.new(:title => 'should not get saved', :description => 'do not find me')
+    assert_raises (ArgumentError) do
+      content.disable_ferret(:wrong)
+    end
+    assert content.ferret_enabled?
+    content.disable_ferret
+    assert !content.ferret_enabled?
+    content.save
+    assert content.ferret_enabled?
+    assert Content.find_by_contents('"find me"').empty?
+  end
+
+  def test_ferret_disable_always
+    content = Content.new(:title => 'should not get saved', :description => 'do not find me')
+    assert content.ferret_enabled?
+    content.disable_ferret(:always)
+    assert !content.ferret_enabled?
+    2.times do 
+      content.save
+      assert Content.find_by_contents('"find me"').empty?
+      assert !content.ferret_enabled?
+    end
+    content.ferret_enable
+    assert content.ferret_enabled?
+    content.save
+    assert content.ferret_enabled?
+    assert_equal content, Content.find_by_contents('"find me"').first
+  end
+
+  def test_disable_ferret_block
+    content = Content.new(:title => 'should not get saved', :description => 'do not find me')
+    content.disable_ferret do
+      2.times do
+        content.save
+        assert Content.find_by_contents('"find me"').empty?
+        assert !content.ferret_enabled?
+      end
+    end
+    assert content.ferret_enabled?
+    assert Content.find_by_contents('"find me"').empty?
+
+    content.disable_ferret(:index_when_finished) do
+      2.times do
+        content.save
+        assert Content.find_by_contents('"find me"').empty?
+        assert !content.ferret_enabled?
+      end
+    end
+    assert content.ferret_enabled?
+    assert_equal content, Content.find_by_contents('"find me"').first
+  end
+
   def test_unicode
     content = Content.new(:title => 'Title with some Ümläuts - äöü', 
                           :description => 'look - an ß')
