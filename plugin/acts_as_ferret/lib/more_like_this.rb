@@ -99,11 +99,6 @@ module FerretMixin
         end
 
         
-        def document_number
-          hits = self.class.ferret_index.search(Ferret::Search::TermQuery.new(:id, self.id.to_s))
-          return hits.hits.first.doc if hits.total_hits == 1
-          raise "cannot determine document number from primary key: #{self}"
-        end
 
         # creates a term/term_frequency map for terms from the fields
         # given in options[:field_names]

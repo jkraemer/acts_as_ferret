@@ -4,6 +4,49 @@ module FerretMixin
 
       module InstanceMethods
         include MoreLikeThis
+
+          # Returns an array of strings with the matches highlighted. The +query+ can
+          # either a query String or a Ferret::Search::Query object.
+          # 
+          # === Options
+          #
+          # field::            field to take the content from. This field has 
+          #                    to have it's content stored in the index 
+          #                    (:store => :yes in your call to aaf). If not
+          #                    given, all stored fields are searched, and the
+          #                    highlighted content found in all of them is returned.
+          #                    set :highlight => :no in the field options to
+          #                    avoid highlighting of contents from a :stored field.
+          # excerpt_length::   Default: 150. Length of excerpt to show. Highlighted
+          #                    terms will be in the centre of the excerpt.
+          # num_excerpts::     Default: 2. Number of excerpts to return.
+          # pre_tag::          Default: "<em>". Tag to place to the left of the
+          #                    match.  
+          # post_tag::         Default: "</em>". This tag should close the
+          #                    +:pre_tag+.
+          # ellipsis::         Default: "...". This is the string that is appended
+          #                    at the beginning and end of excerpts (unless the
+          #                    excerpt hits the start or end of the field. You'll
+          #                    probably want to change this so a Unicode elipsis
+          #                    character.
+        def highlight(query, options = {})
+          options = { :num_excerpts => 2, :pre_tag => '<em>', :post_tag => '</em>' }.update(options)
+          i = self.class.ferret_index
+          highlights = []
+          i.synchronize do
+            doc_num = self.document_number
+            if options[:field]
+              highlights << i.highlight(query, doc_num, options)
+            else
+              fields_for_ferret.each_pair do |field, config|
+                next if config[:store] == :no || config[:highlight] == :no
+                options[:field] = field
+                highlights << i.highlight(query, doc_num, options)
+              end
+            end
+          end
+          return highlights.compact.flatten[0..options[:num_excerpts]-1]
+        end
         
         # re-eneable ferret indexing after a call to #disable_ferret
         def ferret_enable; @ferret_disabled = nil end
@@ -48,18 +91,12 @@ module FerretMixin
         end
         alias :ferret_update :ferret_create
         
+
         # remove from index
         def ferret_destroy
           logger.debug "ferret_destroy: #{self.class.name} : #{self.id}"
           begin
-            query = Ferret::Search::TermQuery.new(:id, self.id.to_s)
-            if self.class.configuration[:single_index]
-              bq = Ferret::Search::BooleanQuery.new
-              bq.add_query(query, :must)
-              bq.add_query(Ferret::Search::TermQuery.new(:class_name, self.class.name), :must)
-              query = bq
-            end
-            self.class.ferret_index.query_delete(query)
+            self.class.ferret_index.query_delete(query_for_self)
           rescue
             logger.warn("Could not find indexed value for this object: #{$!}")
           end
@@ -86,6 +123,28 @@ module FerretMixin
           end
           return doc
         end
+
+        # returns the ferret document number this record has.
+        def document_number
+          hits = self.class.ferret_index.search(query_for_self)
+          return hits.hits.first.doc if hits.total_hits == 1
+          raise "cannot determine document number from primary key: #{self}"
+        end
+
+        protected
+
+        # build a ferret query matching only this record
+        def query_for_self
+          query = Ferret::Search::TermQuery.new(:id, self.id.to_s)
+          if self.class.configuration[:single_index]
+            bq = Ferret::Search::BooleanQuery.new
+            bq.add_query(query, :must)
+            bq.add_query(Ferret::Search::TermQuery.new(:class_name, self.class.name), :must)
+            return bq
+          end
+          return query
+        end
+
       end
 
     end

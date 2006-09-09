@@ -11,6 +11,7 @@ module FerretMixin
         def define_to_field_method(field, options = {})         
           options = { 
             :store => :no, 
+            :highlight => :yes, 
             :index => :yes, 
             :term_vector => :with_positions_offsets,
             :boost => 1.0 }.update(options)
