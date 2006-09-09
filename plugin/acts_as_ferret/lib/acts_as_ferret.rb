@@ -211,8 +211,7 @@ module FerretMixin
           class_eval <<-EOV
               include FerretMixin::Acts::ARFerret::InstanceMethods
 
-              before_create :ferret_before_create
-              before_update :ferret_before_update
+
               after_create :ferret_create
               after_update :ferret_update
               after_destroy :ferret_destroy      
@@ -545,22 +544,47 @@ module FerretMixin
       
       
       module InstanceMethods
-        attr_reader :reindex
-        @ferret_reindex = true
         
-        def ferret_before_update
-          @ferret_reindex = true
+        # re-eneable ferret indexing after a call to #disable_ferret
+        def ferret_enable; @ferret_disabled = nil end
+       
+        # returns true if ferret indexing is enabled
+        def ferret_enabled?; @ferret_disabled.nil? end
+
+        # Disable Ferret for a specified amount of time. ::once will disable
+        # Ferret for the next call to #save (this is the default), ::always will 
+        # do so for all subsequent calls.
+        # To manually trigger reindexing of a record, you can call #ferret_update 
+        # directly. 
+        #
+        # When given a block, this will be executed without any ferret indexing of 
+        # this object taking place. The optional argument in this case can be used 
+        # to indicate if the object should be indexed after executing the block
+        # (::index_when_finished). Automatic Ferret indexing of this object will be 
+        # turned on after the block has been executed.
+        def disable_ferret(option = :once)
+          if block_given?
+            @ferret_disabled = :always
+            yield
+            ferret_enable
+            ferret_update if option == :index_when_finished
+          elsif [:once, :always].include?(option)
+            @ferret_disabled = option
+          else
+            raise ArgumentError.new("Invalid Argument #{option}")
+          end
         end
-        alias :ferret_before_create :ferret_before_update
-        
+
         # add to index
         def ferret_create
-          logger.debug "ferret_create/update: #{self.class.name} : #{self.id}"
-          if @ferret_reindex
+          if ferret_enabled?
+            logger.debug "ferret_create/update: #{self.class.name} : #{self.id}"
             self.class.ferret_index << self.to_doc
+          else
+            ferret_enable if @ferret_disabled == :once
           end
-          @ferret_reindex = true
-          true
+          @ferret_enabled = true
+          true # signal success to AR
         end
         alias :ferret_update :ferret_create
         
@@ -579,7 +603,7 @@ module FerretMixin
           rescue
             logger.warn("Could not find indexed value for this object: #{$!}")
           end
-          true
+          true # signal success to AR
         end
         
         # convert instance to ferret document
