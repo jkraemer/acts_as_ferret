@@ -38,6 +38,7 @@ module FerretMixin
             if options[:field]
               highlights << i.highlight(query, doc_num, options)
             else
+              query = i.process_query(query) # process only once
               fields_for_ferret.each_pair do |field, config|
                 next if config[:store] == :no || config[:highlight] == :no
                 options[:field] = field

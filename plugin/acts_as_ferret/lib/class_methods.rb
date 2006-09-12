@@ -227,12 +227,13 @@ module FerretMixin
         # Finds instances by contents. Terms are ANDed by default, can be circumvented 
         # by using OR between terms. 
         # options:
-        # :first_doc - first hit to retrieve (useful for paging)
-        # :num_docs - number of hits to retrieve, or :all to retrieve
-        # max_results results, which by default is 1000 and can be changed in
-        # the call to acts_as_ferret or on demand like this:
-        # Model.configuration[:max_results] = 1000000
-         #
+        # offset::      first hit to retrieve (useful for paging)
+        # limit::       number of hits to retrieve, or :all to retrieve
+        #               max_results results, which by default is 1000 
+        #               and can be changed in the call to acts_as_ferret 
+        #               or on demand like this:
+        #               Model.configuration[:max_results] = 1000000
+        #
         # find_options is a hash passed on to active_record's find when
         # retrieving the data from db, useful to i.e. prefetch relationships.
         #
@@ -416,6 +417,7 @@ module FerretMixin
         #
         def id_multi_search(query, additional_models = [], options = {})
           deprecated_options_support(options)
+          # TODO remove this, ferret supports :all by itself now
           options[:limit] = configuration[:max_results] if options[:limit] == :all
           additional_models << self
           searcher = multi_index(additional_models)

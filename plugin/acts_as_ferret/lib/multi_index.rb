@@ -22,9 +22,9 @@ module FerretMixin
           searcher.search(query, options)
         end
 
-        def search_each(query, options={}, &block)
+        def search_each(query, options = {}, &block)
           query = process_query(query)
-          searcher.search_each(query, options={}, &block)
+          searcher.search_each(query, options, &block)
         end
 
         # checks if all our sub-searchers still are up to date
