@@ -211,6 +211,16 @@ class ContentTest < Test::Unit::TestCase
 
     hits = i.search("title OR comment")
     assert_equal 5, hits.total_hits
+
+    hits = i.search("title OR comment", :limit => 2)
+    count = 0
+    hits.hits.each { |hit, score| count += 1 }
+    assert_equal 2, count
+
+    hits = i.search("title OR comment", :offset => 2)
+    count = 0
+    hits.hits.each { |hit, score| count += 1 }
+    assert_equal 3, count
   end
 
   def test_multi_searcher
@@ -235,6 +245,13 @@ class ContentTest < Test::Unit::TestCase
     assert_equal contents(:first).id, contents_from_ferret.first.id
     assert_equal @another_content.id, contents_from_ferret.last.id
     
+    contents_from_ferret = Content.multi_search('title', [])
+    assert_equal 2, contents_from_ferret.size
+    contents_from_ferret = Content.multi_search('title', [], :limit => 1)
+    assert_equal 1, contents_from_ferret.size
+    contents_from_ferret = Content.multi_search('title', [], :offset => 1)
+    assert_equal 1, contents_from_ferret.size
+
     contents_from_ferret = Content.multi_search('title:title OR content:comment OR description:title', [Comment])
     assert_equal 5, contents_from_ferret.size
     contents_from_ferret = Content.multi_search('*:title OR *:comment', [Comment])
