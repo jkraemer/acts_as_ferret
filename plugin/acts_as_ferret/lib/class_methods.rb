@@ -270,7 +270,7 @@ module FerretMixin
           # order results as they were found by ferret, unless an AR :order
           # option was given
           unless find_options[:order]
-            result.sort! { |a, b| id_positions[a.id] <=> id_positions[b.id] }
+            result.sort! { |a, b| id_positions[a.id.to_s] <=> id_positions[b.id.to_s] }
           end
           
           logger.debug "Query: #{q}\nResult id_array: #{id_array.inspect},\nresult: #{result}"
@@ -377,7 +377,7 @@ module FerretMixin
             doc = index[hit]
             model = configuration[:store_class_name] ? doc[:class_name] : self.name
             if block_given?
-              yield model, doc[:id].to_i, score
+              yield model, doc[:id], score
             else
               result << { :model => model, :id => doc[:id], :score => score }
             end
@@ -413,7 +413,7 @@ module FerretMixin
           total_hits = searcher.search_each (query, options) do |hit, score|
             doc = searcher[hit]
             if block_given?
-              yield doc[:class_name], doc[:id].to_i, score
+              yield doc[:class_name], doc[:id], score
             else
               result << { :model => doc[:class_name], :id => doc[:id], :score => score }
             end
