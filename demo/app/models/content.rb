@@ -3,7 +3,7 @@ class ContentBase < ActiveRecord::Base
   set_table_name 'contents'
 
   # a higher boost means more importance for the field --> documents having a
-  # match in a field with a higher boost value will be ranked better
+  # match in a field with a higher boost value will be ranked higher
   #
   # we use the store_class_name flag to be able to retrieve model instances when
   # searching multiple indexes at once.
@@ -17,8 +17,6 @@ class ContentBase < ActiveRecord::Base
     :special       => {} 
   }, :store_class_name => true)
 
-  # use this instead to not assign special boost values:
-  #acts_as_ferret :fields => [ 'title', 'description' ]
 
   def comment_count; 0 end
 

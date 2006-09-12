@@ -1,5 +1,6 @@
 require File.dirname(__FILE__) + '/../test_helper'
 require 'pp'
+require 'fileutils'
 
 class ContentTest < Test::Unit::TestCase
   include Ferret::Index
@@ -8,9 +9,9 @@ class ContentTest < Test::Unit::TestCase
 
   def setup
     #make sure the fixtures are in the index
-    ContentBase.find(:all).each { |c| c.save }
-    Comment.find(:all).each { |c| c.save }
-
+    FileUtils.rm_f 'index/test/'
+    Comment.rebuild_index
+    ContentBase.rebuild_index 
     
     @another_content = Content.new( :title => 'Another Content item', 
                                     :description => 'this is not the title' )
@@ -18,7 +19,6 @@ class ContentTest < Test::Unit::TestCase
     @comment = @another_content.comments.create(:author => 'john doe', :content => 'This is a useless comment')
     @comment2 = @another_content.comments.create(:author => 'another', :content => 'content')
     @another_content.save # to update comment_count in ferret-index
-    #puts "\n### another content: #{@another_content.id}\n"
   end
   
   def teardown
@@ -232,11 +232,13 @@ class ContentTest < Test::Unit::TestCase
   def test_multi_search
     assert_equal 4, ContentBase.find(:all).size
     
-    contents_from_ferret = Content.multi_search('title:title')
+    Content.ferret_index.flush
+    contents_from_ferret = Content.multi_search('description:title')
     assert_equal 1, contents_from_ferret.size
-    
     contents_from_ferret = Content.multi_search('title:title OR description:title')
     assert_equal 2, contents_from_ferret.size
+    contents_from_ferret = Content.multi_search('title:title')
+    assert_equal 1, contents_from_ferret.size
     contents_from_ferret = Content.multi_search('*:title')
     assert_equal 2, contents_from_ferret.size
     contents_from_ferret = Content.multi_search('title')
@@ -333,20 +335,6 @@ class ContentTest < Test::Unit::TestCase
     assert_equal contents(:first).id, contents_from_ferret.first.id 
     assert_equal @another_content.id, contents_from_ferret.last.id
 
-    # find options
-    contents_from_ferret = Content.find_by_contents('title', {}, :conditions => ["id=?",contents(:first).id])
-    assert_equal 1, contents_from_ferret.size
-    assert_equal contents(:first), contents_from_ferret.first
-    
-    # limit result set size to 1
-    contents_from_ferret = Content.find_by_contents('title', :num_docs => 1)
-    assert_equal 1, contents_from_ferret.size
-    assert_equal contents(:first), contents_from_ferret.first 
-    
-    # limit result set size to 1, starting with the second result
-    contents_from_ferret = Content.find_by_contents('title', :num_docs => 1, :first_doc => 1)
-    assert_equal 1, contents_from_ferret.size
-    assert_equal @another_content.id, contents_from_ferret.first.id 
      
 
     contents_from_ferret = Content.find_by_contents('useless')
@@ -386,9 +374,28 @@ class ContentTest < Test::Unit::TestCase
     # should find only one now
     assert_equal 1, contents_from_ferret.size
     assert_equal @another_content.id, contents_from_ferret.first.id
-   end
+  end
 
-   def test_find_by_contents_options
+  def test_find_by_contents_options
+    # find options
+    contents_from_ferret = Content.find_by_contents('title', {}, :conditions => ["id=?",contents(:first).id])
+    assert_equal 1, contents_from_ferret.size
+    assert_equal contents(:first), contents_from_ferret.first
+    
+    # limit result set size to 1
+    contents_from_ferret = Content.find_by_contents('title', :limit => 1)
+    assert_equal 1, contents_from_ferret.size
+    assert_equal contents(:first), contents_from_ferret.first 
+    
+    # limit result set size to 1, starting with the second result
+    contents_from_ferret = Content.find_by_contents('title', :limit => 1, :offset => 1)
+    assert_equal 1, contents_from_ferret.size
+    assert_equal @another_content.id, contents_from_ferret.first.id 
+
+    # deprecated options, still supported
+    contents_from_ferret = Content.find_by_contents('title', :num_docs => 1, :first_doc => 1)
+    assert_equal 1, contents_from_ferret.size
+    assert_equal @another_content.id, contents_from_ferret.first.id 
      
    end
 end

@@ -55,11 +55,7 @@ class CommentTest < Test::Unit::TestCase
     assert_equal 20, res.total_hits
     assert_equal 15, (res = Comment.find_by_contents('multicomment', :limit => 15)).size
     assert_equal 20, res.total_hits
-    assert_equal 20, (res = Comment.find_by_contents('multicomment', :num_docs => :all)).size
-    assert_equal 20, res.total_hits
-
-    Comment.configuration[:max_results] = 15
-    assert_equal 15, (res = Comment.find_by_contents('multicomment', :num_docs => :all)).size
+    assert_equal 20, (res = Comment.find_by_contents('multicomment', :limit => :all)).size
     assert_equal 20, res.total_hits
   end
 
