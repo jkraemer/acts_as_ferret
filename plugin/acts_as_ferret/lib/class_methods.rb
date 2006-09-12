@@ -77,9 +77,6 @@ module FerretMixin
         # this to true. the model class name will be stored in a keyword field 
         # named class_name
         #
-        # max_results:: number of results to retrieve for :num_docs => :all,
-        # default value is 1000
-        #
         # ferret_options may be:
         # or_default:: - whether query terms are required by
         #   default (the default, false), or not (true)
@@ -92,7 +89,6 @@ module FerretMixin
             :index_dir => "#{FerretMixin::Acts::ARFerret::index_dir}/#{self.name.underscore}",
             :store_class_name => false,
             :single_index => false,
-            :max_results => 1000
           }
           ferret_configuration = {
             :or_default => false, 
@@ -190,6 +186,7 @@ module FerretMixin
           fi.create_index(ferret_configuration[:path])
 
           index = Ferret::Index::Index.new(ferret_configuration.dup.update(:auto_flush => false))
+          #index = Ferret::Index::Index.new(ferret_configuration.dup.update(:auto_flush => true))
           batch_size = 1000
           models.each do |model|
             # index in batches of 1000 to limit memory consumption (fixes #24)
@@ -229,10 +226,7 @@ module FerretMixin
         # options:
         # offset::      first hit to retrieve (useful for paging)
         # limit::       number of hits to retrieve, or :all to retrieve
-        #               max_results results, which by default is 1000 
-        #               and can be changed in the call to acts_as_ferret 
-        #               or on demand like this:
-        #               Model.configuration[:max_results] = 1000000
+        #               all results
         #
         # find_options is a hash passed on to active_record's find when
         # retrieving the data from db, useful to i.e. prefetch relationships.
@@ -259,7 +253,7 @@ module FerretMixin
             if id_array.empty?
               result = []
             else
-              conditions = [ "#{self.table_name}.id in (?)", id_array ]
+              conditions = [ "#{table_name}.#{primary_key} in (?)", id_array ]
               # combine our conditions with those given by user, if any
               if find_options[:conditions]
                 cust_opts = find_options[:conditions].dup
@@ -359,12 +353,11 @@ module FerretMixin
         # on a single index containing all the data from Model1, Model2 
         # and Model
         #
-        # options:
-        # :first_doc - first hit to retrieve (useful for paging)
-        # :num_docs - number of hits to retrieve, or :all to retrieve
-        # max_results results, which by default is 1000 and can be changed in
-        # the call to acts_as_ferret or on demand like this:
-        # Model.configuration[:max_results] = 1000000
+        # options are:
+        #
+        # first_doc::      first hit to retrieve (useful for paging)
+        # num_docs::       number of hits to retrieve, or :all to retrieve all
+        #                  results.
         #
         # a block can be given too, it will be executed with every result:
         # find_id_by_contents(q, options) do |model, id, score|
@@ -376,12 +369,9 @@ module FerretMixin
         # 
         def find_id_by_contents(q, options = {})
           deprecated_options_support(options)
-          options[:limit] = configuration[:max_results] if options[:limit] == :all
 
           result = []
           index = self.ferret_index
-          #hits = index.search(q, options)
-          #hits.each do |hit, score|
           total_hits = index.search_each(q, options) do |hit, score|
             # only collect result data if we intend to return it
             doc = index[hit]
@@ -417,8 +407,6 @@ module FerretMixin
         #
         def id_multi_search(query, additional_models = [], options = {})
           deprecated_options_support(options)
-          # TODO remove this, ferret supports :all by itself now
-          options[:limit] = configuration[:max_results] if options[:limit] == :all
           additional_models << self
           searcher = multi_index(additional_models)
           result = []

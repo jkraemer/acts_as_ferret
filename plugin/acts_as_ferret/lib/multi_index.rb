@@ -30,29 +30,11 @@ module FerretMixin
         # checks if all our sub-searchers still are up to date
         def latest?
           return false unless @reader
-          # segfaults with 0.10.0 --> TODO report as bug @reader.latest?
+          # segfaults with 0.10.4 --> TODO report as bug @reader.latest?
           @sub_readers.each do |r| 
             return false unless r.latest? 
           end
           true
-        end
-
-        def ensure_searcher
-          unless latest?
-            #field_names = Set.new
-            @sub_readers = @model_classes.map { |clazz| 
-              begin
-                reader = Ferret::Index::IndexReader.new(clazz.class_index_dir)
-              rescue Exception
-                puts "error opening #{clazz.class_index_dir}: #{$!}"
-              end
-            #  field_names << reader.field_names.to_set
-              reader
-            }
-            @reader = Ferret::Index::IndexReader.new(@sub_readers)
-            @searcher = Ferret::Search::Searcher.new(@reader)
-            @query_parser = nil # trigger re-creation from new field_name array
-          end
         end
          
         def searcher
@@ -78,6 +60,25 @@ module FerretMixin
           query = query_parser.parse(query) if query.is_a?(String)
           return query
         end
+
+        protected
+
+          def ensure_searcher
+            unless latest?
+              @sub_readers = @model_classes.map { |clazz| 
+                begin
+                  reader = Ferret::Index::IndexReader.new(clazz.class_index_dir)
+                rescue Exception
+                  puts "error opening #{clazz.class_index_dir}: #{$!}"
+                end
+                reader
+              }
+              @searcher.close if @searcher
+              @reader.close if @reader
+              @reader = Ferret::Index::IndexReader.new(@sub_readers)
+              @searcher = Ferret::Search::Searcher.new(@reader)
+            end
+          end
 
       end # of class MultiIndex
 

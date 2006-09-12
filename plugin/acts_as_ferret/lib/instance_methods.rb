@@ -116,9 +116,8 @@ module FerretMixin
           if configuration[:store_class_name]
             doc[:class_name] = self.class.name
           end
+          
           # iterate through the fields and add them to the document
-          #if fields_for_ferret
-            # have user defined fields
           fields_for_ferret.each_pair do |field, config|
             doc[field] = self.send("#{field}_to_ferret") unless config[:ignore]
           end
