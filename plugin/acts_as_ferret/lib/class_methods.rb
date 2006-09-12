@@ -202,6 +202,16 @@ module FerretMixin
           index.flush
           index.optimize
           index.close
+          # close combined index readers, just in case
+          # this seems to fix a strange test failure that seems to relate to a
+          # multi_index looking at an old version of the content_base index.
+          @@multi_indexes.each_pair do |key, index|
+            # puts "#{key} -- #{self.name}"
+            # TODO only close those where necessary (watch inheritance, where
+            # self.name is base class of a class where key is made from)
+            index.close #if key =~ /#{self.name}/
+          end
+          @@multi_indexes = Hash.new
         end                                                            
         
         # Retrieve the Ferret::Index::Index instance for this model class.

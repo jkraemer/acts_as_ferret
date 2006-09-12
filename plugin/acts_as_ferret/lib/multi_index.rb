@@ -61,6 +61,11 @@ module FerretMixin
           return query
         end
 
+        def close
+          @searcher.close if @searcher
+          @reader.close if @reader
+        end
+
         protected
 
           def ensure_searcher
@@ -73,8 +78,7 @@ module FerretMixin
                 end
                 reader
               }
-              @searcher.close if @searcher
-              @reader.close if @reader
+              close
               @reader = Ferret::Index::IndexReader.new(@sub_readers)
               @searcher = Ferret::Search::Searcher.new(@reader)
             end
