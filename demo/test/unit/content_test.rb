@@ -280,6 +280,11 @@ class ContentTest < Test::Unit::TestCase
     end
   end
 
+  def test_total_hits
+    assert_equal 2, Content.total_hits('title:title OR description:title')
+    assert_equal 2, Content.total_hits('title:title OR description:title', :limit => 1)
+  end
+
   def test_find_id_by_contents
     contents_from_ferret = Content.find_id_by_contents('title:title OR description:title')
     assert_equal 2, contents_from_ferret.size
