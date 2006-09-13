@@ -342,6 +342,11 @@ module FerretMixin
         end
         protected :single_index_find_by_contents
 
+        # return the total number of hits for the given query 
+        def total_hits(q, options={})
+          ferret_index.search(q, options).total_hits
+        end
+
         # Finds instance model name, ids and scores by contents. 
         # Useful if you want to search across models
         # Terms are ANDed by default, can be circumvented by using OR between terms.
