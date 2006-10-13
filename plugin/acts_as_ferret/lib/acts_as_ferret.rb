@@ -26,7 +26,6 @@ require 'instance_methods'
 # 0.10 problems
 # Ferret::Search::Similarity, Ferret::Search::Similarity.default missing
 # IndexReader#latest? segfaults when used on multiple indexes
-#
 
 # The Rails ActiveRecord Ferret Mixin.
 #

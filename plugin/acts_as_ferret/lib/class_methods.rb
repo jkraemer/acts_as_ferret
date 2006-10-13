@@ -422,6 +422,7 @@ module FerretMixin
         #
         def id_multi_search(query, additional_models = [], options = {})
           deprecated_options_support(options)
+          additional_models = [ additional_models ] unless additional_models.is_a? Array
           additional_models << self
           searcher = multi_index(additional_models)
           result = []
