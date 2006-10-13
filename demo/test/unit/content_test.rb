@@ -143,6 +143,23 @@ class ContentTest < Test::Unit::TestCase
   def test_class_index_dir
     assert_equal "#{RAILS_ROOT}/index/test/content_base", Content.class_index_dir
   end
+  
+  def test_update
+    contents_from_ferret = Content.find_by_contents('useless')
+    assert_equal 1, contents_from_ferret.size
+    assert_equal @content.id, contents_from_ferret.first.id
+    @content.description = 'Updated description, still useless'
+    @content.save
+    contents_from_ferret = Content.find_by_contents('useless')
+    assert_equal 1, contents_from_ferret.size
+    assert_equal @content.id, contents_from_ferret.first.id
+    contents_from_ferret = Content.find_by_contents('updated AND description')
+    assert_equal 1, contents_from_ferret.size
+    assert_equal @content.id, contents_from_ferret.first.id
+    contents_from_ferret = Content.find_by_contents('updated OR description')
+    assert_equal 1, contents_from_ferret.size
+    assert_equal @content.id, contents_from_ferret.first.id
+  end
 
   def test_update
     contents_from_ferret = Content.find_by_contents('useless')
@@ -255,6 +272,8 @@ class ContentTest < Test::Unit::TestCase
     assert_equal 1, contents_from_ferret.size
 
     contents_from_ferret = Content.multi_search('title:title OR content:comment OR description:title', [Comment])
+    assert_equal 5, contents_from_ferret.size
+    contents_from_ferret = Content.multi_search('*:title OR *:comment', Comment)
     assert_equal 5, contents_from_ferret.size
     contents_from_ferret = Content.multi_search('*:title OR *:comment', [Comment])
     assert_equal 5, contents_from_ferret.size
