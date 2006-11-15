@@ -248,28 +248,22 @@ module FerretMixin
         def find_by_contents(q, options = {}, find_options = {})
           # handle shared index
           return single_index_find_by_contents(q, options, find_options) if configuration[:single_index]
-          id_array = []
-          id_positions = {}
+          results = {}
           total_hits = find_id_by_contents(q, options) do |model, id, score|
-            id_array << id
-            # store index of this id for later ordering of results
-            id_positions[id] = id_array.size
+            # stores ids, index of each id for later ordering of
+            # results, and score
+            results[id] = [ results.size + 1, score ]
           end
           begin
             # TODO: in case of STI AR will filter out hits from other 
             # classes for us, but this
             # will lead to less results retrieved --> scoping of ferret query
             # to self.class is still needed.
-            if id_array.empty?
+            if results.empty?
               result = []
             else
-              conditions = [ "#{table_name}.#{primary_key} in (?)", id_array ]
-              # combine our conditions with those given by user, if any
-              if find_options[:conditions]
-                cust_opts = find_options[:conditions].dup
-                conditions.first << " and " << cust_opts.shift
-                conditions.concat(cust_opts)
-              end
+              conditions = combine_conditions([ "#{table_name}.#{primary_key} in (?)", results.keys ], 
+                                              find_options[:conditions])
               result = self.find(:all, 
                                  find_options.merge(:conditions => conditions))
             end
@@ -280,10 +274,12 @@ module FerretMixin
           # order results as they were found by ferret, unless an AR :order
           # option was given
           unless find_options[:order]
-            result.sort! { |a, b| id_positions[a.id.to_s] <=> id_positions[b.id.to_s] }
+            result.sort! { |a, b| results[a.id.to_s].first <=> results[b.id.to_s].first }
           end
+          # set scores
+          result.each { |r| r.ferret_score = results[r.id.to_s].last }
           
-          logger.debug "Query: #{q}\nResult id_array: #{id_array.inspect},\nresult: #{result}"
+          logger.debug "Query: #{q}\nResult ids: #{results.keys.inspect},\nresult: #{result}"
           return SearchResults.new(result, total_hits)
         end 
 
@@ -409,7 +405,9 @@ module FerretMixin
         def multi_search(query, additional_models = [], options = {})
           result = []
           total_hits = id_multi_search(query, additional_models, options) do |model, id, score|
-            result << Object.const_get(model).find(id)
+            r = Object.const_get(model).find(id)
+            r.ferret_score = score
+            result << r
           end
           SearchResults.new(result, total_hits)
         end
@@ -444,6 +442,8 @@ module FerretMixin
           @@multi_indexes[key] ||= MultiIndex.new(model_classes, ferret_configuration)
         end
 
+        private
+
         def deprecated_options_support(options)
           if options[:num_docs]
             logger.warn ":num_docs is deprecated, use :limit instead!"
@@ -453,6 +453,16 @@ module FerretMixin
             logger.warn ":first_doc is deprecated, use :offset instead!"
             options[:offset] ||= options[:first_doc]
           end
+        end
+
+        # combine our conditions with those given by user, if any
+        def combine_conditions(conditions, additional_conditions)
+          if additional_conditions
+            cust_opts = additional_conditions.dup
+            conditions.first << " and " << cust_opts.shift
+            conditions.concat(cust_opts)
+          end
+          conditions
         end
 
       end

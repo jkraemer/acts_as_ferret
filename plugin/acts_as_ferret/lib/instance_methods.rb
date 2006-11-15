@@ -131,6 +131,10 @@ module FerretMixin
           raise "cannot determine document number from primary key: #{self}"
         end
 
+        # holds the score this record had when it was found via
+        # acts_as_ferret
+        attr_accessor :ferret_score
+          
         protected
 
         # build a ferret query matching only this record
