@@ -18,7 +18,7 @@ class Comment < ActiveRecord::Base
   }
 
   # only index the named fields:
-  #acts_as_ferret :fields => ['author', 'content' ]
+  #acts_as_ferret :fields => [:author, :content ]
 
   # you can override the default to_doc method 
   # to customize what gets into your index. 
@@ -27,9 +27,7 @@ class Comment < ActiveRecord::Base
     # just add another field to it:
     doc = super
     # add a field containing the current time
-    doc['added'] = Time.now.to_i.to_s
-#              Ferret::Document::Field::Store::YES, 
-#              Ferret::Document::Field::Index::UNTOKENIZED)
+    doc[:added] = Time.now.to_i.to_s
     return doc
   end
 end

@@ -47,6 +47,11 @@ class CommentTest < Test::Unit::TestCase
     assert_equal 2, comments_from_ferret.total_hits
   end
 
+  def test_score
+    comments_from_ferret = Comment.find_by_contents('comment AND fixture', :num_docs => 1)
+    assert comments_from_ferret.first.ferret_score > 0
+  end
+
   def test_find_all
     20.times do |i|
       Comment.create( :author => 'multi-commenter', :content => "This is multicomment no #{i}" )
@@ -147,21 +152,20 @@ class CommentTest < Test::Unit::TestCase
     assert_equal 1, hits.total_hits
     hits = i.search 'move OR shake'
     assert_equal 1, hits.total_hits
+    hits = i.search '+move +the +shake'
+    assert_equal 1, hits.total_hits
 
     hits = i.search 'move nothere'
     assert_equal 0, hits.total_hits
   end
 
+  # fails due to Ferret bug in 0.10.13, http://pastie.caboo.se/22886
   def test_stopwords
     comment = Comment.create( :author => 'john doe', :content => 'Move or shake' )
-    ['move shake', 'Move shake', 'move Shake'].each do |q|
+    ['move shake', 'Move shake', 'move Shake', 'move or shake', 'move the shake'].each do |q|
       comments_from_ferret = Comment.find_by_contents(q)
       assert_equal comment, comments_from_ferret.first, "query #{q} failed"
     end
-
-    comments_from_ferret = Comment.find_by_contents('Move or shake')
-    assert_equal 1, comments_from_ferret.size
-    assert_equal comment, comments_from_ferret.first
     comment.destroy
   end
 

@@ -273,6 +273,9 @@ class ContentTest < Test::Unit::TestCase
 
     contents_from_ferret = Content.multi_search('title:title OR content:comment OR description:title', [Comment])
     assert_equal 5, contents_from_ferret.size
+    contents_from_ferret = Content.multi_search('title:title OR content:comment OR description:title', [Comment], :limit => 2)
+    assert_equal 2, contents_from_ferret.size
+
     contents_from_ferret = Content.multi_search('*:title OR *:comment', Comment)
     assert_equal 5, contents_from_ferret.size
     contents_from_ferret = Content.multi_search('*:title OR *:comment', [Comment])
