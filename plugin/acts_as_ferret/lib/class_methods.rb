@@ -259,6 +259,17 @@ module FerretMixin
             # classes for us, but this
             # will lead to less results retrieved --> scoping of ferret query
             # to self.class is still needed.
+            # from the ferret ML (thanks Curtis Hatter)
+            # > I created a method in my base STI class so I can scope my query. For scoping
+            # > I used something like the following line:
+            # > 
+            # > query << " role:#{self.class.eql?(Contents) '*' : self.class}"
+            # > 
+            # > Though you could make it more generic by simply asking
+            # > "self.descends_from_active_record?" which is how rails decides if it should
+            # > scope your "find" query for STI models. You can check out "base.rb" in
+            # > activerecord to see that.
+            # but maybe better do the scoping in find_id_by_contents...
             if results.empty?
               result = []
             else
