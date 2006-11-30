@@ -65,7 +65,8 @@ module FerretMixin
         # this object taking place. The optional argument in this case can be used 
         # to indicate if the object should be indexed after executing the block
         # (::index_when_finished). Automatic Ferret indexing of this object will be 
-        # turned on after the block has been executed.
+        # turned on after the block has been executed. If passed ::index_when_true, 
+        # the index will only be updated if the block evaluated not to false or nil.
         def disable_ferret(option = :once)
           if block_given?
             @ferret_disabled = :always
