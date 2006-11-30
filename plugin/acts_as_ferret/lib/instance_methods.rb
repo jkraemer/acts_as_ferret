@@ -73,6 +73,7 @@ module FerretMixin
             result = yield
             ferret_enable
             ferret_update if option == :index_when_finished || (option == :index_when_true && result)
+            result
           elsif [:once, :always].include?(option)
             @ferret_disabled = option
           else
