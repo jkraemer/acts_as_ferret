@@ -254,6 +254,7 @@ module FerretMixin
             # results, and score
             results[id] = [ results.size + 1, score ]
           end
+          result = []
           begin
             # TODO: in case of STI AR will filter out hits from other 
             # classes for us, but this
@@ -270,9 +271,7 @@ module FerretMixin
             # > scope your "find" query for STI models. You can check out "base.rb" in
             # > activerecord to see that.
             # but maybe better do the scoping in find_id_by_contents...
-            if results.empty?
-              result = []
-            else
+            if results.any?
               conditions = combine_conditions([ "#{table_name}.#{primary_key} in (?)", results.keys ], 
                                               find_options[:conditions])
               result = self.find(:all, 
