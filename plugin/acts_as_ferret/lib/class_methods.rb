@@ -278,8 +278,8 @@ module FerretMixin
               result = self.find(:all, 
                                  find_options.merge(:conditions => conditions))
             end
-          rescue
-            logger.debug "REBUILD YOUR INDEX! One of the id's didn't have an associated record: #{id_array}"
+          rescue ActiveRecord::RecordNotFound
+            logger.warn "REBUILD YOUR INDEX! One of the id's in the index didn't have an associated record"
           end
 
           # order results as they were found by ferret, unless an AR :order
@@ -467,8 +467,8 @@ module FerretMixin
         end
 
         # combine our conditions with those given by user, if any
-        def combine_conditions(conditions, additional_conditions)
-          if additional_conditions
+        def combine_conditions(conditions, *additional_conditions)
+          if additional_conditions.any?
             cust_opts = additional_conditions.dup
             conditions.first << " and " << cust_opts.shift
             conditions.concat(cust_opts)
