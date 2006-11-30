@@ -69,9 +69,9 @@ module FerretMixin
         def disable_ferret(option = :once)
           if block_given?
             @ferret_disabled = :always
-            yield
+            result = yield
             ferret_enable
-            ferret_update if option == :index_when_finished
+            ferret_update if option == :index_when_finished || (option == :index_when_true && result)
           elsif [:once, :always].include?(option)
             @ferret_disabled = option
           else
