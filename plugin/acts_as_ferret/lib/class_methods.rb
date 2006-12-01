@@ -237,6 +237,8 @@ module FerretMixin
         # offset::      first hit to retrieve (useful for paging)
         # limit::       number of hits to retrieve, or :all to retrieve
         #               all results
+        # models::      only for single_index scenarios: a list of other Model classes to 
+        #               include in this search.
         #
         # find_options is a hash passed on to active_record's find when
         # retrieving the data from db, useful to i.e. prefetch relationships.
@@ -310,10 +312,12 @@ module FerretMixin
 
         end
         
+
         # weiter: checken ob ferret-bug, dass wir die queries so selber bauen
         # muessen - liegt am downcasen des qparsers ? - gucken ob jetzt mit
         # ferret geht (content_cols) und dave um zugriff auf qp bitten, oder
         # auf reader
+        # TODO: slow on large result sets - fetches result set objects one-by-one
         def single_index_find_by_contents(q, options = {}, find_options = {})
           result = []
 
@@ -338,11 +342,12 @@ module FerretMixin
               model_query.add_query(Ferret::Search::TermQuery.new(:class_name, model.name), :should)
             end
             q.add_query(model_query, :must)
-            #end
           end
           #puts q.to_s
           total_hits = find_id_by_contents(q, options) do |model, id, score|
-            result << Object.const_get(model).find(id, find_options.dup)
+            o = Object.const_get(model).find(id, find_options.dup)
+            o.ferret_score = score
+            result << o
           end
           return SearchResults.new(result, total_hits)
         end

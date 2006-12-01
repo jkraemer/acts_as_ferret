@@ -89,7 +89,6 @@ module FerretMixin
           else
             ferret_enable if @ferret_disabled == :once
           end
-          @ferret_enabled = true
           true # signal success to AR
         end
         alias :ferret_update :ferret_create
