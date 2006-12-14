@@ -92,7 +92,7 @@ module FerretMixin
           }
           ferret_configuration = {
             :or_default => false, 
-            :handle_parser_errors => true
+            :handle_parse_errors => true
             #:max_clauses => 512,
             #:default_field => '*',
             #:analyzer => Ferret::Analysis::StandardAnalyzer.new,
