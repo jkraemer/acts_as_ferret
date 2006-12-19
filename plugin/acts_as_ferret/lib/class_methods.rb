@@ -92,9 +92,9 @@ module FerretMixin
           }
           ferret_configuration = {
             :or_default => false, 
-            :handle_parse_errors => true
+            :handle_parse_errors => true,
+            :default_field => '*'
             #:max_clauses => 512,
-            #:default_field => '*',
             #:analyzer => Ferret::Analysis::StandardAnalyzer.new,
             # :wild_card_downcase => true
           }
@@ -141,6 +141,15 @@ module FerretMixin
 
             EOV
           FerretMixin::Acts::ARFerret::ensure_directory configuration[:index_dir]
+
+          # now that all fields have been added, we can initialize the default
+          # field list to be used by the query parser.
+          # It will include all content fields *not* marked as :untokenized.
+          # This fixes the otherwise failing CommentTest#test_stopwords 
+          ferret_configuration[:default_field] = fields_for_ferret.keys.select do |f| 
+            fields_for_ferret[f][:index] != :untokenized
+          end
+          logger.debug "set default field list to #{ferret_configuration[:default_field].inspect}"
         end
         
         def class_index_dir
@@ -398,6 +407,7 @@ module FerretMixin
 
           result = []
           index = self.ferret_index
+          # puts "query: #{index.process_query q}"
           total_hits = index.search_each(q, options) do |hit, score|
             # only collect result data if we intend to return it
             doc = index[hit]

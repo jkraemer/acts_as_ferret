@@ -159,7 +159,6 @@ class CommentTest < Test::Unit::TestCase
     assert_equal 0, hits.total_hits
   end
 
-  # fails due to Ferret bug in 0.10.13, http://pastie.caboo.se/22886
   def test_stopwords
     comment = Comment.create( :author => 'john doe', :content => 'Move or shake' )
     ['move shake', 'Move shake', 'move Shake', 'move or shake', 'move the shake'].each do |q|
