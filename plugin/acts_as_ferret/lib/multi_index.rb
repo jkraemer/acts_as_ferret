@@ -8,10 +8,11 @@ module FerretMixin
         # idea - each class gets a create_reader method that does this
         def initialize(model_classes, options = {})
           @model_classes = model_classes
+          default_fields = @model_classes.inject([]) do |fields, c| 
+            fields + c.ferret_configuration[:default_field] 
+          end
           @options = { 
-            :default_field => '*',
-            #:analyzer => Ferret::Analysis::WhiteSpaceAnalyzer.new
-            :analyzer => Ferret::Analysis::StandardAnalyzer.new
+            :default_field => default_fields
           }.update(options)
         end
         
@@ -48,12 +49,7 @@ module FerretMixin
         alias :[] :doc
         
         def query_parser
-          ensure_searcher 
-          unless @query_parser
-            @query_parser ||= Ferret::QueryParser.new(@options)
-          end
-          @query_parser.fields = @reader.field_names
-          @query_parser
+          @query_parser ||= Ferret::QueryParser.new(@options)
         end
         
         def process_query(query)

@@ -256,6 +256,9 @@ module FerretMixin
         # been decorated with a total_hits accessor that delivers the total
         # number of hits (including those not fetched because of a low num_docs
         # value).
+        # Please keep in mind that the number of total hits might be wrong if you specify 
+        # both ferret options and active record find_options that somehow limit the result 
+        # set (e.g. :num_docs and some :conditions).
         def find_by_contents(q, options = {}, find_options = {})
           # handle shared index
           return single_index_find_by_contents(q, options, find_options) if configuration[:single_index]
@@ -287,6 +290,8 @@ module FerretMixin
                                               find_options[:conditions])
               result = self.find(:all, 
                                  find_options.merge(:conditions => conditions))
+              # correct result size if the user specified conditions
+              total_hits = result.length if find_options[:conditions]
             end
           rescue ActiveRecord::RecordNotFound
             logger.warn "REBUILD YOUR INDEX! One of the id's in the index didn't have an associated record"
@@ -464,7 +469,9 @@ module FerretMixin
         def multi_index(model_classes)
           model_classes.sort! { |a, b| a.name <=> b.name }
           key = model_classes.inject("") { |s, clazz| s << clazz.name }
-          @@multi_indexes[key] ||= MultiIndex.new(model_classes, ferret_configuration)
+          multi_config = ferret_configuration.dup
+          multi_config.delete :default_field  # we don't want the default field list of *this* class for multi_searching
+          @@multi_indexes[key] ||= MultiIndex.new(model_classes, multi_config)
         end
 
         private
@@ -483,7 +490,7 @@ module FerretMixin
         # combine our conditions with those given by user, if any
         def combine_conditions(conditions, *additional_conditions)
           if additional_conditions.any?
-            cust_opts = additional_conditions.dup
+            cust_opts = additional_conditions.dup.flatten
             conditions.first << " and " << cust_opts.shift
             conditions.concat(cust_opts)
           end
