@@ -147,23 +147,6 @@ class ContentTest < Test::Unit::TestCase
   def test_update
     contents_from_ferret = Content.find_by_contents('useless')
     assert_equal 1, contents_from_ferret.size
-    assert_equal @content.id, contents_from_ferret.first.id
-    @content.description = 'Updated description, still useless'
-    @content.save
-    contents_from_ferret = Content.find_by_contents('useless')
-    assert_equal 1, contents_from_ferret.size
-    assert_equal @content.id, contents_from_ferret.first.id
-    contents_from_ferret = Content.find_by_contents('updated AND description')
-    assert_equal 1, contents_from_ferret.size
-    assert_equal @content.id, contents_from_ferret.first.id
-    contents_from_ferret = Content.find_by_contents('updated OR description')
-    assert_equal 1, contents_from_ferret.size
-    assert_equal @content.id, contents_from_ferret.first.id
-  end
-
-  def test_update
-    contents_from_ferret = Content.find_by_contents('useless')
-    assert_equal 1, contents_from_ferret.size
     assert_equal contents(:first).id, contents_from_ferret.first.id
     contents(:first).description = 'Updated description, still useless'
     contents(:first).save
@@ -240,11 +223,12 @@ class ContentTest < Test::Unit::TestCase
     assert_equal 3, count
   end
 
-  def test_multi_searcher
-    s = MultiSearcher.new([Searcher.new(Content.class_index_dir), Searcher.new(Comment.class_index_dir)])
-    hits = s.search(TermQuery.new(:title,"title"))
-    assert_equal 1, hits.total_hits
-  end
+  # segfaults (Feret 0.10.13)
+  #def test_multi_searcher
+  #  s = MultiSearcher.new([Searcher.new(Content.class_index_dir), Searcher.new(Comment.class_index_dir)])
+  #  hits = s.search(TermQuery.new(:title,"title"))
+  #  assert_equal 1, hits.total_hits
+  #end
   
   def test_multi_search
     assert_equal 4, ContentBase.find(:all).size
