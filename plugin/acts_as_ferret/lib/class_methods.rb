@@ -50,39 +50,39 @@ module FerretMixin
         
         # declares a class as ferret-searchable. 
         #
-        # options are:
-        #
+        # ====options:
         # fields:: names all fields to include in the index. If not given,
-        #   all attributes of the class will be indexed. You may also give
-        #   symbols pointing to instance methods of your model here, i.e. 
-        #   to retrieve and index data from a related model. 
+        #          all attributes of the class will be indexed. You may also give
+        #          symbols pointing to instance methods of your model here, i.e. 
+        #          to retrieve and index data from a related model. 
         #
         # additional_fields:: names fields to include in the index, in addition 
-        #   to those derived from the db scheme. use if you want to add
-        #   custom fields derived from methods to the db fields (which will be picked 
-        #   by aaf). This option will be ignored when the fields option is given, in 
-        #   that case additional fields get specified there.
+        #                     to those derived from the db scheme. use if you want 
+        #                     to add custom fields derived from methods to the db 
+        #                     fields (which will be picked by aaf). This option will 
+        #                     be ignored when the fields option is given, in that 
+        #                     case additional fields get specified there.
         #
         # index_dir:: declares the directory where to put the index for this class.
-        #   The default is RAILS_ROOT/index/RAILS_ENV/CLASSNAME. 
-        #   The index directory will be created if it doesn't exist.
+        #             The default is RAILS_ROOT/index/RAILS_ENV/CLASSNAME. 
+        #             The index directory will be created if it doesn't exist.
         #
         # single_index:: set this to true to let this class use a Ferret
-        # index that is shared by all classes having :single_index set to true.
-        # :store_class_name is set to true implicitly, as well as index_dir, so 
-        # don't bother setting these when using this option. the shared index
-        # will be located in index/<RAILS_ENV>/shared .
+        #                index that is shared by all classes having :single_index set to true.
+        #                :store_class_name is set to true implicitly, as well as index_dir, so 
+        #                don't bother setting these when using this option. the shared index
+        #                will be located in index/<RAILS_ENV>/shared .
         #
         # store_class_name:: to make search across multiple models useful, set
-        # this to true. the model class name will be stored in a keyword field 
-        # named class_name
+        #                    this to true. the model class name will be stored in a keyword field 
+        #                    named class_name
         #
-        # ferret_options may be:
-        # or_default:: - whether query terms are required by
-        #   default (the default, false), or not (true)
+        # ====ferret_options:
+        # or_default:: whether query terms are required by
+        #              default (the default, false), or not (true)
         # 
         # analyzer:: the analyzer to use for query parsing (default: nil,
-        #   wihch means the ferret StandardAnalyzer gets used)
+        #            which means the ferret StandardAnalyzer gets used)
         #
         def acts_as_ferret(options={}, ferret_options={})
           configuration = { 

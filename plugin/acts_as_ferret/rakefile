@@ -1,5 +1,8 @@
 # rakefile for acts_as_ferret. 
 # use to create a gem or generate rdoc api documentation.
+#
+# RELEASE creation:
+# rake release REL=x.y.z 
 
 require 'rake'
 require 'rake/rdoctask'
@@ -103,16 +106,13 @@ if PKG_VERSION
     if ENV['RELTEST']
       announce "Release Task Testing, skipping tagging"
     else
-      sh %{svn copy svn://projects.jkraemer.net/acts_as_ferret/trunk/plugin svn://projects.jkraemer.net/acts_as_ferret/tags/#{PKG_VERSION}}
+      `svn copy svn://projects.jkraemer.net/acts_as_ferret/trunk/plugin svn://projects.jkraemer.net/acts_as_ferret/tags/#{PKG_VERSION}`
     end
   end
   
-  desc 'Publish the gem and API docs'
-  task :publish => [:pdoc, :prel, :tag]
-  
   # Upload release to rubyforge
   desc "Upload release to rubyforge"
-  task :prel do
+  task :prel => [ :tag, :prerelease ] do
     `rubyforge login`
     release_command = "rubyforge add_release #{RUBYFORGE_PROJECT} #{PKG_NAME} '#{PKG_VERSION}' pkg/#{PKG_NAME}-#{PKG_VERSION}.gem"
     puts release_command
@@ -121,5 +121,8 @@ if PKG_VERSION
     puts release_command
     system(release_command)
   end
+  
+  desc 'Publish the gem and API docs'
+  task :release => [:pdoc, :prel ]
   
 end
