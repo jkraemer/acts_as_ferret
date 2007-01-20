@@ -15,7 +15,7 @@ script/plugin install svn://projects.jkraemer.net/acts_as_ferret/trunk/plugin/ac
 
 === System-wide installation with Rubygems
 
-<tt>sudo gem install actsasferret</tt>
+<tt>sudo gem install acts_as_ferret</tt>
 
 To use acts_as_ferret in your project, add the following line to your
 project's config/environment.rb:

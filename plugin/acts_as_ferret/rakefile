@@ -19,8 +19,8 @@ end
 PKG_NAME      = 'acts_as_ferret'
 PKG_VERSION   = ENV['REL']
 PKG_FILE_NAME = "#{PKG_NAME}-#{PKG_VERSION}"
-RUBY_FORGE_PROJECT = 'actsasferret'
-RUBY_FORGE_USER    = 'jkraemer'
+RUBYFORGE_PROJECT = 'actsasferret'
+RUBYFORGE_USER    = 'jkraemer'
 
 desc 'Default: run unit tests.'
 task :default => :test
@@ -45,7 +45,7 @@ end
 
 desc "Publish the API documentation"
 task :pdoc => [:rdoc] do
-  Rake::RubyForgePublisher.new(RUBY_FORGE_PROJECT, RUBY_FORGE_USER).upload
+  Rake::RubyForgePublisher.new(RUBYFORGE_PROJECT, RUBYFORGE_USER).upload
 end
 
 if PKG_VERSION
@@ -106,17 +106,19 @@ if PKG_VERSION
     if ENV['RELTEST']
       announce "Release Task Testing, skipping tagging"
     else
-      `svn copy svn://projects.jkraemer.net/acts_as_ferret/trunk/plugin svn://projects.jkraemer.net/acts_as_ferret/tags/#{PKG_VERSION}`
+      `svn copy -m 'tagging version #{PKG_VERSION}' svn://projects.jkraemer.net/acts_as_ferret/trunk/plugin svn://projects.jkraemer.net/acts_as_ferret/tags/#{PKG_VERSION}`
     end
   end
   
   # Upload release to rubyforge
   desc "Upload release to rubyforge"
   task :prel => [ :tag, :prerelease ] do
+  #task :prel do
     `rubyforge login`
     release_command = "rubyforge add_release #{RUBYFORGE_PROJECT} #{PKG_NAME} '#{PKG_VERSION}' pkg/#{PKG_NAME}-#{PKG_VERSION}.gem"
     puts release_command
     system(release_command)
+    `rubyforge config #{RUBYFORGE_PROJECT}`
     release_command = "rubyforge add_file #{RUBYFORGE_PROJECT} #{PKG_NAME} '#{PKG_VERSION}' pkg/#{PKG_NAME}-#{PKG_VERSION}.tgz"
     puts release_command
     system(release_command)
