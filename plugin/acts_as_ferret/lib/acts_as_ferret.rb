@@ -18,6 +18,10 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+require 'active_record'
+require 'set'
+require 'ferret'
+
 require 'multi_index'
 require 'more_like_this'
 require 'class_methods'

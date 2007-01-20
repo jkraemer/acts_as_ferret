@@ -454,7 +454,7 @@ module FerretMixin
           additional_models << self
           searcher = multi_index(additional_models)
           result = []
-          total_hits = searcher.search_each (query, options) do |hit, score|
+          total_hits = searcher.search_each(query, options) do |hit, score|
             doc = searcher[hit]
             if block_given?
               yield doc[:class_name], doc[:id], score
