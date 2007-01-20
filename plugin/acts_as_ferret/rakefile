@@ -1,7 +1,5 @@
-# rakefile for acts_as_ferret.
+# rakefile for acts_as_ferret. 
 # use to create a gem or generate rdoc api documentation.
-#
-# heavily based on the one from the acts_as_searchable plugin.
 
 require 'rake'
 require 'rake/rdoctask'
@@ -10,8 +8,13 @@ require 'rake/gempackagetask'
 require 'rake/testtask'
 require 'rake/contrib/rubyforgepublisher'
 
+def announce(msg='')
+  STDERR.puts msg
+end
+
+
 PKG_NAME      = 'acts_as_ferret'
-PKG_VERSION   = '0.3.1'
+PKG_VERSION   = ENV['REL']
 PKG_FILE_NAME = "#{PKG_NAME}-#{PKG_VERSION}"
 RUBY_FORGE_PROJECT = 'actsasferret'
 RUBY_FORGE_USER    = 'jkraemer'
@@ -37,155 +40,86 @@ Rake::RDocTask.new(:rdoc) do |rdoc|
   rdoc.rdoc_files.include('lib/**/*.rb')
 end
 
-spec = Gem::Specification.new do |s|
-  s.name            = PKG_NAME
-  s.version         = PKG_VERSION
-  s.platform        = Gem::Platform::RUBY
-  s.summary         = "acts_as_ferret - Ferret based full text search for any ActiveRecord model"
-  s.files  = Dir.glob('**/*', File::FNM_DOTMATCH).reject do |f| 
-     [ /\.$/, /sqlite$/, /\.log$/, /^pkg/, /\.svn/,
-     /\~$/, /\/\._/, /\/#/ ].any? {|regex| f =~ regex }
-  end
-  #s.files           = FileList["{lib,test}/**/*"].to_a + %w(README MIT-LICENSE CHANGELOG)
- # s.files.delete  ...    
-  s.require_path    = 'lib'
-  s.autorequire     = 'acts_as_ferret'
-  s.has_rdoc        = true
- # s.test_files      = Dir['test/**/*_test.rb']
-  s.author          = "Jens Kraemer"
-  s.email           = "jk@jkraemer.net"
-  s.homepage        = "http://projects.jkraemer.net/acts_as_ferret"
-end
-
-Rake::GemPackageTask.new(spec) do |pkg|
-  pkg.need_tar = true
-end
-
 desc "Publish the API documentation"
 task :pdoc => [:rdoc] do
   Rake::RubyForgePublisher.new(RUBY_FORGE_PROJECT, RUBY_FORGE_USER).upload
 end
 
-desc 'Publish the gem and API docs'
-task :publish => [:pdoc, :rubyforge_upload]
+if PKG_VERSION
+  spec = Gem::Specification.new do |s|
+    s.name            = PKG_NAME
+    s.version         = PKG_VERSION
+    s.platform        = Gem::Platform::RUBY
+    s.summary         = "acts_as_ferret - Ferret based full text search for any ActiveRecord model"
+    s.files  = Dir.glob('**/*', File::FNM_DOTMATCH).reject do |f| 
+      [ /\.$/, /sqlite$/, /\.log$/, /^pkg/, /\.svn/,
+      /\~$/, /\/\._/, /\/#/ ].any? {|regex| f =~ regex }
+    end
+    #s.files           = FileList["{lib,test}/**/*"].to_a + %w(README MIT-LICENSE CHANGELOG)
+  # s.files.delete  ...    
+    s.require_path    = 'lib'
+    s.autorequire     = 'acts_as_ferret'
+    s.has_rdoc        = true
+  # s.test_files      = Dir['test/**/*_test.rb']
+    s.author          = "Jens Kraemer"
+    s.email           = "jk@jkraemer.net"
+    s.homepage        = "http://projects.jkraemer.net/acts_as_ferret"
+  end
 
-desc "Publish the release files to RubyForge."
-task :rubyforge_upload => :package do
-  files = %w(gem tgz).map { |ext| "pkg/#{PKG_FILE_NAME}.#{ext}" }
+  Rake::GemPackageTask.new(spec) do |pkg|
+    pkg.need_tar = true
+  end
 
-  if RUBY_FORGE_PROJECT then
-    require 'net/http'
-    require 'open-uri'
-
-    project_uri = "http://rubyforge.org/projects/#{RUBY_FORGE_PROJECT}/"
-    project_data = open(project_uri) { |data| data.read }
-    group_id = project_data[/[?&]group_id=(\d+)/, 1]
-    raise "Couldn't get group id" unless group_id
-
-    # This echos password to shell which is a bit sucky
-    if ENV["RUBY_FORGE_PASSWORD"]
-      password = ENV["RUBY_FORGE_PASSWORD"]
+  # Validate that everything is ready to go for a release.
+  task :prerelease do
+    announce 
+    announce "**************************************************************"
+    announce "* Making RubyGem Release #{PKG_VERSION}"
+    announce "**************************************************************"
+    announce  
+    # Are all source files checked in?
+    if ENV['RELTEST']
+      announce "Release Task Testing, skipping checked-in file test"
     else
-      print "#{RUBY_FORGE_USER}@rubyforge.org's password: "
-      password = STDIN.gets.chomp
-    end
-
-    login_response = Net::HTTP.start("rubyforge.org", 80) do |http|
-      data = [
-        "login=Login",
-        "form_loginname=#{RUBY_FORGE_USER}",
-        "form_pw=#{password}"
-      ].join("&")
-
-      headers = { 'Content-Type' => 'application/x-www-form-urlencoded' }
-      
-      http.post("/account/login.php", data, headers)
-    end
-
-    cookie = login_response["set-cookie"]
-    raise "Login failed" unless cookie
-    headers = { "Cookie" => cookie }
-
-    release_uri = "http://rubyforge.org/frs/admin/?group_id=#{group_id}"
-    release_data = open(release_uri, headers) { |data| data.read }
-    package_id = release_data[/[?&]package_id=(\d+)/, 1]
-    raise "Couldn't get package id" unless package_id
-
-    first_file = true
-    release_id = ""
-
-    files.each do |filename|
-      basename  = File.basename(filename)
-      file_ext  = File.extname(filename)
-      file_data = File.open(filename, "rb") { |file| file.read }
-
-      puts "Releasing #{basename}..."
-
-      release_response = Net::HTTP.start("rubyforge.org", 80) do |http|
-        release_date = Time.now.strftime("%Y-%m-%d %H:%M")
-        type_map = {
-          ".zip"    => "3000",
-          ".tgz"    => "3110",
-          ".gz"     => "3110",
-          ".gem"    => "1400"
-        }; type_map.default = "9999"
-        type = type_map[file_ext]
-        boundary = "rubyqMY6QN9bp6e4kS21H4y0zxcvoor"
-
-        query_hash = if first_file then
-          {
-            "group_id" => group_id,
-            "package_id" => package_id,
-            "release_name" => PKG_FILE_NAME,
-            "release_date" => release_date,
-            "type_id" => type,
-            "processor_id" => "8000", # Any
-            "release_notes" => "",
-            "release_changes" => "",
-            "preformatted" => "1",
-            "submit" => "1"
-          }
-        else
-          {
-            "group_id" => group_id,
-            "release_id" => release_id,
-            "package_id" => package_id,
-            "step2" => "1",
-            "type_id" => type,
-            "processor_id" => "8000", # Any
-            "submit" => "Add This File"
-          }
-        end
-
-        data = [
-          "--" + boundary,
-          "Content-Disposition: form-data; name=\"userfile\"; filename=\"#{basename}\"",
-          "Content-Type: application/octet-stream",
-          "Content-Transfer-Encoding: binary",
-          "", file_data, "",
-          query_hash.collect do |name, value|
-            [ "--" + boundary,
-              "Content-Disposition: form-data; name='#{name}'",
-              "", value, "" ]
-          end
-          ].flatten.join("\x0D\x0A")
-
-        release_headers = headers.merge(
-          "Content-Type" => "multipart/form-data; boundary=#{boundary}"
-        )
-
-        target = first_file ? "/frs/admin/qrs.php" : "/frs/admin/editrelease.php"
-        http.post(target, data, release_headers)
+      announce "Pulling in svn..."
+      `svk pull .`
+      announce "Checking for unchecked-in files..."
+      data = `svk st`
+      unless data =~ /^$/
+        fail "SVK status is not clean ... do you have unchecked-in files?"
       end
-
-      if first_file then
-        release_id = release_response.body[/release_id=(\d+)/, 1]
-        raise("Couldn't get release id") unless release_id
-      end
-
-      first_file = false
+      announce "No outstanding checkins found ... OK"
+      announce "Pushing to svn..."
+      `svk push .`
     end
   end
+  
+  
+  desc "tag the new release"
+  task :tag => [ :prerelease ] do
+    reltag = "REL_#{PKG_VERSION.gsub(/\./, '_')}"
+    reltag << ENV['REUSE'].gsub(/\./, '_') if ENV['REUSE']
+    announce "Tagging with [#{PKG_VERSION}]"
+    if ENV['RELTEST']
+      announce "Release Task Testing, skipping tagging"
+    else
+      sh %{svn copy svn://projects.jkraemer.net/acts_as_ferret/trunk/plugin svn://projects.jkraemer.net/acts_as_ferret/tags/#{PKG_VERSION}}
+    end
+  end
+  
+  desc 'Publish the gem and API docs'
+  task :publish => [:pdoc, :prel, :tag]
+  
+  # Upload release to rubyforge
+  desc "Upload release to rubyforge"
+  task :prel do
+    `rubyforge login`
+    release_command = "rubyforge add_release #{RUBYFORGE_PROJECT} #{PKG_NAME} '#{PKG_VERSION}' pkg/#{PKG_NAME}-#{PKG_VERSION}.gem"
+    puts release_command
+    system(release_command)
+    release_command = "rubyforge add_file #{RUBYFORGE_PROJECT} #{PKG_NAME} '#{PKG_VERSION}' pkg/#{PKG_NAME}-#{PKG_VERSION}.tgz"
+    puts release_command
+    system(release_command)
+  end
+  
 end
-
-
