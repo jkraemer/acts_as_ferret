@@ -412,7 +412,7 @@ module FerretMixin
 
           result = []
           index = self.ferret_index
-          # puts "query: #{index.process_query q}"
+          #logger.debug "query: #{index.process_query q}"
           total_hits = index.search_each(q, options) do |hit, score|
             # only collect result data if we intend to return it
             doc = index[hit]
