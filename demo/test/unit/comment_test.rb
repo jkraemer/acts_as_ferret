@@ -16,6 +16,10 @@ class CommentTest < Test::Unit::TestCase
     assert_equal "#{RAILS_ROOT}/index/test/comment", Comment.class_index_dir
   end
 
+  def test_search_for_id
+    assert Comment.find_by_contents('3').empty?
+  end
+
   #def test_reloadable
   #  assert ! Comment.reloadable?
   #end
