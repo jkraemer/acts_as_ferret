@@ -107,6 +107,8 @@ if PKG_VERSION
       announce "Release Task Testing, skipping tagging"
     else
       `svn copy -m 'tagging version #{PKG_VERSION}' svn://projects.jkraemer.net/acts_as_ferret/trunk/plugin svn://projects.jkraemer.net/acts_as_ferret/tags/#{PKG_VERSION}`
+      `svn del -m 'remove old stable' svn://projects.jkraemer.net/acts_as_ferret/tags/stable`
+      `svn copy -m 'tagging version #{PKG_VERSION} as stable' svn://projects.jkraemer.net/acts_as_ferret/tags/#{PKG_VERSION} svn://projects.jkraemer.net/acts_as_ferret/tags/stable`
     end
   end
   
