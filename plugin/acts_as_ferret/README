@@ -35,7 +35,7 @@ but explicit OR queries are possible. This differs from the ferret default, but
 imho is the more often needed/expected behaviour (more query terms result in 
 less results).
 
-Please see FerretMixin::Acts::ARFerret::ClassMethods#acts_as_ferret for more information.
+Please see ActsAsFerret::ActMethods#acts_as_ferret for more information.
 
 == License
 

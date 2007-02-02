@@ -1,7 +1,6 @@
-module FerretMixin
-  module Acts #:nodoc:
-    module ARFerret #:nodoc:
-      # not threadsafe
+module ActsAsFerret #:nodoc:
+  
+      # this class is not threadsafe
       class MultiIndex
         
         # todo: check for necessary index rebuilds in this place, too
@@ -9,7 +8,7 @@ module FerretMixin
         def initialize(model_classes, options = {})
           @model_classes = model_classes
           default_fields = @model_classes.inject([]) do |fields, c| 
-            fields + c.ferret_configuration[:default_field] 
+            fields + c.aaf_configuration[:ferret][:default_field] 
           end
           @options = { 
             :default_field => default_fields
@@ -82,6 +81,4 @@ module FerretMixin
 
       end # of class MultiIndex
 
-    end
-  end
 end

@@ -1,0 +1,22 @@
+#!/usr/bin/env ruby
+
+require 'rubygems'
+require 'yaml'
+require 'erb'
+require 'ferret_server'
+
+defaults = {
+  'host' => 'localhost',
+  'port' => '9909',
+  'indexes' => { }
+}
+
+config_file = ARGV[0] || 'config/ferret_server.yml'
+config = defaults.merge(YAML.load(ERB.new(IO.read(config_file)).result))
+
+server = ActsAsFerret::Server.new(config)
+DRb.start_service("druby://#{config.delete('host')}:#{config.delete('port')}", server)
+DRb.thread.join
+
+
+

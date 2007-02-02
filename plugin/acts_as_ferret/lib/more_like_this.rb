@@ -1,15 +1,6 @@
-module FerretMixin
-  module Acts #:nodoc:
-    module ARFerret #:nodoc:
+module ActsAsFerret #:nodoc:
 
       module MoreLikeThis
-
-        class DefaultAAFSimilarity
-          def idf(doc_freq, num_docs)
-            return 0.0 if num_docs == 0
-            return Math.log(num_docs.to_f/(doc_freq+1)) + 1.0
-          end
-        end
 
         # returns other instances of this class, which have similar contents
         # like this one. Basically works like this: find out n most interesting
@@ -188,16 +179,22 @@ module FerretMixin
           self[field] || self.instance_variable_get("@#{field.to_s}".to_sym) || self.send(field.to_sym)
         end
 
-      end
 
-      class FrequencyQueueItem
-        attr_reader :word, :field, :score
-        def initialize(word, field, score)
-          @word = word; @field = field; @score = score
+        class DefaultAAFSimilarity
+          def idf(doc_freq, num_docs)
+            return 0.0 if num_docs == 0
+            return Math.log(num_docs.to_f/(doc_freq+1)) + 1.0
+          end
+        end
+
+
+        class FrequencyQueueItem
+          attr_reader :word, :field, :score
+          def initialize(word, field, score)
+            @word = word; @field = field; @score = score
+          end
         end
       end
 
-    end
-  end
 end
 

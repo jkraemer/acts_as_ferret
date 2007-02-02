@@ -1,0 +1,8 @@
+:host: localhost
+:port: 9009
+:indexes:
+  :content:
+    :fields:
+      - :title
+      - :content
+    :path: index/content
