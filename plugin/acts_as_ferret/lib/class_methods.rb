@@ -225,7 +225,7 @@ consider naming all indexed fields in your call to acts_as_ferret!
       end
       #puts q.to_s
       total_hits = find_id_by_contents(q, options) do |model, id, score|
-        o = Object.const_get(model).find(id, find_options.dup)
+        o = model_find(model, id, find_options.dup)
         o.ferret_score = score
         result << o
       end
@@ -303,7 +303,7 @@ consider naming all indexed fields in your call to acts_as_ferret!
     def multi_search(query, additional_models = [], options = {})
       result = []
       total_hits = id_multi_search(query, additional_models, options) do |model, id, score|
-        r = Object.const_get(model).find(id)
+        r = model_find(model, id)
         r.ferret_score = score
         result << r
       end
@@ -343,6 +343,12 @@ consider naming all indexed fields in your call to acts_as_ferret!
     end
 
     private
+
+    def model_find(model, id, find_options = {})
+      model.to_s.split('::').inject(Module) { |base,klass| 
+        base.const_get(klass) 
+      }.find(id, find_options)
+    end
 
     def deprecated_options_support(options)
       if options[:num_docs]
