@@ -54,6 +54,16 @@ module ActsAsFerret #:nodoc:
     # analyzer:: the analyzer to use for query parsing (default: nil,
     #            which means the ferret StandardAnalyzer gets used)
     #
+    # default_field:: use to set one or more fields that are searched for query terms
+    #                 that don't have an explicit field list. This list should *not*
+    #                 contain any untokenized fields. If it does, you're asking
+    #                 for trouble (i.e. not getting results for queries having
+    #                 stop words in them). Aaf by default initializes the default field 
+    #                 list to all tokenized fields. Note that this is not true for shared
+    #                 indexes, so if you use :single_index, you should use this 
+    #                 option to specify the field names of your shared index you want to 
+    #                 search by default here.
+    #
     def acts_as_ferret(options={}, ferret_options={})
 
       extend ClassMethods
@@ -120,9 +130,14 @@ module ActsAsFerret #:nodoc:
       # field list to be used by the query parser.
       # It will include all content fields *not* marked as :untokenized.
       # This fixes the otherwise failing CommentTest#test_stopwords 
+      #
+      # However this is not very useful with a shared index (see
+      # http://projects.jkraemer.net/acts_as_ferret/ticket/85)
+      # You should consider specifying the default field list to search for as
+      # part of the ferret_options hash in your call to acts_as_ferret.
       aaf_configuration[:ferret][:default_field] = aaf_configuration[:ferret_fields].keys.select do |f| 
         aaf_configuration[:ferret_fields][f][:index] != :untokenized
-      end
+      end unless aaf_configuration[:single_index]
       logger.debug "set default field list to #{aaf_configuration[:ferret][:default_field].inspect}"
     end
 

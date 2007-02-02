@@ -20,7 +20,7 @@ module ActsAsFerret
     # Note that attributes named the same in different models will share
     # the same field options in the shared index.
     def rebuild_index(*models)
-      models << self
+      models << self unless models.include? self
       index = nil
       if aaf_configuration[:remote]
         index = ferret_index
@@ -47,9 +47,9 @@ module ActsAsFerret
           fi.add_field(field, { :store => :no, 
                                 :index => :yes }.update(options)) 
         end
-        fi.create_index(aaf_configuration[:ferret][:path])
-        index = Ferret::Index::Index.new(aaf_configuration[:ferret].dup.update(:auto_flush => false))
-        #index = Ferret::Index::Index.new(ferret_configuration.dup.update(:auto_flush => true))
+        index = Ferret::Index::Index.new(aaf_configuration[:ferret].dup.update(:auto_flush => false, 
+                                                                               :field_infos => fi,
+                                                                               :create => true))
       end
       batch_size = 1000
       models.each do |model|
