@@ -19,7 +19,7 @@ class Admin::BackendControllerTest < Test::Unit::TestCase
 
   def test_search
     get :search
-    assert_success
+    assert_response :success
     assert_template 'search'
     assert_nil assigns(:results)
 

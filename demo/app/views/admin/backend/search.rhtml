@@ -1,11 +1,11 @@
 <h1>Search Content (backend)</h1>
-<%= form_tag :action => 'search' %>
+<% form_tag :action => 'search' do %>
   <fieldset>
     <legend>Search</legend>
     <input type="text" name="query" value="<%= h @query %>" />
   </fieldset>
   <%= submit_tag 'search' %>
-<%= end_form_tag %>
+<% end %>
 
 <% if @results -%>
 <p>Your search for <%= h @query %> returned <%= @results.size %> Results:</p>

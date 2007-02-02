@@ -186,7 +186,7 @@ class ContentTest < Test::Unit::TestCase
   end
 
   def test_multi_index
-    i =  FerretMixin::Acts::ARFerret::MultiIndex.new([Content, Comment])
+    i =  ActsAsFerret::MultiIndex.new([Content, Comment])
     hits = i.search(TermQuery.new(:title,"title"))
     assert_equal 1, hits.total_hits
 

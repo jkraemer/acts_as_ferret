@@ -1,5 +1,5 @@
 class Comment < ActiveRecord::Base
-  belongs_to :parent, :class_name => 'Content'
+  belongs_to :parent, :class_name => 'Content', :foreign_key => :parent_id
   
   # simplest case: just index all fields of this model:
   # acts_as_ferret
