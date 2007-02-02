@@ -20,7 +20,7 @@ module ActsAsFerret
     # Note that attributes named the same in different models will share
     # the same field options in the shared index.
     def rebuild_index(*models)
-      models << self unless models.include? self
+      models << self unless models.include?(self)
       index = nil
       if aaf_configuration[:remote]
         index = ferret_index
