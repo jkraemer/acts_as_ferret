@@ -34,6 +34,8 @@ require 'index'
 require 'local_index'
 require 'remote_index'
 
+require 'ferret_server'
+
 
 # The Rails ActiveRecord Ferret Mixin.
 #
@@ -128,6 +130,18 @@ class Ferret::Index::MultiReader
       return false
     end
     true
+  end
+end
+
+# add marshalling support to SortFields
+class Ferret::Search::SortField
+  def _dump(depth)
+    to_s
+  end
+
+  def self._load(string)
+    raise "invalid value: #{string}" unless string =~ /^(\w+):<(\w+)>(\!)?$/
+    new($1.to_sym, :type => $2.to_sym, :reverse => !$3.nil?)
   end
 end
 

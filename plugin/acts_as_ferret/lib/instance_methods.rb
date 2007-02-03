@@ -86,24 +86,22 @@ module ActsAsFerret #:nodoc:
       true # signal success to AR
     end
     
-    # convert instance to ferret document
+    # turn this instance into a ferret document (which basically is a hash of
+    # fieldname => value pairs)
     def to_doc
       logger.debug "creating doc for class: #{self.class.name}, id: #{self.id}"
-      # Churn through the complete Active Record and add it to the Ferret document
-      doc = Ferret::Document.new
-      # store the id of each item
-      doc[:id] = self.id
+      returning doc = Ferret::Document.new do
+        # store the id of each item
+        doc[:id] = self.id
 
-      # store the class name if configured to do so
-      if aaf_configuration[:store_class_name]
-        doc[:class_name] = self.class.name
-      end
+        # store the class name if configured to do so
+        doc[:class_name] = self.class.name if aaf_configuration[:store_class_name]
       
-      # iterate through the fields and add them to the document
-      aaf_configuration[:ferret_fields].each_pair do |field, config|
-        doc[field] = self.send("#{field}_to_ferret") unless config[:ignore]
+        # iterate through the fields and add them to the document
+        aaf_configuration[:ferret_fields].each_pair do |field, config|
+          doc[field] = self.send("#{field}_to_ferret") unless config[:ignore]
+        end
       end
-      return doc
     end
 
     def document_number

@@ -17,26 +17,37 @@ module ActsAsFerret
   #
   # TODO: automate installation of files to script/ and config/
   class Server
-    def initialize(config)
-#      @indexes = Hash.new
-#      @index_config = config[:indexes]
-#      config[:indexes].each_pair do |name, config|
-#        @indexes[name] = init_index(name)
-#        puts "initialized index #{config[:path]}"
-#      end
+
+    cattr_accessor :running
+
+    def initialize
+      @logger = Logger.new("#{RAILS_ROOT}/log/ferret_server.log")
     end
 
     # TODO queueing of requests goes here!
-    # Later: separate writing/reading requests for parallelization?
+    # separate queues for different indexes
+    #
+    # maybe later: separate writing/reading queues for parallelization?
     def method_missing(name, *args)
-      clazz = args.unshift.constantize
-      clazz.send name, args
+      clazz = args.shift.constantize
+ #     if name.to_s =~ /^index_(.+)/
+      unless ContentBase.count > 2
+        clazz.connection.reconnect!
+      end
+      begin
+        @logger.debug "call index method: #{name} with #{args.inspect}"
+        clazz.aaf_index.send name, *args
+      rescue NoMethodError
+        @logger.debug "no luck, trying to call class method instead"
+        clazz.send name, *args
+      end
     end
 
-    protected 
-    def log(index_name, msg)
-      puts "[#{index_name.to_s}] #{msg}"
+    # TODO check if in use!
+    def ferret_index(class_name)
+      class_name.constantize.aaf_index.ferret_index
     end
+
   end
 
 end

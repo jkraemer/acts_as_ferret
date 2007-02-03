@@ -18,18 +18,16 @@ module ActsAsFerret #:nodoc:
         # :field_names : Array of field names to use for similarity search (mandatory)
         # :min_term_freq => 2,  # Ignore terms with less than this frequency in the source doc.
         # :min_doc_freq => 5,   # Ignore words which do not occur in at least this many docs
-        # :min_word_length => nil, # Ignore words if less than this len (longer
-        # words tend to be more characteristic for the document they occur in).
+        # :min_word_length => nil, # Ignore words shorter than this length (longer words tend to 
+        #                            be more characteristic for the document they occur in).
         # :max_word_length => nil, # Ignore words if greater than this len.
         # :max_query_terms => 25,  # maximum number of terms in the query built
-        # :max_num_tokens => 5000, # maximum number of tokens to examine in a
-        # single field
-        # :boost => false,         # when true, a boost according to the
-        # relative score of a term is applied to this Term's TermQuery.
-        # :similarity => Ferret::Search::Similarity.default, # the similarity
-        # implementation to use
-        # :analyzer => Ferret::Analysis::StandardAnalyzer.new # the analyzer to
-        # use
+        # :max_num_tokens => 5000, # maximum number of tokens to examine in a single field
+        # :boost => false,         # when true, a boost according to the relative score of 
+        #                            a term is applied to this Term's TermQuery.
+        # :similarity => 'DefaultAAFSimilarity'   # the similarity implementation to use (the default 
+        #                                           equals Ferret's internal similarity implementation)
+        # :analyzer => 'Ferret::Analysis::StandardAnalyzer' # class name of the analyzer to use
         # :append_to_query => nil # proc taking a query object as argument, which will be called after generating the query. can be used to further manipulate the query used to find related documents, i.e. to constrain the search to a given class in single table inheritance scenarios
         # find_options : options handed over to find_by_contents
         def more_like_this(options = {}, find_options = {})
@@ -42,8 +40,8 @@ module ActsAsFerret #:nodoc:
             :max_query_terms => 25,  # maximum number of terms in the query built
             :max_num_tokens => 5000, # maximum number of tokens to analyze when analyzing contents
             :boost => false,      
-            :similarity => DefaultAAFSimilarity.new,
-            :analyzer => Ferret::Analysis::StandardAnalyzer.new,
+            :similarity => 'ActsAsFerret::MoreLikeThis::DefaultAAFSimilarity',  # class name of the similarity implementation to use
+            :analyzer => 'Ferret::Analysis::StandardAnalyzer', # class name of the analyzer to use
             :append_to_query => nil,
             :base_class => self.class # base class to use for querying, useful in STI scenarios where BaseClass.find_by_contents can be used to retrieve results from other classes, too
           }.update(options)
@@ -62,6 +60,7 @@ module ActsAsFerret #:nodoc:
       module IndexMethods
 
         def build_more_like_this_query(id, options)
+          [:similarity, :analyzer].each { |sym| options[sym] = options[sym].constantize.new }
           ferret_index.synchronize do # avoid that concurrent writes close our reader
             ferret_index.send(:ensure_reader_open)
             reader = ferret_index.send(:reader)

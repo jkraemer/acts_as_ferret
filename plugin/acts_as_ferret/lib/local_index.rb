@@ -13,6 +13,8 @@ module ActsAsFerret
     end
 
     def rebuild_index(models = [])
+      logger.debug "rebuild index: #{models.join ' '}"
+      models = models.flatten.uniq.map(&:constantize)
       # default attributes for fields
       fi = Ferret::Index::FieldInfos.new(:store => :no, 
                                          :index => :yes, 
@@ -43,13 +45,8 @@ module ActsAsFerret
         # index in batches of 1000 to limit memory consumption (fixes #24)
         model.transaction do
           0.step(model.count, batch_size) do |i|
-            if aaf_configuration[:remote]
-              # reduce the number of drb roundtrips
-              index << model.find(:all, :limit => batch_size, :offset => i).map { |rec| rec.to_doc }
-            else
-              model.find(:all, :limit => batch_size, :offset => i).each do |rec|
-                index << rec.to_doc
-              end
+            model.find(:all, :limit => batch_size, :offset => i).each do |rec|
+              index << rec.to_doc
             end
           end
         end
@@ -86,9 +83,8 @@ module ActsAsFerret
 
     def find_id_by_contents(query, options = {}, &block)
       result = []
-      #logger.debug "query: #{index.process_query q}"
+      #logger.debug "query: #{ferret_index.process_query query}"
       total_hits = ferret_index.search_each(query, options) do |hit, score|
-        # only collect result data if we intend to return it
         doc = ferret_index[hit]
         model = aaf_configuration[:store_class_name] ? doc[:class_name] : aaf_configuration[:class_name]
         if block_given?
@@ -97,12 +93,13 @@ module ActsAsFerret
           result << { :model => model, :id => doc[:id], :score => score }
         end
       end
-      logger.debug "id_score_model array: #{result.inspect}"
-      return block_given? ? total_hits : result
+      #logger.debug "id_score_model array: #{result.inspect}"
+      return block_given? ? total_hits : [total_hits, result]
     end
 
-    def id_multi_search(query, additional_models, options = {})
-      searcher = multi_index(additional_models)
+    def id_multi_search(query, models, options = {})
+      models.map!(&:constantize)
+      searcher = multi_index(models)
       result = []
       total_hits = searcher.search_each(query, options) do |hit, score|
         doc = searcher[hit]
@@ -112,22 +109,28 @@ module ActsAsFerret
           result << { :model => doc[:class_name], :id => doc[:id], :score => score }
         end
       end
-      return block_given? ? total_hits : result
+      return block_given? ? total_hits : [ total_hits, result ]
     end
 
     ######################################
     # methods working on a single record
+    # called from instance_methods, here to simplify interfacing with the
+    # remote ferret server
     ######################################
 
     # add record to index
+    # record may be the full AR object, a Ferret document instance or a Hash
     def add(record)
-      ferret_index << record.to_doc
+      record = record.to_doc unless Hash === record || Ferret::Document === record
+      ferret_index << record
     end
     alias << add
 
     # delete record from index
+    # record may be the full AR object or only the id
     def remove(record)
-      ferret_index.query_delete query_for_record(record.id)
+      record = record.id if ActiveRecord::Base === record
+      ferret_index.query_delete query_for_record(record)
     end
 
     # highlight search terms for the record with the given id.

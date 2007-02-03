@@ -1,6 +1,8 @@
 require 'drb'
 module ActsAsFerret
 
+  # This index implementation connects to a remote ferret server instance. It
+  # basically forwards all calls to the remote server.
   class RemoteIndex < AbstractIndex
 
     def initialize(config)
@@ -9,36 +11,46 @@ module ActsAsFerret
       @server = DRbObject.new(nil, config[:remote])
     end
 
-    def method_missing(name, *args)
-      args.unshift @config[:class_name]
-      @server.send(name, args)
+    def method_missing(method_name, *args)
+      args.unshift model_class_name
+      @server.send(method_name, *args)
     end
 
-    def find_id_by_contents(q, options = {}, &block)
-      # first get all the results, then do the yielding
-      # TODO: check out if/how the yielding works out if done directly via drb
-      results = @server.find_id_by_contents(@config[:class_name], q, options)
-      total_hits = results[0]
-      results[1].each do |hit|
-        model = hit[:class_name] || @config[:class_name]
-        if block_given?
-          yield model, hit[:id], hit[:score]
-        else
-          hit[:class_name] = model
-        end
-      end
-      return block_given? ? total_hits : results[1]
+    def find_id_by_contents(q, options = {}, &proc)
+      total_hits, results = @server.find_id_by_contents(model_class_name, q, options)
+      block_given? ? yield_results(total_hits, results, &proc) : [ total_hits, results ]
+    end
+
+    def id_multi_search(query, models, options, &proc)
+      total_hits, results = @server.id_multi_search(model_class_name, query, models, options)
+      block_given? ? yield_results(total_hits, results, &proc) : [ total_hits, results ]
     end
 
     # add record to index
     def add(record)
-      @server.add @config[:class_name], record.id  # dont serialize the whole record via drb
+      @server.add model_class_name, record.to_doc
     end
     alias << add
 
     # delete record from index
     def remove(record)
-      @server.remove @config[:class_name], record.id  # dont serialize the whole record via drb
+      @server.remove model_class_name, record.id
+    end
+
+#    proxy_method :document_number, :highlight
+
+
+    private
+
+    def yield_results(total_hits, results)
+      results.each do |result|
+        yield result[:model], result[:id], result[:score]
+      end
+      total_hits
+    end
+
+    def model_class_name
+      @config[:class_name]
     end
 
   end

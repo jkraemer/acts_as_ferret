@@ -17,7 +17,7 @@ module ActsAsFerret
     # the same field options in the shared index.
     def rebuild_index(*models)
       models << self unless models.include?(self)
-      aaf_index.rebuild_index(models)
+      aaf_index.rebuild_index(models.map(&:to_s))
     end                                                            
     
     # Retrieve the index instance for this model class. This can either be a
@@ -135,16 +135,21 @@ module ActsAsFerret
         # keep original query 
         original_query = q
         
-        original_query = aaf_index.process_query(q) if q.is_a? String
-
-        q = Ferret::Search::BooleanQuery.new
-        q.add_query(original_query, :must)
-        model_query = Ferret::Search::BooleanQuery.new
-        options[:models].each do |model|
-          model_query.add_query(Ferret::Search::TermQuery.new(:class_name, model.name), :should)
+        #original_query = aaf_index.process_query(q) if q.is_a? String
+        if original_query.is_a? String
+          model_query = options[:models].map(&:name).join '|'
+          q << %{ +class_name:"#{model_query}"}
+        else
+          q = Ferret::Search::BooleanQuery.new
+          q.add_query(original_query, :must)
+          model_query = Ferret::Search::BooleanQuery.new
+          options[:models].each do |model|
+            model_query.add_query(Ferret::Search::TermQuery.new(:class_name, model.name), :should)
+          end
+          q.add_query(model_query, :must)
         end
-        q.add_query(model_query, :must)
       end
+      options.delete :models
       total_hits = aaf_index.find_id_by_contents(q, options) do |model, id, score|
         o = model_find(model, id, find_options.dup)
         o.ferret_score = score
@@ -160,39 +165,18 @@ module ActsAsFerret
     end
 
     # Finds instance model name, ids and scores by contents. 
-    # Useful if you want to search across models
-    # Terms are ANDed by default, can be circumvented by using OR between terms.
+    # Useful e.g. if you want to search across models or do not want to fetch
+    # all result records (yet).
     #
-    # Example controller code (not tested):
-    # def multi_search(query)
-    #   result = []
-    #   result << (Model1.find_id_by_contents query)
-    #   result << (Model2.find_id_by_contents query)
-    #   result << (Model3.find_id_by_contents query)
-    #   result.flatten!
-    #   result.sort! {|element| element[:score]}
-    #   # Figure out for yourself how to retreive and present the data from modelname and id 
-    # end
+    # Options are the same as for find_by_contents
     #
-    # Note that the scores retrieved this way aren't normalized across
-    # indexes, so that the order of results after sorting by score will
-    # differ from the order you would get when running the same query
-    # on a single index containing all the data from Model1, Model2 
-    # and Model
-    #
-    # options are:
-    #
-    # first_doc::      first hit to retrieve (useful for paging)
-    # num_docs::       number of hits to retrieve, or :all to retrieve all
-    #                  results.
-    #
-    # a block can be given too, it will be executed with every result:
+    # A block can be given too, it will be executed with every result:
     # find_id_by_contents(q, options) do |model, id, score|
     #    id_array << id
     #    scores_by_id[id] = score 
     # end
-    # NOTE: in case a block is given, the total_hits value will be returned
-    # instead of the result list!
+    # NOTE: in case a block is given, only the total_hits value will be returned
+    # instead of the [total_hits, results] array!
     # 
     def find_id_by_contents(q, options = {}, &block)
       deprecated_options_support(options)
@@ -219,16 +203,13 @@ module ActsAsFerret
     #
     # if a block is given, class_name, id and score of each hit will 
     # be yielded, and the total number of hits is returned.
-    #
-    # TODO maybe better not push classes through drb, but only class names?
     def id_multi_search(query, additional_models = [], options = {}, &proc)
       deprecated_options_support(options)
       additional_models = [ additional_models ] unless additional_models.is_a? Array
       additional_models << self
-      aaf_index.id_multi_search(query, additional_models, options, &proc)
+      aaf_index.id_multi_search(query, additional_models.map(&:to_s), options, &proc)
     end
     
-
 
     private
 

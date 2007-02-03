@@ -56,7 +56,7 @@ module ActsAsFerret #:nodoc:
     def acts_as_ferret(options={}, ferret_options={})
 
       # force local mode if running on the Ferret server
-      options.delete(:remote) if defined?(ActsAsFerret::Server)
+      options.delete(:remote) if ActsAsFerret::Server.running
 
       extend ClassMethods
 
@@ -140,13 +140,12 @@ module ActsAsFerret #:nodoc:
     
     # helper that defines a method that adds the given field to a lucene 
     # document instance
-    def define_to_field_method(field, options = {})         
-      options = { 
-        :store => :no, 
-        :highlight => :yes, 
-        :index => :yes, 
-        :term_vector => :with_positions_offsets,
-        :boost => 1.0 }.update(options)
+    def define_to_field_method(field, options = {})
+      options.reverse_merge!( :store       => :no, 
+                              :highlight   => :yes, 
+                              :index       => :yes, 
+                              :term_vector => :with_positions_offsets,
+                              :boost       => 1.0 )
       aaf_configuration[:ferret_fields][field] = options
       define_method("#{field}_to_ferret".to_sym) do
         begin
