@@ -1,6 +1,8 @@
 module ActsAsFerret #:nodoc:
 
-      module MoreLikeThis
+    module MoreLikeThis
+
+      module InstanceMethods
 
         # returns other instances of this class, which have similar contents
         # like this one. Basically works like this: find out n most interesting
@@ -45,25 +47,33 @@ module ActsAsFerret #:nodoc:
             :append_to_query => nil,
             :base_class => self.class # base class to use for querying, useful in STI scenarios where BaseClass.find_by_contents can be used to retrieve results from other classes, too
           }.update(options)
-          index = self.class.ferret_index
           #index.search_each('id:*') do |doc, score|
           #  puts "#{doc} == #{index[doc][:description]}"
           #end
-          index.synchronize do # avoid that concurrent writes close our reader
-            index.send(:ensure_reader_open)
-            reader = index.send(:reader)
-            doc_number = self.document_number
-            term_freq_map = retrieve_terms(document_number, reader, options)
+          clazz = options[:base_class]
+          options[:base_class] = clazz.name
+          query = clazz.aaf_index.build_more_like_this_query(self.id, options)
+          options[:append_to_query].call(query) if options[:append_to_query]
+          clazz.find_by_contents(query, find_options)
+        end
+
+      end
+
+      module IndexMethods
+
+        def build_more_like_this_query(id, options)
+          ferret_index.synchronize do # avoid that concurrent writes close our reader
+            ferret_index.send(:ensure_reader_open)
+            reader = ferret_index.send(:reader)
+            term_freq_map = retrieve_terms(id, reader, options)
             priority_queue = create_queue(term_freq_map, reader, options)
-            query = create_query(priority_queue, options)
-            logger.debug "morelikethis-query: #{query}"
-            options[:append_to_query].call(query) if options[:append_to_query]
-            options[:base_class].find_by_contents(query, find_options)
+            create_query(id, priority_queue, options)
           end
         end
 
+        protected
         
-        def create_query(priority_queue, options={})
+        def create_query(id, priority_queue, options={})
           query = Ferret::Search::BooleanQuery.new
           qterms = 0
           best_score = nil
@@ -84,8 +94,8 @@ module ActsAsFerret #:nodoc:
             qterms += 1
             break if options[:max_query_terms] > 0 && qterms >= options[:max_query_terms]
           end
-          # exclude ourselves
-          query.add_query(Ferret::Search::TermQuery.new(:id, self.id.to_s), :must_not)
+          # exclude the original record 
+          query.add_query(Ferret::Search::TermQuery.new(:id, id.to_s), :must_not)
           return query
         end
 
@@ -93,11 +103,13 @@ module ActsAsFerret #:nodoc:
 
         # creates a term/term_frequency map for terms from the fields
         # given in options[:field_names]
-        def retrieve_terms(doc_number, reader, options)
+        def retrieve_terms(id, reader, options)
+          document_number = document_number(id)
           field_names = options[:field_names]
           max_num_tokens = options[:max_num_tokens]
           term_freq_map = Hash.new(0)
           doc = nil
+          record = nil
           field_names.each do |field|
             #puts "field: #{field}"
             term_freq_vector = reader.term_vector(document_number, field)
@@ -116,7 +128,8 @@ module ActsAsFerret #:nodoc:
               content = doc[field]
               unless content
                 # no term vector, no stored content, so try content from this instance
-                content = content_for_field_name(field.to_s)
+                record ||= options[:base_class].constantize.find(id)
+                content = record.content_for_field_name(field.to_s)
               end
               puts "have doc: #{doc[:id]} with #{field} == #{content}"
               token_count = 0
@@ -175,26 +188,23 @@ module ActsAsFerret #:nodoc:
           )
         end
 
-        def content_for_field_name(field)
-          self[field] || self.instance_variable_get("@#{field.to_s}".to_sym) || self.send(field.to_sym)
-        end
+      end
 
-
-        class DefaultAAFSimilarity
-          def idf(doc_freq, num_docs)
-            return 0.0 if num_docs == 0
-            return Math.log(num_docs.to_f/(doc_freq+1)) + 1.0
-          end
-        end
-
-
-        class FrequencyQueueItem
-          attr_reader :word, :field, :score
-          def initialize(word, field, score)
-            @word = word; @field = field; @score = score
-          end
+      class DefaultAAFSimilarity
+        def idf(doc_freq, num_docs)
+          return 0.0 if num_docs == 0
+          return Math.log(num_docs.to_f/(doc_freq+1)) + 1.0
         end
       end
 
+
+      class FrequencyQueueItem
+        attr_reader :word, :field, :score
+        def initialize(word, field, score)
+          @word = word; @field = field; @score = score
+        end
+      end
+
+    end
 end
 

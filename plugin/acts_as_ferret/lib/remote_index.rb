@@ -1,52 +1,46 @@
 require 'drb'
-module ActsAsFerret #:nodoc:
+module ActsAsFerret
 
-      # Proof of concept for a client connecting to a remote ferret server
-      # (ferret_server.rb). Still very basic.
-      class RemoteIndex
-        def initialize(config)
-          @config = config
-          @ferret_config = config[:ferret]
-          @server = DRbObject.new(nil, config[:remote])
-        end
+  class RemoteIndex < AbstractIndex
 
-        def find_id_by_contents(q, options = {}, &block)
-          results = @server.find_id_by_contents(@config[:name], q, options)
-          total_hits = results[0]
-          results[1].each do |hit|
-            model = hit[:class_name] || @config[:class_name]
-            if block_given?
-              yield model, hit[:id], hit[:score]
-            else
-              hit[:class_name] = model
-            end
-          end
-          return block_given? ? total_hits : results[1]
-        end
+    def initialize(config)
+      @config = config
+      @ferret_config = config[:ferret]
+      @server = DRbObject.new(nil, config[:remote])
+    end
 
-        def add_to_index(*docs)
-          @server.add_to_index(@config[:name], docs)
-        end
-        alias :<< :add_to_index
+    def method_missing(name, *args)
+      args.unshift @config[:class_name]
+      @server.send(name, args)
+    end
 
-        def query_delete(query)
-          @server.query_delete(@config[:name], query.to_s)
-        end
-
-        def create_index
-          @server.create_index(@config[:name])
-        end
-
-        def flush
-
-        end
-
-        def optimize
-
-        end
-
-        def close
-
+    def find_id_by_contents(q, options = {}, &block)
+      # first get all the results, then do the yielding
+      # TODO: check out if/how the yielding works out if done directly via drb
+      results = @server.find_id_by_contents(@config[:class_name], q, options)
+      total_hits = results[0]
+      results[1].each do |hit|
+        model = hit[:class_name] || @config[:class_name]
+        if block_given?
+          yield model, hit[:id], hit[:score]
+        else
+          hit[:class_name] = model
         end
       end
+      return block_given? ? total_hits : results[1]
+    end
+
+    # add record to index
+    def add(record)
+      @server.add @config[:class_name], record.id  # dont serialize the whole record via drb
+    end
+    alias << add
+
+    # delete record from index
+    def remove(record)
+      @server.remove @config[:class_name], record.id  # dont serialize the whole record via drb
+    end
+
+  end
+
 end

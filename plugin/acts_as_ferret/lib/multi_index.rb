@@ -67,9 +67,9 @@ module ActsAsFerret #:nodoc:
             unless latest?
               @sub_readers = @model_classes.map { |clazz| 
                 begin
-                  reader = Ferret::Index::IndexReader.new(clazz.class_index_dir)
+                  reader = Ferret::Index::IndexReader.new(clazz.aaf_configuration[:index_dir])
                 rescue Exception
-                  puts "error opening #{clazz.class_index_dir}: #{$!}"
+                  puts "error opening #{clazz.aaf_configuration[:index_dir]}: #{$!}"
                 end
                 reader
               }

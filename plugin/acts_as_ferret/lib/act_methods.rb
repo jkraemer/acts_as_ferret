@@ -7,17 +7,6 @@ module ActsAsFerret #:nodoc:
     
     def reloadable?; false end
     
-    # global Hash containing the ferret indexes of all classes using the plugin
-    # key is the index directory.
-    @@ferret_indexes = Hash.new
-    def ferret_indexes; @@ferret_indexes end
-        
-    # global Hash containing all multi indexes created by all classes using the plugin
-    # key is the concatenation of alphabetically sorted names of the classes the
-    # searcher searches.
-    @@multi_indexes = Hash.new
-    def multi_indexes; @@multi_indexes end
-        
     # declares a class as ferret-searchable. 
     #
     # ====options:
@@ -66,10 +55,13 @@ module ActsAsFerret #:nodoc:
     #
     def acts_as_ferret(options={}, ferret_options={})
 
+      # force local mode if running on the Ferret server
+      options.delete(:remote) if defined?(ActsAsFerret::Server)
+
       extend ClassMethods
 
       include InstanceMethods
-      include MoreLikeThis
+      include MoreLikeThis::InstanceMethods
 
       # AR hooks
       after_create  :ferret_create
@@ -82,6 +74,8 @@ module ActsAsFerret #:nodoc:
       self.aaf_configuration = { 
         :index_dir => "#{ActsAsFerret::index_dir}/#{self.name.underscore}",
         :store_class_name => false,
+        :name => self.table_name,
+        :class_name => self.name,
         :single_index => false,
         :ferret => {
           :or_default => false, 

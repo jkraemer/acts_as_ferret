@@ -27,23 +27,7 @@ module ActsAsFerret #:nodoc:
       #                    probably want to change this so a Unicode elipsis
       #                    character.
     def highlight(query, options = {})
-      options = { :num_excerpts => 2, :pre_tag => '<em>', :post_tag => '</em>' }.update(options)
-      i = self.class.ferret_index
-      highlights = []
-      i.synchronize do
-        doc_num = self.document_number
-        if options[:field]
-          highlights << i.highlight(query, doc_num, options)
-        else
-          query = i.process_query(query) # process only once
-          aaf_configuration[:ferret_fields].each_pair do |field, config|
-            next if config[:store] == :no || config[:highlight] == :no
-            options[:field] = field
-            highlights << i.highlight(query, doc_num, options)
-          end
-        end
-      end
-      return highlights.compact.flatten[0..options[:num_excerpts]-1]
+      self.class.aaf_index.highlight(id, query, options)
     end
     
     # re-eneable ferret indexing after a call to #disable_ferret
@@ -82,7 +66,7 @@ module ActsAsFerret #:nodoc:
     def ferret_create
       if ferret_enabled?
         logger.debug "ferret_create/update: #{self.class.name} : #{self.id}"
-        self.class.ferret_index << self.to_doc
+        self.class.aaf_index << self
       else
         ferret_enable if @ferret_disabled == :once
       end
@@ -95,9 +79,9 @@ module ActsAsFerret #:nodoc:
     def ferret_destroy
       logger.debug "ferret_destroy: #{self.class.name} : #{self.id}"
       begin
-        self.class.ferret_index.query_delete(query_for_self)
+        self.class.aaf_index.remove self
       rescue
-        logger.warn("Could not find indexed value for this object: #{$!}")
+        logger.warn("Could not find indexed value for this object: #{$!}\n#{$!.backtrace}")
       end
       true # signal success to AR
     end
@@ -122,31 +106,18 @@ module ActsAsFerret #:nodoc:
       return doc
     end
 
-    # returns the ferret document number this record has.
     def document_number
-      hits = self.class.ferret_index.search(query_for_self)
-      return hits.hits.first.doc if hits.total_hits == 1
-      raise "cannot determine document number from primary key: #{self}"
+      self.class.aaf_index.document_number(id)
+    end
+
+    def content_for_field_name(field)
+      self[field] || self.instance_variable_get("@#{field.to_s}".to_sym) || self.send(field.to_sym)
     end
 
     # holds the score this record had when it was found via
     # acts_as_ferret
     attr_accessor :ferret_score
       
-    protected
-
-    # build a ferret query matching only this record
-    def query_for_self
-      query = Ferret::Search::TermQuery.new(:id, self.id.to_s)
-      if self.class.aaf_configuration[:single_index]
-        bq = Ferret::Search::BooleanQuery.new
-        bq.add_query(query, :must)
-        bq.add_query(Ferret::Search::TermQuery.new(:class_name, self.class.name), :must)
-        return bq
-      end
-      return query
-    end
-
   end
 
 end

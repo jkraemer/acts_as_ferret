@@ -30,8 +30,10 @@ require 'instance_methods'
 require 'multi_index'
 require 'more_like_this'
 
-require 'ferret_server'
+require 'index'
+require 'local_index'
 require 'remote_index'
+
 
 # The Rails ActiveRecord Ferret Mixin.
 #
@@ -58,6 +60,17 @@ require 'remote_index'
 #
 module ActsAsFerret
 
+    # global Hash containing all multi indexes created by all classes using the plugin
+    # key is the concatenation of alphabetically sorted names of the classes the
+    # searcher searches.
+    @@multi_indexes = Hash.new
+    def self.multi_indexes; @@multi_indexes end
+
+    # global Hash containing the ferret indexes of all classes using the plugin
+    # key is the index directory.
+    @@ferret_indexes = Hash.new
+    def self.ferret_indexes; @@ferret_indexes end
+ 
   # decorator that adds a total_hits accessor to search result arrays
   class SearchResults
     attr_reader :total_hits
