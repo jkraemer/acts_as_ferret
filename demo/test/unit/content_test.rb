@@ -12,6 +12,7 @@ class ContentTest < Test::Unit::TestCase
     FileUtils.rm_f 'index/test/'
     Comment.rebuild_index
     ContentBase.rebuild_index 
+    raise "missing fixtures" unless ContentBase.count > 2
     
     @another_content = Content.new( :title => 'Another Content item', 
                                     :description => 'this is not the title' )
@@ -273,8 +274,9 @@ class ContentTest < Test::Unit::TestCase
     assert_equal 4, ContentBase.find(:all).size
     
     [ 'title:title OR description:title OR content:title', 'title', '*:title'].each do |query|
-      contents_from_ferret = Content.id_multi_search(query)
+      total_hits, contents_from_ferret = Content.id_multi_search(query)
       assert_equal 2, contents_from_ferret.size, query
+      assert_equal 2, total_hits, query
       assert_equal contents(:first).id, contents_from_ferret.first[:id].to_i
       assert_equal @another_content.id, contents_from_ferret.last[:id].to_i
     end
@@ -282,8 +284,9 @@ class ContentTest < Test::Unit::TestCase
     ContentBase.rebuild_index
     Comment.rebuild_index
     ['title OR comment', 'title:(title OR comment) OR description:(title OR comment) OR content:(title OR comment)'].each do |query|
-      contents_from_ferret = Content.id_multi_search(query, [Comment])
+      total_hits, contents_from_ferret = Content.id_multi_search(query, [Comment])
       assert_equal 5, contents_from_ferret.size, query
+      assert_equal 5, total_hits
     end
   end
 
@@ -293,8 +296,9 @@ class ContentTest < Test::Unit::TestCase
   end
 
   def test_find_id_by_contents
-    contents_from_ferret = Content.find_id_by_contents('title:title OR description:title')
+    total_hits, contents_from_ferret = Content.find_id_by_contents('title:title OR description:title')
     assert_equal 2, contents_from_ferret.size
+    assert_equal 2, total_hits
     #puts "first (id=#{contents_from_ferret.first[:id]}): #{contents_from_ferret.first[:score]}"
     #puts "last  (id=#{contents_from_ferret.last[:id]}): #{contents_from_ferret.last[:score]}"
     assert_equal contents(:first).id, contents_from_ferret.first[:id].to_i 
@@ -302,8 +306,9 @@ class ContentTest < Test::Unit::TestCase
     assert contents_from_ferret.first[:score] >= contents_from_ferret.last[:score]
      
     # give description field higher boost:
-    contents_from_ferret = Content.find_id_by_contents('title:title OR description:title^10')
+    total_hits, contents_from_ferret = Content.find_id_by_contents('title:title OR description:title^10')
     assert_equal 2, contents_from_ferret.size
+    assert_equal 2, total_hits
     #puts "first (id=#{contents_from_ferret.first[:id]}): #{contents_from_ferret.first[:score]}"
     #puts "last  (id=#{contents_from_ferret.last[:id]}): #{contents_from_ferret.last[:score]}"
     assert_equal @another_content.id, contents_from_ferret.first[:id].to_i
