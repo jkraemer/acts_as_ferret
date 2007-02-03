@@ -25,15 +25,15 @@ module ActsAsFerret
     end
 
     # TODO queueing of requests goes here!
-    # separate queues for different indexes
     #
-    # maybe later: separate writing/reading queues for parallelization?
+    # maybe separate writing/reading requests for better parallelization?
+    # otherwise a long-taking index rebuild would even hold searches on other
+    # indexes...
+    #
+    # in theory, we would need no queueing at all (possible Rails-threading
+    # problems set aside... - maybe just try to get away with that?)
     def method_missing(name, *args)
       clazz = args.shift.constantize
- #     if name.to_s =~ /^index_(.+)/
-      unless ContentBase.count > 2
-        clazz.connection.reconnect!
-      end
       begin
         @logger.debug "call index method: #{name} with #{args.inspect}"
         clazz.aaf_index.send name, *args
@@ -47,6 +47,10 @@ module ActsAsFerret
     def ferret_index(class_name)
       class_name.constantize.aaf_index.ferret_index
     end
+
+    # the main loop taking stuff from the queue and running it...
+    #def run
+    #end
 
   end
 

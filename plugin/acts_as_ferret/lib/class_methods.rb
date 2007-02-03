@@ -135,7 +135,6 @@ module ActsAsFerret
         # keep original query 
         original_query = q
         
-        #original_query = aaf_index.process_query(q) if q.is_a? String
         if original_query.is_a? String
           model_query = options[:models].map(&:name).join '|'
           q << %{ +class_name:"#{model_query}"}
@@ -213,11 +212,8 @@ module ActsAsFerret
 
     private
 
-    # TODO maybe constantize would work, too?
     def model_find(model, id, find_options = {})
-      model.to_s.split('::').inject(Module) { |base,klass| 
-        base.const_get(klass) 
-      }.find(id, find_options)
+      model.constantize.find(id, find_options)
     end
 
     def deprecated_options_support(options)
