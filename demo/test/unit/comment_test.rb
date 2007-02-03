@@ -13,7 +13,7 @@ class CommentTest < Test::Unit::TestCase
   end
 
   def test_class_index_dir
-    assert_equal "#{RAILS_ROOT}/index/test/comment", Comment.class_index_dir
+    assert_equal "#{RAILS_ROOT}/index/test/comment", Comment.aaf_configuration[:index_dir]
   end
 
   def test_search_for_id
@@ -37,7 +37,7 @@ class CommentTest < Test::Unit::TestCase
   end
 
   def test_rebuild_index
-    Comment.ferret_index.query_delete('comment')
+    Comment.aaf_index.ferret_index.query_delete('comment')
     comments_from_ferret = Comment.find_by_contents('comment AND fixture')
     assert comments_from_ferret.empty?
     Comment.rebuild_index
@@ -74,10 +74,10 @@ class CommentTest < Test::Unit::TestCase
 
   # tests the custom to_doc method defined in comment.rb
   def test_custom_to_doc
-    top_docs = Comment.ferret_index.search('"from fixture"')
+    top_docs = Comment.aaf_index.ferret_index.search('"from fixture"')
     #top_docs = Comment.ferret_index.search('"comment from fixture"')
     assert_equal 2, top_docs.total_hits
-    doc = Comment.ferret_index.doc(top_docs.hits[0].doc)
+    doc = Comment.aaf_index.ferret_index.doc(top_docs.hits[0].doc)
     # check for the special field added by the custom to_doc method
     assert_not_nil doc[:added]
     # still a valid int ?

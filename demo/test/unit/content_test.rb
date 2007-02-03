@@ -117,13 +117,14 @@ class ContentTest < Test::Unit::TestCase
     c1 = Content.new( :title => 'Content item 1', 
                        :description => c )
     c1.save
-    hits = Content.ferret_index.search('title:"Content item 1"')
+    fi = Content.aaf_index.ferret_index
+    hits = fi.search('title:"Content item 1"')
     assert_equal 1, hits.total_hits
     expected_doc_num = hits.hits.first.doc
-    assert_equal c, Content.ferret_index[expected_doc_num][:description]
+    assert_equal c, fi[expected_doc_num][:description]
     doc_num = c1.document_number
     assert_equal expected_doc_num, doc_num
-    assert_equal c, Content.ferret_index[doc_num][:description]
+    assert_equal c, fi[doc_num][:description]
   end
 
   def test_more_like_this
@@ -141,7 +142,7 @@ class ContentTest < Test::Unit::TestCase
   end
 
   def test_class_index_dir
-    assert_equal "#{RAILS_ROOT}/index/test/content_base", Content.class_index_dir
+    assert_equal "#{RAILS_ROOT}/index/test/content_base", Content.aaf_configuration[:index_dir]
   end
   
   def test_update
@@ -233,7 +234,7 @@ class ContentTest < Test::Unit::TestCase
   def test_multi_search
     assert_equal 4, ContentBase.find(:all).size
     
-    Content.ferret_index.flush
+    Content.aaf_index.ferret_index.flush
     contents_from_ferret = Content.multi_search('description:title')
     assert_equal 1, contents_from_ferret.size
     contents_from_ferret = Content.multi_search('title:title OR description:title')

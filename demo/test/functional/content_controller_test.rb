@@ -8,7 +8,7 @@ class ContentControllerTest < Test::Unit::TestCase
   fixtures :contents
 
   def setup
-    index = Ferret::Index::Index.new( :path => Content.class_index_dir, :create => true	)
+    index = Ferret::Index::Index.new( :path => Content.aaf_configuration[:index_dir], :create => true	)
     index.flush
     index.close
     @controller = ContentController.new
