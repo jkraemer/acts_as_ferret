@@ -1,9 +1,26 @@
 require 'drb'
-require 'ferret'
 require 'thread'
+require 'yaml'
+require 'erb'
 
 
 module ActsAsFerret
+
+module Remote
+
+  module Config
+    class << self
+      DEFAULTS = {
+        'host' => 'localhost',
+        'port' => '9009'
+      }
+      # reads connection settings from config file
+      def load(file)
+        config = DEFAULTS.merge(YAML.load(ERB.new(IO.read(file)).result))
+        "druby://#{config['host']}:#{config['port']}"
+      end
+    end
+  end
 
   # This class is intended to act as a drb server listening for indexing and
   # search requests from models declared to 'acts_as_ferret :remote => ...'
@@ -20,6 +37,12 @@ module ActsAsFerret
 
     cattr_accessor :running
 
+    def self.start(uri = nil)
+      uri ||= ActsAsFerret::Remote::Config.load("#{RAILS_ROOT}/config/ferret_server.yml")
+      DRb.start_service(uri, ActsAsFerret::Remote::Server.new)
+      self.running = true
+    end
+
     def initialize
       @logger = Logger.new("#{RAILS_ROOT}/log/ferret_server.log")
     end
@@ -32,6 +55,7 @@ module ActsAsFerret
     #
     # in theory, we would need no queueing at all (possible Rails-threading
     # problems set aside... - maybe just try to get away with that?)
+    # ActiveRecord::Base.allow_concurrency ?
     def method_missing(name, *args)
       clazz = args.shift.constantize
       begin
@@ -41,6 +65,8 @@ module ActsAsFerret
         @logger.debug "no luck, trying to call class method instead"
         clazz.send name, *args
       end
+    rescue
+      puts "####### #{$!}\n#{$!.backtrace.join '\n'}"
     end
 
     # TODO check if in use!
@@ -53,5 +79,5 @@ module ActsAsFerret
     #end
 
   end
-
+end
 end

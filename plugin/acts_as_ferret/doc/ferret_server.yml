@@ -1,2 +1,2 @@
-:host: localhost
-:port: 9009
+host: localhost
+port: <%= RAILS_ENV == 'test' ? '9009' : '9010' %>

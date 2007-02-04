@@ -55,8 +55,13 @@ module ActsAsFerret #:nodoc:
     #
     def acts_as_ferret(options={}, ferret_options={})
 
-      # force local mode if running on the Ferret server
-      options.delete(:remote) if ActsAsFerret::Server.running
+      # force local mode if running inside the Ferret server
+      options.delete(:remote) if ActsAsFerret::Remote::Server.running
+      if options[:remote] && options[:remote] !~ /^druby/
+        # read server location from config/ferret_server.yml
+        options[:remote] = ActsAsFerret::Remote::Config.load("#{RAILS_ROOT}/config/ferret_server.yml")
+      end
+
 
       extend ClassMethods
 

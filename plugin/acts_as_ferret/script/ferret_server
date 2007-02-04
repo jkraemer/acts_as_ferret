@@ -3,29 +3,15 @@
 # Ferret DRb server launcher script
 #
 # place in script/ and start with script/runner script/ferret_server
-# place doc/ferret_server.yml into RAILS_ROOT/config
+# place doc/ferret_server.yml into RAILS_ROOT/config and fit to taste.
+#
 # to run the unit tests against the drb server, start it with
 # RAILS_ENV=test script/runner script/ferret_server
-# and run your tests with the AAF_REMOTE environment variable set:
-# AAF_REMOTE=druby://localhost:9009 rake
+# and run your tests with the AAF_REMOTE environment variable set to a
+# non-empty value
 
-require 'rubygems'
-require 'yaml'
-require 'erb'
 
-defaults = {
-  'host' => 'localhost',
-  'port' => '9009',
-  'indexes' => { }
-}
-
-config_file = ARGV[0] || 'config/ferret_server.yml'
-config = defaults.merge(YAML.load(ERB.new(IO.read(config_file)).result))
-
-server = ActsAsFerret::Server.new
-DRb.start_service("druby://#{config.delete('host')}:#{config.delete('port')}", server)
-ActsAsFerret::Server.running = true
+ActsAsFerret::Remote::Server.start
 DRb.thread.join
-
 
 
