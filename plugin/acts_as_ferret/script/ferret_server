@@ -2,8 +2,9 @@
 
 # Ferret DRb server launcher script
 #
-# place in script/ and start with script/runner script/ferret_server
-# place doc/ferret_server.yml into RAILS_ROOT/config and fit to taste.
+# Place doc/ferret_server.yml into RAILS_ROOT/config and fit to taste.
+#
+# Start this script with script/runner and RAILS_ENV set.
 #
 # to run the unit tests against the drb server, start it with
 # RAILS_ENV=test script/runner script/ferret_server

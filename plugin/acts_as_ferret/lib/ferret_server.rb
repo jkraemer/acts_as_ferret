@@ -17,20 +17,21 @@ module Remote
       # reads connection settings from config file
       def load(file)
         config = DEFAULTS.merge(YAML.load(ERB.new(IO.read(file)).result))
-        "druby://#{config['host']}:#{config['port']}"
+        if config = config[RAILS_ENV]
+          return "druby://#{config['host']}:#{config['port']}"
+        end
       end
     end
   end
 
-  # This class is intended to act as a drb server listening for indexing and
-  # search requests from models declared to 'acts_as_ferret :remote => ...'
+  # This class acts as a drb server listening for indexing and
+  # search requests from models declared to 'acts_as_ferret :remote => true'
   #
   # Usage: 
-  # - copy script/ferret_server to RAILS_ROOT/script
   # - copy doc/ferret_server.yml to RAILS_ROOT/config and modify to suit
   # your needs.
-  #
-  # script intended to be run via script/runner
+  # - run script/ferret_server (in the plugin directory) via script/runner:
+  # RAILS_ENV=production script/runner vendor/plugins/acts_as_ferret/script/ferret_server
   #
   # TODO: automate installation of files to script/ and config/
   class Server
@@ -38,6 +39,7 @@ module Remote
     cattr_accessor :running
 
     def self.start(uri = nil)
+      ActiveRecord::Base.allow_concurrency = true
       uri ||= ActsAsFerret::Remote::Config.load("#{RAILS_ROOT}/config/ferret_server.yml")
       DRb.start_service(uri, ActsAsFerret::Remote::Server.new)
       self.running = true
@@ -47,15 +49,17 @@ module Remote
       @logger = Logger.new("#{RAILS_ROOT}/log/ferret_server.log")
     end
 
-    # TODO queueing of requests goes here!
+    # handles all incoming method calls, and sends them on to the LocalIndex
+    # instance of the correct model class.
     #
-    # maybe separate writing/reading requests for better parallelization?
-    # otherwise a long-taking index rebuild would even hold searches on other
-    # indexes...
+    # Calls are not queued atm, so this will block until the call returned.
+    # Might throw the occasional LockError, too, which most probably means that you're 
+    # a) rebuilding your index or 
+    # b) have *really* high load. I wasn't able to reproduce this case until
+    # now, if you do, please contact me.
     #
-    # in theory, we would need no queueing at all (possible Rails-threading
-    # problems set aside... - maybe just try to get away with that?)
-    # ActiveRecord::Base.allow_concurrency ?
+    # TODO: rebuild indexes in separate directory so no lock errors in these
+    # cases.
     def method_missing(name, *args)
       clazz = args.shift.constantize
       begin
@@ -66,11 +70,12 @@ module Remote
         clazz.send name, *args
       end
     rescue
-      puts "####### #{$!}\n#{$!.backtrace.join '\n'}"
+      @logger.error "ferret server error #{$!}\n#{$!.backtrace.join '\n'}"
+      raise
     end
 
-    # TODO check if in use!
     def ferret_index(class_name)
+      # TODO check if in use!
       class_name.constantize.aaf_index.ferret_index
     end
 
