@@ -150,9 +150,14 @@ module ActsAsFerret
       end
       options.delete :models
       total_hits = aaf_index.find_id_by_contents(q, options) do |model, id, score|
-        o = model_find(model, id, find_options.dup)
-        o.ferret_score = score
-        result << o
+        begin
+          o = model_find(model, id, find_options.dup)
+        rescue
+          logger.error "unable to find #{model} record with id #{id}, you should rebuild your index"
+        else
+          o.ferret_score = score
+          result << o
+        end
       end
       return SearchResults.new(result, total_hits)
     end
