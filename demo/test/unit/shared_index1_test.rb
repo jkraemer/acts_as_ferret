@@ -46,12 +46,19 @@ class SharedIndex1Test < Test::Unit::TestCase
 
   end
 
+  def test_query_for_record
+    assert_match /SharedIndex1/, shared_index1s(:first).query_for_record.to_s
+  end
+
   def test_destroy
     result = SharedIndex1.find_by_contents("first OR another", :models => :all)
     assert_equal 4, result.size
     shared_index1s(:first).destroy
     result = SharedIndex1.find_by_contents("first OR another", :models => :all)
     assert_equal 3, result.size
+    shared_index2s(:first).destroy
+    result = SharedIndex1.find_by_contents("first OR another", :models => :all)
+    assert_equal 2, result.size
   end
 
   def test_update
