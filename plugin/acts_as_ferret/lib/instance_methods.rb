@@ -27,7 +27,7 @@ module ActsAsFerret #:nodoc:
       #                    probably want to change this so a Unicode elipsis
       #                    character.
     def highlight(query, options = {})
-      self.class.aaf_index.highlight(id, query, options)
+      self.class.aaf_index.highlight(id, self.class.name, query, options)
     end
     
     # re-eneable ferret indexing after a call to #disable_ferret
@@ -105,7 +105,7 @@ module ActsAsFerret #:nodoc:
     end
 
     def document_number
-      self.class.aaf_index.document_number(id)
+      self.class.aaf_index.document_number(id, self.class.name)
     end
 
     def query_for_record

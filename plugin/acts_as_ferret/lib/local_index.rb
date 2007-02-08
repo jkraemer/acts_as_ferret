@@ -116,6 +116,7 @@ module ActsAsFerret
     # methods working on a single record
     # called from instance_methods, here to simplify interfacing with the
     # remote ferret server
+    # TODO having to pass id and class_name around like this isn't nice
     ######################################
 
     # add record to index
@@ -127,18 +128,16 @@ module ActsAsFerret
     alias << add
 
     # delete record from index
-    # record may be the full AR object or only the id
-    def remove(record)
-      record = record.id if ActiveRecord::Base === record
-      ferret_index.query_delete query_for_record(record)
+    def remove(id, class_name)
+      ferret_index.query_delete query_for_record(id, class_name)
     end
 
     # highlight search terms for the record with the given id.
-    def highlight(id, query, options = {})
+    def highlight(id, class_name, query, options = {})
       options.reverse_merge! :num_excerpts => 2, :pre_tag => '<em>', :post_tag => '</em>'
       highlights = []
       ferret_index.synchronize do
-        doc_num = document_number(id)
+        doc_num = document_number(id, class_name)
         if options[:field]
           highlights << ferret_index.highlight(query, doc_num, options)
         else
@@ -154,16 +153,16 @@ module ActsAsFerret
     end
 
     # retrieves the ferret document number of the record with the given id.
-    def document_number(id)
-      hits = ferret_index.search(query_for_record(id))
+    def document_number(id, class_name)
+      hits = ferret_index.search(query_for_record(id, class_name))
       return hits.hits.first.doc if hits.total_hits == 1
       raise "cannot determine document number from primary key: #{id}"
     end
 
     # build a ferret query matching only the record with the given id
     # the class name needs to be given in case of a shared index configuration
-    def query_for_record(id)
-      Ferret::Search::TermQuery.new(:id, id.to_s)
+    def query_for_record(*args)
+      Ferret::Search::TermQuery.new(:id, args.first.to_s)
     end
 
 

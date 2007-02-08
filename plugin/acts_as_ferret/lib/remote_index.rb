@@ -28,17 +28,9 @@ module ActsAsFerret
 
     # add record to index
     def add(record)
-      @server.add model_class_name, record.to_doc
+      @server.add record.class.name, record.to_doc
     end
     alias << add
-
-    # delete record from index
-    def remove(record)
-      @server.remove model_class_name, record.id
-    end
-
-#    proxy_method :document_number, :highlight
-
 
     private
 
