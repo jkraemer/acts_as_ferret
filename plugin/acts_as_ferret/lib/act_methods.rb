@@ -64,6 +64,7 @@ module ActsAsFerret #:nodoc:
 
 
       extend ClassMethods
+      extend SharedIndexClassMethods if options[:single_index]
 
       include InstanceMethods
       include MoreLikeThis::InstanceMethods

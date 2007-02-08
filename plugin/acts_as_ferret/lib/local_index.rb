@@ -160,16 +160,10 @@ module ActsAsFerret
       raise "cannot determine document number from primary key: #{id}"
     end
 
-    # build a ferret query matching only this record
+    # build a ferret query matching only the record with the given id
+    # the class name needs to be given in case of a shared index configuration
     def query_for_record(id)
-      query = Ferret::Search::TermQuery.new(:id, id.to_s)
-      if aaf_configuration[:single_index]
-        bq = Ferret::Search::BooleanQuery.new
-        bq.add_query(query, :must)
-        bq.add_query(Ferret::Search::TermQuery.new(:class_name, aaf_configuration[:class_name]), :must)
-        return bq
-      end
-      return query
+      Ferret::Search::TermQuery.new(:id, id.to_s)
     end
 
 

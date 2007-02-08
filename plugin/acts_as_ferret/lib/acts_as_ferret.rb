@@ -25,6 +25,7 @@ require 'ferret'
 
 require 'act_methods'
 require 'class_methods'
+require 'shared_index_class_methods'
 require 'instance_methods'
 
 require 'multi_index'
@@ -32,6 +33,7 @@ require 'more_like_this'
 
 require 'index'
 require 'local_index'
+require 'shared_index'
 require 'remote_index'
 
 require 'ferret_server'

@@ -50,10 +50,6 @@ module ActsAsFerret
     # both ferret options and active record find_options that somehow limit the result 
     # set (e.g. :num_docs and some :conditions).
     def find_by_contents(q, options = {}, find_options = {})
-      # handle shared index
-      # TODO make better by replacing find_by_contents with this method for
-      # shared indexes (in acts_as_ferret method)
-      return single_index_find_by_contents(q, options, find_options) if aaf_configuration[:single_index]
       results = {}
       total_hits = find_id_by_contents(q, options) do |model, id, score|
         # stores ids, index of each id for later ordering of
@@ -101,67 +97,7 @@ module ActsAsFerret
       return SearchResults.new(result, total_hits)
     end 
 
-    # determine all field names in the shared index
-    # TODO unused
-#    def single_index_field_names(models)
-#      @single_index_field_names ||= (
-#          searcher = Ferret::Search::Searcher.new(class_index_dir)
-#          if searcher.reader.respond_to?(:get_field_names)
-#            (searcher.reader.send(:get_field_names) - ['id', 'class_name']).to_a
-#          else
-#            puts <<-END
-#unable to retrieve field names for class #{self.name}, please 
-#consider naming all indexed fields in your call to acts_as_ferret!
-#            END
-#            models.map { |m| m.content_columns.map { |col| col.name } }.flatten
-#          end
-#      )
-#
-#    end
-    
-
-    # weiter: checken ob ferret-bug, dass wir die queries so selber bauen
-    # muessen - liegt am downcasen des qparsers ? - gucken ob jetzt mit
-    # ferret geht (content_cols) und dave um zugriff auf qp bitten, oder
-    # auf reader
-    # TODO: slow on large result sets - fetches result set objects one-by-one
-    def single_index_find_by_contents(q, options = {}, find_options = {})
-      result = []
-
-      unless options[:models] == :all # search needs to be restricted by one or more class names
-        options[:models] ||= [] 
-        # add this class to the list of given models
-        options[:models] << self unless options[:models].include?(self)
-        # keep original query 
-        original_query = q
-        
-        if original_query.is_a? String
-          model_query = options[:models].map(&:name).join '|'
-          q << %{ +class_name:"#{model_query}"}
-        else
-          q = Ferret::Search::BooleanQuery.new
-          q.add_query(original_query, :must)
-          model_query = Ferret::Search::BooleanQuery.new
-          options[:models].each do |model|
-            model_query.add_query(Ferret::Search::TermQuery.new(:class_name, model.name), :should)
-          end
-          q.add_query(model_query, :must)
-        end
-      end
-      options.delete :models
-      total_hits = aaf_index.find_id_by_contents(q, options) do |model, id, score|
-        begin
-          o = model_find(model, id, find_options.dup)
-        rescue
-          logger.error "unable to find #{model} record with id #{id}, you should rebuild your index"
-        else
-          o.ferret_score = score
-          result << o
-        end
-      end
-      return SearchResults.new(result, total_hits)
-    end
-    protected :single_index_find_by_contents
+   
 
     # return the total number of hits for the given query 
     def total_hits(q, options={})
@@ -215,7 +151,7 @@ module ActsAsFerret
     end
     
 
-    private
+    protected
 
     def model_find(model, id, find_options = {})
       model.constantize.find(id, find_options)
@@ -248,10 +184,12 @@ module ActsAsFerret
     # from all model data retrieved by find(:all) is triggered.
     def create_index_instance
       if aaf_configuration[:remote]
-        RemoteIndex.new(aaf_configuration)
+       RemoteIndex
+      elsif aaf_configuration[:single_index]
+        SharedIndex
       else
-        LocalIndex.new(aaf_configuration)
-      end
+        LocalIndex
+      end.new(aaf_configuration)
     end
 
   end

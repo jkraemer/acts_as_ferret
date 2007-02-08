@@ -108,6 +108,10 @@ module ActsAsFerret #:nodoc:
       self.class.aaf_index.document_number(id)
     end
 
+    def query_for_record
+      self.class.aaf_index.query_for_record(id, self.class.name)
+    end
+
     def content_for_field_name(field)
       self[field] || self.instance_variable_get("@#{field.to_s}".to_sym) || self.send(field.to_sym)
     end
