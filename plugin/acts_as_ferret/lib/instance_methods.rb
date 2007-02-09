@@ -119,7 +119,7 @@ module ActsAsFerret #:nodoc:
     # holds the score this record had when it was found via
     # acts_as_ferret
     attr_accessor :ferret_score
-      
+
   end
 
 end

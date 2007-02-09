@@ -4,8 +4,16 @@ module ActsAsFerret
 
     # override the standard find_by_contents for searching a shared index
     #
+    # please note that records from different models will be fetched in
+    # separate sql calls, so any sql order_by clause given with 
+    # find_options[:order] will get ignored.
+    #
     # TODO: slow on large result sets - fetches result set objects one-by-one
     def find_by_contents(q, options = {}, find_options = {})
+      if order = find_options.delete(:order)
+        logger.warn "dropping unused order_by clause #{order}"
+      end
+      id_arrays = {}
       result = []
 
       unless options[:models] == :all # search needs to be restricted by one or more class names
@@ -29,16 +37,33 @@ module ActsAsFerret
         end
       end
       options.delete :models
+
+      # get object ids for index hits
+      rank = 0
       total_hits = aaf_index.find_id_by_contents(q, options) do |model, id, score|
-        begin
-          o = model_find(model, id, find_options.dup)
-        rescue
-          logger.error "unable to find #{model} record with id #{id}, you should rebuild your index"
-        else
-          o.ferret_score = score
-          result << o
-        end
+        id_arrays[model] ||= {}
+        # store result rank and score
+        id_arrays[model][id] = [ rank += 1, score ]
       end
+
+      # get objects for each model
+      id_arrays.each do |model, id_array|
+        model = model.constantize
+        # merge conditions
+        conditions = combine_conditions([ "#{model.table_name}.#{primary_key} in (?)", id_array.keys ], 
+                                        find_options[:conditions])
+        # fetch
+        tmp_result = model.find(:all, find_options.merge(:conditions => conditions))
+        # set scores
+        tmp_result.each { |obj| obj.ferret_score = id_array[obj.id.to_s].last }
+        # merge with result array
+        result.concat tmp_result
+      end
+
+      # sort so results have the same order they had when originally retrieved
+      # from ferret
+      result.sort! { |a, b| id_arrays[a.class.name][a.id.to_s].first <=> id_arrays[b.class.name][b.id.to_s].first }
+
       return SearchResults.new(result, total_hits)
     end
     

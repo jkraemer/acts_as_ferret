@@ -160,9 +160,9 @@ module ActsAsFerret
     end
 
     # build a ferret query matching only the record with the given id
-    # the class name needs to be given in case of a shared index configuration
-    def query_for_record(*args)
-      Ferret::Search::TermQuery.new(:id, args.first.to_s)
+    # the class name only needs to be given in case of a shared index configuration
+    def query_for_record(id, class_name = nil)
+      Ferret::Search::TermQuery.new(:id, id.to_s)
     end
 
 
