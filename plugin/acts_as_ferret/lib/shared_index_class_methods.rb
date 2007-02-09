@@ -14,7 +14,6 @@ module ActsAsFerret
         logger.warn "dropping unused order_by clause #{order}"
       end
       id_arrays = {}
-      result = []
 
       unless options[:models] == :all # search needs to be restricted by one or more class names
         options[:models] ||= [] 
@@ -38,6 +37,18 @@ module ActsAsFerret
       end
       options.delete :models
 
+      total_hits, id_arrays = collect_results(q, options)
+      result = retrieve_records(id_arrays, find_options)
+      
+      # sort so results have the same order they had when originally retrieved
+      # from ferret
+      result.sort! { |a, b| id_arrays[a.class.name][a.id.to_s].first <=> id_arrays[b.class.name][b.id.to_s].first }
+      return SearchResults.new(result, total_hits)
+    end
+
+    protected
+    def collect_results(q, options = {})
+      id_arrays = {}
       # get object ids for index hits
       rank = 0
       total_hits = aaf_index.find_id_by_contents(q, options) do |model, id, score|
@@ -45,27 +56,9 @@ module ActsAsFerret
         # store result rank and score
         id_arrays[model][id] = [ rank += 1, score ]
       end
-
-      # get objects for each model
-      id_arrays.each do |model, id_array|
-        model = model.constantize
-        # merge conditions
-        conditions = combine_conditions([ "#{model.table_name}.#{primary_key} in (?)", id_array.keys ], 
-                                        find_options[:conditions])
-        # fetch
-        tmp_result = model.find(:all, find_options.merge(:conditions => conditions))
-        # set scores
-        tmp_result.each { |obj| obj.ferret_score = id_array[obj.id.to_s].last }
-        # merge with result array
-        result.concat tmp_result
-      end
-
-      # sort so results have the same order they had when originally retrieved
-      # from ferret
-      result.sort! { |a, b| id_arrays[a.class.name][a.id.to_s].first <=> id_arrays[b.class.name][b.id.to_s].first }
-
-      return SearchResults.new(result, total_hits)
+      [ total_hits, id_arrays ]
     end
+
     
     # determine all field names in the shared index
     # TODO unused

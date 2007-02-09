@@ -123,13 +123,17 @@ module ActsAsFerret
     #
     # TODO: not optimal as each instance is fetched in a db call for it's
     # own.
-    def multi_search(query, additional_models = [], options = {})
+    def multi_search(query, additional_models = [], options = {}, find_options = {})
       result = []
+      id_arrays = {}
+      
+      rank = 0
       total_hits = id_multi_search(query, additional_models, options) do |model, id, score|
-        r = model_find(model, id)
-        r.ferret_score = score
-        result << r
+        id_arrays[model] ||= {}
+        id_arrays[model][id] = [ rank += 1, score ]
       end
+
+      result = retrieve_records(id_arrays, find_options)
       SearchResults.new(result, total_hits)
     end
     
@@ -150,6 +154,31 @@ module ActsAsFerret
 
     def model_find(model, id, find_options = {})
       model.constantize.find(id, find_options)
+    end
+
+    # retrieves search result records from a data structure like this:
+    # { 'Model1' => { '1' => [ rank, score ], '2' => [ rank, score ] }
+    def retrieve_records(id_arrays, find_options = {})
+      result = []
+      # get objects for each model
+      id_arrays.each do |model, id_array|
+        begin
+          model = model.constantize
+          # merge conditions
+          conditions = combine_conditions([ "#{model.table_name}.#{primary_key} in (?)", id_array.keys ], 
+                                          find_options[:conditions])
+          # fetch
+          tmp_result = model.find(:all, find_options.merge(:conditions => conditions))
+          # set scores
+          tmp_result.each { |obj| obj.ferret_score = id_array[obj.id.to_s].last }
+          # merge with result array
+          result.concat tmp_result
+        rescue TypeError
+          raise "#{model} must use :store_class_name option if you want to use multi_search against it."
+        end
+      end
+      return result
+
     end
 
     def deprecated_options_support(options)
