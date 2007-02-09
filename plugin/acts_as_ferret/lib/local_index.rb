@@ -3,18 +3,34 @@ module ActsAsFerret
   class LocalIndex < AbstractIndex
     include MoreLikeThis::IndexMethods
 
-    # the 'real' Ferret Index instance
-    attr_reader :ferret_index
 
     def initialize(aaf_configuration)
       super
-      rebuild_index unless File.file? "#{aaf_configuration[:index_dir]}/segments"
-      @ferret_index = Ferret::Index::Index.new(aaf_configuration[:ferret])
+      ensure_index_exists
     end
 
-    def rebuild_index(models = [])
-      logger.debug "rebuild index: #{models.join ' '}"
-      models = models.flatten.uniq.map(&:constantize)
+    # the 'real' Ferret Index instance
+    def ferret_index
+      ensure_index_exists
+      @ferret_index ||= Ferret::Index::Index.new(aaf_configuration[:ferret])
+    end
+
+    def ensure_index_exists
+      unless File.file? "#{aaf_configuration[:index_dir]}/segments"
+        close
+        rebuild_index 
+      end
+    end
+
+    def close
+      @ferret_index.close if @ferret_index
+    rescue StandardError 
+      # is raised when index already closed
+    ensure
+      @ferret_index = nil
+    end
+
+    def field_infos(models)
       # default attributes for fields
       fi = Ferret::Index::FieldInfos.new(:store => :no, 
                                          :index => :yes, 
@@ -26,45 +42,36 @@ module ActsAsFerret
       if aaf_configuration[:store_class_name]
         fi.add_field(:class_name, :store => :yes, :index => :untokenized) 
       end
-      # collect field options from all models
       fields = {}
       models.each do |model|
         fields.update(model.aaf_configuration[:ferret_fields])
       end
-      logger.debug("class #{aaf_configuration[:class_name]}: fields for index: #{fields.keys.join(',')}")
       fields.each_pair do |field, options|
         fi.add_field(field, { :store => :no, 
                               :index => :yes }.update(options)) 
       end
+      return fi
+    end
+
+
+    # rebuilds the index from all records of the model class this index belongs
+    # to. Arguments can be given in shared index scenarios to name multiple
+    # model classes to include in the index
+    def rebuild_index(*models)
+      logger.debug "rebuild index: #{models.inspect}"
+      models << aaf_configuration[:class_name] unless models.include?(aaf_configuration[:class_name])
+      models = models.flatten.uniq.map(&:constantize)
       index = Ferret::Index::Index.new(aaf_configuration[:ferret].dup.update(:auto_flush => false, 
-                                                                             :field_infos => fi,
+                                                                             :field_infos => field_infos(models),
                                                                              :create => true))
-      # TODO make configurable through options
-      batch_size = 1000
       models.each do |model|
-        # index in batches of 1000 to limit memory consumption (fixes #24)
-        model.transaction do
-          0.step(model.count, batch_size) do |i|
-            model.find(:all, :limit => batch_size, :offset => i).each do |rec|
-              index << rec.to_doc
-            end
-          end
-        end
+        reindex_model(index, model)
       end
       logger.debug("Created Ferret index in: #{aaf_configuration[:index_dir]}")
       index.flush
       index.optimize
       index.close
-      # close combined index readers, just in case
-      # this seems to fix a strange test failure that seems to relate to a
-      # multi_index looking at an old version of the content_base index.
-      ActsAsFerret::multi_indexes.each_pair do |key, index|
-        # puts "#{key} -- #{self.name}"
-        # TODO only close those where necessary (watch inheritance, where
-        # self.name is base class of a class where key is made from)
-        index.close #if key =~ /#{self.name}/
-      end
-      ActsAsFerret::multi_indexes.clear
+      close_multi_indexes
     end
 
     # parses the given query string
@@ -83,6 +90,7 @@ module ActsAsFerret
 
     def find_id_by_contents(query, options = {}, &block)
       result = []
+      ensure_index_exists
       #logger.debug "query: #{ferret_index.process_query query}"
       total_hits = ferret_index.search_each(query, options) do |hit, score|
         doc = ferret_index[hit]
@@ -177,6 +185,33 @@ module ActsAsFerret
       ActsAsFerret::multi_indexes[key] ||= MultiIndex.new(model_classes, multi_config)
     end
  
+    def close_multi_indexes
+      # close combined index readers, just in case
+      # this seems to fix a strange test failure that seems to relate to a
+      # multi_index looking at an old version of the content_base index.
+      ActsAsFerret::multi_indexes.each_pair do |key, index|
+        # puts "#{key} -- #{self.name}"
+        # TODO only close those where necessary (watch inheritance, where
+        # self.name is base class of a class where key is made from)
+        index.close #if key =~ /#{self.name}/
+      end
+      ActsAsFerret::multi_indexes.clear
+    end
+
+    def reindex_model(index, model = aaf_configuration[:class_name].constantize)
+      # index in batches of 1000 to limit memory consumption (fixes #24)
+      # TODO make configurable through options
+      batch_size = 1000
+      logger.debug "reindex model #{model.name}"
+      model.transaction do
+        0.step(model.count, batch_size) do |i|
+          model.find(:all, :limit => batch_size, :offset => i).each do |rec|
+            index << rec.to_doc
+          end
+        end
+      end
+    end
+
   end
 
 end

@@ -5,11 +5,6 @@ module ActsAsFerret
     # rebuild the index from all data stored for this model.
     # This is called automatically when no index exists yet.
     #
-    # TODO: the automatic index initialization only works if 
-    # every model class has it's 
-    # own index, otherwise the index will get populated only
-    # with instances from the first model loaded
-    #
     # When calling this method manually, you can give any additional 
     # model classes that should also go into this index as parameters. 
     # Useful when using the :single_index option.

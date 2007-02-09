@@ -3,10 +3,10 @@ module ActsAsFerret #:nodoc:
       # this class is not threadsafe
       class MultiIndex
         
-        # todo: check for necessary index rebuilds in this place, too
-        # idea - each class gets a create_reader method that does this
         def initialize(model_classes, options = {})
           @model_classes = model_classes
+          # ensure all models indexes exist
+          @model_classes.each { |m| m.aaf_index.ensure_index_exists }
           default_fields = @model_classes.inject([]) do |fields, c| 
             fields + c.aaf_configuration[:ferret][:default_field] 
           end
