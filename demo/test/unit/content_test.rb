@@ -205,10 +205,6 @@ class ContentTest < Test::Unit::TestCase
     
     qp = Ferret::QueryParser.new(:fields => ['title', 'content', 'description'],
                       :analyzer => Ferret::Analysis::WhiteSpaceAnalyzer.new)
-    # TODO '*' doesn't seem to work in 0.9 anymore - there's no .fields method
-    # either :-(
-    #qp.fields = i.reader.get_field_names.to_a
-    #qp.fields = ['title','content']
     hits = i.search(qp.parse("title"))
     assert_equal 2, hits.total_hits
     hits = i.search(qp.parse("title:title OR description:title"))
@@ -229,6 +225,32 @@ class ContentTest < Test::Unit::TestCase
     count = 0
     hits.hits.each { |hit, score| count += 1 }
     assert_equal 3, count
+  end
+
+  def test_find_rebuilds_index
+    remove_index Content
+    contents_from_ferret = Content.find_by_contents('description:title')
+    assert_equal 1, contents_from_ferret.size
+  end
+
+  def test_multi_search_rebuilds_index
+    remove_index Content
+    contents_from_ferret = Content.multi_search('description:title')
+    assert_equal 1, contents_from_ferret.size
+  end
+
+  def test_multi_index_rebuilds_index
+    remove_index Content
+    i =  ActsAsFerret::MultiIndex.new([Content])
+    assert File.exists?("#{Content.aaf_configuration[:index_dir]}/segments")
+    hits = i.search("description:title")
+    assert_equal 1, hits.total_hits, hits.inspect
+  end
+
+  def remove_index(clazz)
+    clazz.aaf_index.close # avoid io error when deleting the open index
+    FileUtils.rm_rf clazz.aaf_configuration[:index_dir]
+    assert !File.exists?("#{clazz.aaf_configuration[:index_dir]}/segments")
   end
 
   # segfaults (Feret 0.10.13)

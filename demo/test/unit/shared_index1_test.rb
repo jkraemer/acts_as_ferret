@@ -27,7 +27,7 @@ class SharedIndex1Test < Test::Unit::TestCase
     assert_equal shared_index1s(:first), result.first
   end
 
-  def custom_query
+  def test_custom_query
     result = SharedIndex1.find_by_contents("name:first class_name:SharedIndex1")
     assert_equal 1, result.size
     assert_equal shared_index1s(:first), result.first
