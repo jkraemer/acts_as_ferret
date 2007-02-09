@@ -27,8 +27,14 @@ class ContentTest < Test::Unit::TestCase
     Comment.find(:all).each { |c| c.destroy }
   end
   
-  def test_truth
-    assert_kind_of Content, contents(:first)
+  def test_ticket_69
+    content = Content.create(:title => 'aksjeselskap test',
+                             :description => 'content about various norwegian companies. A.s. Haakon, Åmot Håndverksenter A/S, Øye Trelast AS')
+
+    # these still fail: 'A\S', 'AS'
+    [ '"A.s. Haakon"', 'A.s. Haakon', 'Åmot A/S', 'A/S' ].each do |query|
+      assert_equal content, Content.find_by_contents(query).first, query
+    end
   end
 
   def test_highlight
