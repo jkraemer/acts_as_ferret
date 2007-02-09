@@ -260,6 +260,17 @@ class ContentTest < Test::Unit::TestCase
   #  assert_equal 1, hits.total_hits
   #end
   
+  def test_multi_search_find_options
+    contents_from_ferret = Content.multi_search('title', [], {}, :order => 'id desc')
+    assert_equal 2, contents_from_ferret.size
+    assert contents_from_ferret.first.id > contents_from_ferret.last.id
+    contents_from_ferret = Content.multi_search('title', [], {}, :order => 'id asc')
+    assert contents_from_ferret.first.id < contents_from_ferret.last.id
+
+    contents_from_ferret = Content.multi_search('title', [], {}, :limit => 1)
+    assert_equal 1, contents_from_ferret.size
+  end
+
   def test_multi_search
     assert_equal 4, ContentBase.find(:all).size
     
