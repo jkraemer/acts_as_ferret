@@ -9,12 +9,14 @@ module ActsAsFerret
       ensure_index_exists
     end
 
-    # the 'real' Ferret Index instance
+    # The 'real' Ferret Index instance
     def ferret_index
       ensure_index_exists
       @ferret_index ||= Ferret::Index::Index.new(aaf_configuration[:ferret])
     end
 
+    # Checks for the presents of a segments file in the index directory
+    # Rebuilds the index if none exists.
     def ensure_index_exists
       unless File.file? "#{aaf_configuration[:index_dir]}/segments"
         close
@@ -22,6 +24,7 @@ module ActsAsFerret
       end
     end
 
+    # Closes the underlying index instance
     def close
       @ferret_index.close if @ferret_index
     rescue StandardError 
@@ -29,30 +32,6 @@ module ActsAsFerret
     ensure
       @ferret_index = nil
     end
-
-    def field_infos(models)
-      # default attributes for fields
-      fi = Ferret::Index::FieldInfos.new(:store => :no, 
-                                         :index => :yes, 
-                                         :term_vector => :no,
-                                         :boost => 1.0)
-      # primary key
-      fi.add_field(:id, :store => :yes, :index => :untokenized) 
-      # class_name
-      if aaf_configuration[:store_class_name]
-        fi.add_field(:class_name, :store => :yes, :index => :untokenized) 
-      end
-      fields = {}
-      models.each do |model|
-        fields.update(model.aaf_configuration[:ferret_fields])
-      end
-      fields.each_pair do |field, options|
-        fi.add_field(field, { :store => :no, 
-                              :index => :yes }.update(options)) 
-      end
-      return fi
-    end
-
 
     # rebuilds the index from all records of the model class this index belongs
     # to. Arguments can be given in shared index scenarios to name multiple
@@ -74,7 +53,7 @@ module ActsAsFerret
       close_multi_indexes
     end
 
-    # parses the given query string
+    # Parses the given query string into a Ferret Query object.
     def process_query(query)
       # work around ferret bug in #process_query (doesn't ensure the
       # reader is open)
@@ -84,16 +63,20 @@ module ActsAsFerret
       end
     end
 
+    # Total number of hits for the given query. 
     def total_hits(query, options = {})
       ferret_index.search(query, options).total_hits
     end
 
-    def find_id_by_contents(query, options = {}, &block)
+    # Queries the Ferret index to retrieve model class, id and score for each hit.
+    # If a block is given, these are yielded and the number of total hits is
+    # returned. Otherwise [total_hits, result_array] is returned.
+    def find_id_by_contents(query, options = {})
       result = []
-      ensure_index_exists
+      index = ferret_index
       #logger.debug "query: #{ferret_index.process_query query}"
-      total_hits = ferret_index.search_each(query, options) do |hit, score|
-        doc = ferret_index[hit]
+      total_hits = index.search_each(query, options) do |hit, score|
+        doc = index[hit]
         model = aaf_configuration[:store_class_name] ? doc[:class_name] : aaf_configuration[:class_name]
         if block_given?
           yield model, doc[:id], score
@@ -105,12 +88,16 @@ module ActsAsFerret
       return block_given? ? total_hits : [total_hits, result]
     end
 
+    # Queries multiple Ferret indexes to retrieve model class, id and score for 
+    # each hit. Use the models parameter to give the list of models to search.
+    # If a block is given, model, id and score are yielded and the number of 
+    # total hits is returned. Otherwise [total_hits, result_array] is returned.
     def id_multi_search(query, models, options = {})
       models.map!(&:constantize)
-      searcher = multi_index(models)
+      index = multi_index(models)
       result = []
-      total_hits = searcher.search_each(query, options) do |hit, score|
-        doc = searcher[hit]
+      total_hits = index.search_each(query, options) do |hit, score|
+        doc = index[hit]
         if block_given?
           yield doc[:class_name], doc[:id], score
         else
@@ -210,6 +197,31 @@ module ActsAsFerret
           end
         end
       end
+    end
+
+    # builds a FieldInfos instance for creation of an index containing fields
+    # for the given model classes.
+    def field_infos(models)
+      # default attributes for fields
+      fi = Ferret::Index::FieldInfos.new(:store => :no, 
+                                         :index => :yes, 
+                                         :term_vector => :no,
+                                         :boost => 1.0)
+      # primary key
+      fi.add_field(:id, :store => :yes, :index => :untokenized) 
+      # class_name
+      if aaf_configuration[:store_class_name]
+        fi.add_field(:class_name, :store => :yes, :index => :untokenized) 
+      end
+      fields = {}
+      models.each do |model|
+        fields.update(model.aaf_configuration[:ferret_fields])
+      end
+      fields.each_pair do |field, options|
+        fi.add_field(field, { :store => :no, 
+                              :index => :yes }.update(options)) 
+      end
+      return fi
     end
 
   end

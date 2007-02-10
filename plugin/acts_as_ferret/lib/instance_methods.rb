@@ -2,30 +2,30 @@ module ActsAsFerret #:nodoc:
 
   module InstanceMethods
 
-      # Returns an array of strings with the matches highlighted. The +query+ can
-      # either a query String or a Ferret::Search::Query object.
-      # 
-      # === Options
-      #
-      # field::            field to take the content from. This field has 
-      #                    to have it's content stored in the index 
-      #                    (:store => :yes in your call to aaf). If not
-      #                    given, all stored fields are searched, and the
-      #                    highlighted content found in all of them is returned.
-      #                    set :highlight => :no in the field options to
-      #                    avoid highlighting of contents from a :stored field.
-      # excerpt_length::   Default: 150. Length of excerpt to show. Highlighted
-      #                    terms will be in the centre of the excerpt.
-      # num_excerpts::     Default: 2. Number of excerpts to return.
-      # pre_tag::          Default: "<em>". Tag to place to the left of the
-      #                    match.  
-      # post_tag::         Default: "</em>". This tag should close the
-      #                    +:pre_tag+.
-      # ellipsis::         Default: "...". This is the string that is appended
-      #                    at the beginning and end of excerpts (unless the
-      #                    excerpt hits the start or end of the field. You'll
-      #                    probably want to change this so a Unicode elipsis
-      #                    character.
+    # Returns an array of strings with the matches highlighted. The +query+ can
+    # either be a String or a Ferret::Search::Query object.
+    # 
+    # === Options
+    #
+    # field::            field to take the content from. This field has 
+    #                    to have it's content stored in the index 
+    #                    (:store => :yes in your call to aaf). If not
+    #                    given, all stored fields are searched, and the
+    #                    highlighted content found in all of them is returned.
+    #                    set :highlight => :no in the field options to
+    #                    avoid highlighting of contents from a :stored field.
+    # excerpt_length::   Default: 150. Length of excerpt to show. Highlighted
+    #                    terms will be in the centre of the excerpt.
+    # num_excerpts::     Default: 2. Number of excerpts to return.
+    # pre_tag::          Default: "<em>". Tag to place to the left of the
+    #                    match.  
+    # post_tag::         Default: "</em>". This tag should close the
+    #                    +:pre_tag+.
+    # ellipsis::         Default: "...". This is the string that is appended
+    #                    at the beginning and end of excerpts (unless the
+    #                    excerpt hits the start or end of the field. You'll
+    #                    probably want to change this so a Unicode elipsis
+    #                    character.
     def highlight(query, options = {})
       self.class.aaf_index.highlight(id, self.class.name, query, options)
     end
