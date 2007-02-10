@@ -227,6 +227,12 @@ class ContentTest < Test::Unit::TestCase
     assert_equal 3, count
   end
 
+  def test_add_rebuilds_index
+    remove_index Content
+    Content.create(:title => 'another one', :description => 'description')
+    contents_from_ferret = Content.find_by_contents('description:title')
+    assert_equal 1, contents_from_ferret.size
+  end
   def test_find_rebuilds_index
     remove_index Content
     contents_from_ferret = Content.find_by_contents('description:title')
