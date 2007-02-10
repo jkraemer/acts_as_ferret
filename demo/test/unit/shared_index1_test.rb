@@ -19,7 +19,7 @@ class SharedIndex1Test < Test::Unit::TestCase
 
   def test_find_by_contents_one_class
     result = SharedIndex1.find_by_contents("first")
-    assert_equal 1, result.size
+    assert_equal 1, result.size, result.inspect
     assert_equal shared_index1s(:first), result.first
 
     result = SharedIndex1.find_by_contents("name:first", :models => [SharedIndex1])
@@ -53,12 +53,39 @@ class SharedIndex1Test < Test::Unit::TestCase
   def test_destroy
     result = SharedIndex1.find_by_contents("first OR another", :models => :all)
     assert_equal 4, result.size
-    shared_index1s(:first).destroy
+    SharedIndex1.destroy(shared_index1s(:first))
     result = SharedIndex1.find_by_contents("first OR another", :models => :all)
     assert_equal 3, result.size
     shared_index2s(:first).destroy
     result = SharedIndex1.find_by_contents("first OR another", :models => :all)
     assert_equal 2, result.size
+  end
+
+  def test_ferret_destroy
+    SharedIndex1.rebuild_index(SharedIndex2)
+    result = SharedIndex1.find_id_by_contents("first OR another", :models => :all)
+    assert_equal 4, result.first
+    shared_index1s(:first).ferret_destroy
+    result = SharedIndex1.find_id_by_contents("first OR another", :models => :all)
+    assert_equal 3, result.first
+  end
+
+  def test_ferret_destroy_ticket_88
+    SharedIndex1.rebuild_index(SharedIndex2)
+    result = SharedIndex1.find_id_by_contents("first OR another", :models => :all)
+    assert_equal 4, result.first
+    result = SharedIndex2.find_id_by_contents("first OR another", :models => :all)
+    assert_equal 4, result.first
+    SharedIndex1.destroy(shared_index1s(:first))
+    result = SharedIndex1.find_id_by_contents("first OR another", :models => :all)
+    assert_equal 3, result.first
+    result = SharedIndex2.find_id_by_contents("first OR another", :models => :all)
+    assert_equal 3, result.first
+    shared_index2s(:first).destroy
+    result = SharedIndex1.find_id_by_contents("first OR another", :models => :all)
+    assert_equal 2, result.first
+    result = SharedIndex2.find_id_by_contents("first OR another", :models => :all)
+    assert_equal 2, result.first
   end
 
   def test_update
