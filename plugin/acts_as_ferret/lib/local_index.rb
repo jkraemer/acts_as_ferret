@@ -74,7 +74,7 @@ module ActsAsFerret
     def find_id_by_contents(query, options = {})
       result = []
       index = ferret_index
-      #logger.debug "query: #{ferret_index.process_query query}"
+      logger.debug "query: #{ferret_index.process_query query}"
       total_hits = index.search_each(query, options) do |hit, score|
         doc = index[hit]
         model = aaf_configuration[:store_class_name] ? doc[:class_name] : aaf_configuration[:class_name]

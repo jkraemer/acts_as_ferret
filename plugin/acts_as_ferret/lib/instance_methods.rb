@@ -79,7 +79,7 @@ module ActsAsFerret #:nodoc:
     def ferret_destroy
       logger.debug "ferret_destroy: #{self.class.name} : #{self.id}"
       begin
-        self.class.aaf_index.remove self
+        self.class.aaf_index.remove self.id, self.class.name
       rescue
         logger.warn("Could not find indexed value for this object: #{$!}\n#{$!.backtrace}")
       end

@@ -2,19 +2,8 @@ module ActsAsFerret
   
   module SharedIndexClassMethods
 
-    # override the standard find_by_contents for searching a shared index
-    #
-    # please note that records from different models will be fetched in
-    # separate sql calls, so any sql order_by clause given with 
-    # find_options[:order] will get ignored.
-    #
-    # TODO: slow on large result sets - fetches result set objects one-by-one
-    def find_by_contents(q, options = {}, find_options = {})
-      if order = find_options.delete(:order)
-        logger.warn "dropping unused order_by clause #{order}"
-      end
-      id_arrays = {}
-
+    def find_id_by_contents(q, options = {})
+      # add class name scoping to query if necessary
       unless options[:models] == :all # search needs to be restricted by one or more class names
         options[:models] ||= [] 
         # add this class to the list of given models
@@ -36,10 +25,21 @@ module ActsAsFerret
         end
       end
       options.delete :models
+      
+      super(q, options)
+    end
 
+    # Overrides the standard find_by_contents for searching a shared index.
+    #
+    # please note that records from different models will be fetched in
+    # separate sql calls, so any sql order_by clause given with 
+    # find_options[:order] will be ignored.
+    def find_by_contents(q, options = {}, find_options = {})
+      if order = find_options.delete(:order)
+        logger.warn "dropping unused order_by clause #{order}"
+      end
       total_hits, id_arrays = collect_results(q, options)
       result = retrieve_records(id_arrays, find_options)
-      
       # sort so results have the same order they had when originally retrieved
       # from ferret
       result.sort! { |a, b| id_arrays[a.class.name][a.id.to_s].first <=> id_arrays[b.class.name][b.id.to_s].first }
@@ -51,7 +51,7 @@ module ActsAsFerret
       id_arrays = {}
       # get object ids for index hits
       rank = 0
-      total_hits = aaf_index.find_id_by_contents(q, options) do |model, id, score|
+      total_hits = find_id_by_contents(q, options) do |model, id, score|
         id_arrays[model] ||= {}
         # store result rank and score
         id_arrays[model][id] = [ rank += 1, score ]
