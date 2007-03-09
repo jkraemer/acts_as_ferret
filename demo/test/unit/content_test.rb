@@ -41,6 +41,23 @@ class ContentTest < Test::Unit::TestCase
     highlight = @another_content.highlight('title')
     assert_equal 1, highlight.size
     assert_equal "this is not the <em>title</em>", highlight.first
+
+    highlight = @another_content.highlight('title', :field => :description)
+    assert_equal 1, highlight.size
+    assert_equal "this is not the <em>title</em>", highlight.first
+  end
+
+  def test_highlight_new_record
+    c = Content.create :title => 'the title', :description => 'the new description'
+    highlight = c.highlight('new')
+    assert_equal 1, highlight.size
+    assert_equal "the <em>new</em> description", highlight.first
+
+    c1 = Content.find_by_contents('new description').first
+    assert_equal c, c1
+    highlight = c1.highlight('new')
+    assert_equal 1, highlight.size
+    assert_equal "the <em>new</em> description", highlight.first
   end
 
   def test_disable_ferret_once
