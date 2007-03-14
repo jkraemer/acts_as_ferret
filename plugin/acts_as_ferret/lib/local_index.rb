@@ -15,7 +15,7 @@ module ActsAsFerret
       @ferret_index ||= Ferret::Index::Index.new(aaf_configuration[:ferret])
     end
 
-    # Checks for the presents of a segments file in the index directory
+    # Checks for the presence of a segments file in the index directory
     # Rebuilds the index if none exists.
     def ensure_index_exists
       unless File.file? "#{aaf_configuration[:index_dir]}/segments"

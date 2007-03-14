@@ -98,9 +98,7 @@ module ActsAsFerret
   # under RAILS_ROOT/index/RAILS_ENV
   def self.init_index_basedir
     index_base = "#{RAILS_ROOT}/index"
-    ensure_directory index_base
     @@index_dir = "#{index_base}/#{RAILS_ENV}"
-    ensure_directory @@index_dir
   end
   
   mattr_accessor :index_dir
@@ -110,8 +108,6 @@ module ActsAsFerret
     super
     base.extend(ClassMethods)
   end
-
-  
   
 end
 
