@@ -210,6 +210,15 @@ class ContentTest < Test::Unit::TestCase
     assert result.first.id < result.last.id
   end
 
+  def test_sort_with_limit
+    sorting = [ Ferret::Search::SortField.new(:id, :type => :string, :reverse => true) ]
+    result = Content.find_by_contents('comment_count:2 OR comment_count:1', :sort => sorting)
+    assert result.size > 2
+    result = Content.find_by_contents('comment_count:2 OR comment_count:1', :sort => sorting, :limit => 2)
+    assert_equal 2, result.size
+    assert result.first.id > result.last.id
+  end
+  
   def test_multi_index
     i =  ActsAsFerret::MultiIndex.new([Content, Comment])
     hits = i.search(TermQuery.new(:title,"title"))
