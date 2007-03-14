@@ -190,9 +190,10 @@ module ActsAsFerret
       # TODO make configurable through options
       batch_size = 1000
       logger.debug "reindex model #{model.name}"
+      order = "#{model.primary_key} ASC" # this works around a bug in sqlserver-adapter (where paging only works with an order applied)
       model.transaction do
         0.step(model.count, batch_size) do |i|
-          model.find(:all, :limit => batch_size, :offset => i).each do |rec|
+          model.find(:all, :limit => batch_size, :offset => i, :order => order).each do |rec|
             index << rec.to_doc
           end
         end
