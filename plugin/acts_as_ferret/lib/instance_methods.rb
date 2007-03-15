@@ -34,7 +34,10 @@ module ActsAsFerret #:nodoc:
     def ferret_enable; @ferret_disabled = nil end
     
     # returns true if ferret indexing is enabled
-    def ferret_enabled?; @ferret_disabled.nil? end
+    # the optional parameter will be true if the method is called by rebuild_index, 
+    # and false otherwise. I.e. useful to enable a model only for indexing during 
+    # scheduled reindex runs.
+    def ferret_enabled?(is_rebuild = false); @ferret_disabled.nil? end
 
     # Disable Ferret for a specified amount of time. ::once will disable
     # Ferret for the next call to #save (this is the default), ::always will 

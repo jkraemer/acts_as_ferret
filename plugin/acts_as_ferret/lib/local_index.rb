@@ -194,7 +194,7 @@ module ActsAsFerret
       model.transaction do
         0.step(model.count, batch_size) do |i|
           model.find(:all, :limit => batch_size, :offset => i, :order => order).each do |rec|
-            index << rec.to_doc
+            index << rec.to_doc if rec.ferret_enabled?(true)
           end
         end
       end
