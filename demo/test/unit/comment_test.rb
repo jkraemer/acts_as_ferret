@@ -46,7 +46,7 @@ class CommentTest < Test::Unit::TestCase
   end
 
   def test_total_hits
-    comments_from_ferret = Comment.find_by_contents('comment AND fixture', :num_docs => 1)
+    comments_from_ferret = Comment.find_by_contents('comment AND fixture', :limit => 1)
     assert_equal 1, comments_from_ferret.size
     assert_equal 2, comments_from_ferret.total_hits
 
@@ -56,7 +56,7 @@ class CommentTest < Test::Unit::TestCase
   end
 
   def test_score
-    comments_from_ferret = Comment.find_by_contents('comment AND fixture', :num_docs => 1)
+    comments_from_ferret = Comment.find_by_contents('comment AND fixture', :limit => 1)
     assert comments_from_ferret.first.ferret_score > 0
   end
 
