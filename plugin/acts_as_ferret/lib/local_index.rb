@@ -189,13 +189,21 @@ module ActsAsFerret
       # index in batches of 1000 to limit memory consumption (fixes #24)
       # TODO make configurable through options
       batch_size = 1000
-      logger.debug "reindex model #{model.name}"
+      model_count = model.count.to_f
+      work_done = 0
+      batch_time = 0
+      logger.info "reindexing model #{model.name}"
       order = "#{model.primary_key} ASC" # this works around a bug in sqlserver-adapter (where paging only works with an order applied)
       model.transaction do
         0.step(model.count, batch_size) do |i|
+          b1 = Time.now.to_f
           model.find(:all, :limit => batch_size, :offset => i, :order => order).each do |rec|
             index << rec.to_doc if rec.ferret_enabled?(true)
           end
+          batch_time = Time.now.to_f - b1
+          work_done = i.to_f / model_count * 100.0 if model_count > 0
+          remaining_time = ( batch_time / batch_size ) * ( model_count - i + batch_size )
+          logger.info "reindex model #{model.name} : #{'%.2f' % work_done}% complete : #{'%.2f' % remaining_time} secs to finish"
         end
       end
     end
