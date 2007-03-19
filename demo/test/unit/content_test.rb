@@ -26,7 +26,19 @@ class ContentTest < Test::Unit::TestCase
     ContentBase.find(:all).each { |c| c.destroy }
     Comment.find(:all).each { |c| c.destroy }
   end
-  
+
+  # weiter: single index / multisearch lazy loading
+  def test_lazy_loading
+    results = Content.find_by_contents 'description', :lazy => true
+    assert_equal 1, results.size
+    result = results.first
+    assert ActsAsFerret::FerretResult === result
+    assert_equal 'A useless description', result.description
+    assert_nil result.instance_variable_get(:@ar_record)
+    assert_equal 'My Title', result.title
+    assert_not_nil result.instance_variable_get(:@ar_record)
+  end
+
   def test_ticket_69
     content = Content.create(:title => 'aksjeselskap test',
                              :description => 'content about various norwegian companies. A.s. Haakon, Åmot Håndverksenter A/S, Øye Trelast AS')
@@ -351,6 +363,16 @@ class ContentTest < Test::Unit::TestCase
     assert_equal 5, contents_from_ferret.size
   end
 
+  def test_multi_search_lazy
+    contents_from_ferret = Content.multi_search('title', [Comment], :lazy => true)
+    assert_equal 2, contents_from_ferret.size
+    contents_from_ferret.each do |record|
+      assert ActsAsFerret::FerretResult === record, record.inspect
+      assert !record.description.blank?
+      assert_nil record.instance_variable_get(:"@ar_record")
+    end
+  end
+
   def test_id_multi_search
     assert_equal 4, ContentBase.find(:all).size
     
@@ -369,6 +391,19 @@ class ContentTest < Test::Unit::TestCase
       assert_equal 5, contents_from_ferret.size, query
       assert_equal 5, total_hits
     end
+  end
+
+  def test_id_multi_search_lazy
+    total_hits, contents_from_ferret = Content.id_multi_search('title', [Comment], :lazy => true)
+    assert_equal 2, contents_from_ferret.size
+    assert_equal 2, total_hits
+    found = 0
+    contents_from_ferret.each do |data|
+      next if data[:model] != 'Content'
+      found += 1
+      assert !data[:data][:description].blank?
+    end
+    assert_equal 2, found
   end
 
   def test_total_hits

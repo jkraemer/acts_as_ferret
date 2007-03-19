@@ -17,7 +17,10 @@ class CommentTest < Test::Unit::TestCase
   end
 
   def test_search_for_id
+    # don't search the id field by default:
     assert Comment.find_by_contents('3').empty?
+    # explicit query for id field works:
+    assert_equal 3, Comment.find_by_contents('id:3').first.id
   end
 
   #def test_reloadable

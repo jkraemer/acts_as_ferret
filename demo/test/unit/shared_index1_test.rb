@@ -7,6 +7,17 @@ class SharedIndex1Test < Test::Unit::TestCase
     SharedIndex1.rebuild_index(SharedIndex2)
   end
 
+  def test_lazy_loading_shared_index
+    results = SharedIndex1.find_by_contents 'first', :lazy => [ :name ], :models => :all
+    assert_equal 2, results.size
+    found_lazy_result = false
+    results.each { |r|
+      assert ActsAsFerret::FerretResult === r
+      assert !r.name.blank?
+      assert_nil r.instance_variable_get(:@ar_record) # lazy, AR record has not been fetched
+    }
+  end
+  
   def test_find
     assert_equal shared_index1s(:first), SharedIndex1.find(1)
     assert_equal shared_index2s(:first), SharedIndex2.find(1)
