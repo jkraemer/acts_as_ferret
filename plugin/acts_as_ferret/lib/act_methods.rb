@@ -32,7 +32,8 @@ module ActsAsFerret #:nodoc:
     #                don't bother setting these when using this option. the shared index
     #                will be located in index/<RAILS_ENV>/shared .
     #
-    # store_class_name:: to make search across multiple models useful, set
+    # store_class_name:: to make search across multiple models (with either
+    #                    single_index or the multi_search method) useful, set
     #                    this to true. the model class name will be stored in a keyword field 
     #                    named class_name
     #
@@ -48,10 +49,11 @@ module ActsAsFerret #:nodoc:
     #                 contain any untokenized fields. If it does, you're asking
     #                 for trouble (i.e. not getting results for queries having
     #                 stop words in them). Aaf by default initializes the default field 
-    #                 list to all tokenized fields. Note that this is not true for shared
-    #                 indexes, so if you use :single_index, you should use this 
-    #                 option to specify the field names of your shared index you want to 
-    #                 search by default here.
+    #                 list to contain all tokenized fields. If you use :single_index => true, 
+    #                 you really should set this option specifying your default field
+    #                 list (which should be equal in all your classes sharing the index).
+    #                 Otherwise you might get incorrect search results and you won't get 
+    #                 any lazy loading of stored field data.
     #
     def acts_as_ferret(options={}, ferret_options={})
 
@@ -86,7 +88,7 @@ module ActsAsFerret #:nodoc:
         :ferret => {
           :or_default => false, 
           :handle_parse_errors => true,
-          :default_field => '*'
+          :default_field => nil # will be set later on
           #:max_clauses => 512,
           #:analyzer => Ferret::Analysis::StandardAnalyzer.new,
           # :wild_card_downcase => true
@@ -113,7 +115,7 @@ module ActsAsFerret #:nodoc:
       aaf_configuration[:ferret].update(
         :key               => (aaf_configuration[:single_index] ? [:id, :class_name] : :id),
         :path              => aaf_configuration[:index_dir],
-        :auto_flush        => true,
+        :auto_flush        => true, # slower but more secure in terms of locking problems TODO disable when running in drb mode?
         :create_if_missing => true
       )
       
@@ -129,22 +131,30 @@ module ActsAsFerret #:nodoc:
       # now that all fields have been added, we can initialize the default
       # field list to be used by the query parser.
       # It will include all content fields *not* marked as :untokenized.
-      # This fixes the otherwise failing CommentTest#test_stopwords 
+      # This fixes the otherwise failing CommentTest#test_stopwords. Basically
+      # this means that by default only tokenized fields (which is the default)
+      # will be searched. If you want to search inside the contents of an
+      # untokenized field, you'll have to explicitly specify it in your query.
       #
-      # However this is not very useful with a shared index (see
+      # Unfortunately this is not very useful with a shared index (see
       # http://projects.jkraemer.net/acts_as_ferret/ticket/85)
       # You should consider specifying the default field list to search for as
       # part of the ferret_options hash in your call to acts_as_ferret.
-      aaf_configuration[:ferret][:default_field] = aaf_configuration[:ferret_fields].keys.select do |f| 
-        aaf_configuration[:ferret_fields][f][:index] != :untokenized
-      end unless aaf_configuration[:single_index]
-      logger.debug "set default field list to #{aaf_configuration[:ferret][:default_field].inspect}"
+      aaf_configuration[:ferret][:default_field] ||= if aaf_configuration[:single_index]
+        logger.warn "You really should set the acts_as_ferret :default_field option when using a shared index!"
+        '*'
+      else
+        aaf_configuration[:ferret_fields].keys.select do |f| 
+          aaf_configuration[:ferret_fields][f][:index] != :untokenized
+        end
+      end
+      logger.info "default field list: #{aaf_configuration[:ferret][:default_field].inspect}"
     end
 
 
     protected
     
-    # helper that defines a method that adds the given field to a lucene 
+    # helper that defines a method that adds the given field to a ferret 
     # document instance
     def define_to_field_method(field, options = {})
       options.reverse_merge!( :store       => :no, 

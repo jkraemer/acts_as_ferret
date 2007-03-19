@@ -26,6 +26,7 @@ require 'ferret'
 require 'act_methods'
 require 'class_methods'
 require 'shared_index_class_methods'
+require 'ferret_result'
 require 'instance_methods'
 
 require 'multi_index'

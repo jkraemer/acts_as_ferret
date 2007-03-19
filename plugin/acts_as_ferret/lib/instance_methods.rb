@@ -1,6 +1,7 @@
 module ActsAsFerret #:nodoc:
 
   module InstanceMethods
+    include ResultAttributes
 
     # Returns an array of strings with the matches highlighted. The +query+ can
     # either be a String or a Ferret::Search::Query object.
@@ -119,9 +120,6 @@ module ActsAsFerret #:nodoc:
       self[field] || self.instance_variable_get("@#{field.to_s}".to_sym) || self.send(field.to_sym)
     end
 
-    # holds the score this record had when it was found via
-    # acts_as_ferret
-    attr_accessor :ferret_score
 
   end
 

@@ -31,8 +31,14 @@ module ActsAsFerret
     # offset::      first hit to retrieve (useful for paging)
     # limit::       number of hits to retrieve, or :all to retrieve
     #               all results
-    # models::      only for single_index scenarios: a list of other Model classes to 
-    #               include in this search.
+    # lazy::        Array of field names whose contents should be read directly
+    #               from the index. Those fields have to be marked 
+    #               :store => :yes in their field options. Give true to get all
+    #               stored fields (if you have a shared index, you have to
+    #               explicitly state the fields you want to fetch, true won't
+    #               work)
+    # models::      only for single_index scenarios: an Array of other Model classes to 
+    #               include in this search. Use :all to query all models.
     #
     # find_options is a hash passed on to active_record's find when
     # retrieving the data from db, useful to i.e. prefetch relationships.
@@ -45,50 +51,8 @@ module ActsAsFerret
     # both ferret options and active record find_options that somehow limit the result 
     # set (e.g. :num_docs and some :conditions).
     def find_by_contents(q, options = {}, find_options = {})
-      results = {}
-      total_hits = find_id_by_contents(q, options) do |model, id, score|
-        # stores ids, index of each id for later ordering of
-        # results, and score
-        results[id] = [ results.size + 1, score ]
-      end
-      result = []
-      begin
-        # TODO: in case of STI AR will filter out hits from other 
-        # classes for us, but this
-        # will lead to less results retrieved --> scoping of ferret query
-        # to self.class is still needed.
-        # from the ferret ML (thanks Curtis Hatter)
-        # > I created a method in my base STI class so I can scope my query. For scoping
-        # > I used something like the following line:
-        # > 
-        # > query << " role:#{self.class.eql?(Contents) '*' : self.class}"
-        # > 
-        # > Though you could make it more generic by simply asking
-        # > "self.descends_from_active_record?" which is how rails decides if it should
-        # > scope your "find" query for STI models. You can check out "base.rb" in
-        # > activerecord to see that.
-        # but maybe better do the scoping in find_id_by_contents...
-        if results.any?
-          conditions = combine_conditions([ "#{table_name}.#{primary_key} in (?)", results.keys ], 
-                                          find_options[:conditions])
-          result = self.find(:all, 
-                              find_options.merge(:conditions => conditions))
-          # correct result size if the user specified conditions
-          total_hits = result.length if find_options[:conditions]
-        end
-      rescue ActiveRecord::RecordNotFound
-        logger.warn "REBUILD YOUR INDEX! One of the id's in the index didn't have an associated record"
-      end
-
-      # order results as they were found by ferret, unless an AR :order
-      # option was given
-      unless find_options[:order]
-        result.sort! { |a, b| results[a.id.to_s].first <=> results[b.id.to_s].first }
-      end
-      # set scores
-      result.each { |r| r.ferret_score = results[r.id.to_s].last }
-      
-      logger.debug "Query: #{q}\nResult ids: #{results.keys.inspect},\nresult: #{result}"
+      total_hits, result = find_records_lazy_or_not q, options, find_options
+      logger.debug "Query: #{q}\ntotal hits: #{total_hits}, results delivered: #{result.size}"
       return SearchResults.new(result, total_hits)
     end 
 
@@ -120,20 +84,24 @@ module ActsAsFerret
     
     # requires the store_class_name option of acts_as_ferret to be true
     # for all models queried this way.
-    #
-    # TODO: not optimal as each instance is fetched in a db call for it's
-    # own.
     def multi_search(query, additional_models = [], options = {}, find_options = {})
       result = []
-      id_arrays = {}
-      
-      rank = 0
-      total_hits = id_multi_search(query, additional_models, options) do |model, id, score|
-        id_arrays[model] ||= {}
-        id_arrays[model][id] = [ rank += 1, score ]
+
+      if options[:lazy]
+        logger.warn "find_options #{find_options} are ignored because :lazy => true" unless find_options.empty?
+        total_hits = id_multi_search(query, additional_models, options) do |model, id, score, data|
+          result << FerretResult.new(model, id, score, data)
+        end
+      else
+        id_arrays = {}
+        rank = 0
+        total_hits = id_multi_search(query, additional_models, options) do |model, id, score, data|
+          id_arrays[model] ||= {}
+          id_arrays[model][id] = [ rank += 1, score ]
+        end
+        result = retrieve_records(id_arrays, find_options)
       end
 
-      result = retrieve_records(id_arrays, find_options)
       SearchResults.new(result, total_hits)
     end
     
@@ -152,16 +120,70 @@ module ActsAsFerret
 
     protected
 
+    def find_records_lazy_or_not(q, options = {}, find_options = {})
+      if options[:lazy]
+        logger.warn "find_options #{find_options} are ignored because :lazy => true" unless find_options.empty?
+        lazy_find_by_contents q, options
+      else
+        ar_find_by_contents q, options, find_options
+      end
+    end
+
+    def ar_find_by_contents(q, options = {}, find_options = {})
+      result_ids = {}
+      total_hits = find_id_by_contents(q, options) do |model, id, score, data|
+        # stores ids, index of each id for later ordering of
+        # results, and score
+        result_ids[id] = [ result_ids.size + 1, score ]
+      end
+
+      result = retrieve_records( { self.name => result_ids }, find_options )
+      # correct result size if the user specified conditions
+      total_hits = result.length if find_options[:conditions]
+
+      # order results as they were found by ferret, unless an AR :order
+      # option was given
+      result.sort! { |a, b| a.ferret_rank <=> b.ferret_rank } unless find_options[:order]
+
+      [ total_hits, result ]
+    end
+
+    def lazy_find_by_contents(q, options = {})
+      result = []
+      total_hits = find_id_by_contents(q, options) do |model, id, score, data|
+        result << FerretResult.new(model, id, score, data)
+      end
+      [ total_hits, result ]
+    end
+
+
     def model_find(model, id, find_options = {})
       model.constantize.find(id, find_options)
     end
 
     # retrieves search result records from a data structure like this:
     # { 'Model1' => { '1' => [ rank, score ], '2' => [ rank, score ] }
+    #
+    # TODO: in case of STI AR will filter out hits from other 
+    # classes for us, but this
+    # will lead to less results retrieved --> scoping of ferret query
+    # to self.class is still needed.
+    # from the ferret ML (thanks Curtis Hatter)
+    # > I created a method in my base STI class so I can scope my query. For scoping
+    # > I used something like the following line:
+    # > 
+    # > query << " role:#{self.class.eql?(Contents) '*' : self.class}"
+    # > 
+    # > Though you could make it more generic by simply asking
+    # > "self.descends_from_active_record?" which is how rails decides if it should
+    # > scope your "find" query for STI models. You can check out "base.rb" in
+    # > activerecord to see that.
+    # but maybe better do the scoping in find_id_by_contents...
     def retrieve_records(id_arrays, find_options = {})
       result = []
       # get objects for each model
       id_arrays.each do |model, id_array|
+        next if id_array.empty?
         begin
           model = model.constantize
           # merge conditions
@@ -169,16 +191,17 @@ module ActsAsFerret
                                           find_options[:conditions])
           # fetch
           tmp_result = model.find(:all, find_options.merge(:conditions => conditions))
-          # set scores
-          tmp_result.each { |obj| obj.ferret_score = id_array[obj.id.to_s].last }
+          # set scores and rank
+          tmp_result.each do |record|
+            record.ferret_rank, record.ferret_score = id_array[record.id.to_s]
+          end
           # merge with result array
           result.concat tmp_result
         rescue TypeError
-          raise "#{model} must use :store_class_name option if you want to use multi_search against it."
+          raise "#{model} must use :store_class_name option if you want to use multi_search against it.\n#{$!}"
         end
       end
       return result
-
     end
 
     def deprecated_options_support(options)

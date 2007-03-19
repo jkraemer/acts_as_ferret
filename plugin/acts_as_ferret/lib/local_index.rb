@@ -68,20 +68,35 @@ module ActsAsFerret
       ferret_index.search(query, options).total_hits
     end
 
-    # Queries the Ferret index to retrieve model class, id and score for each hit.
+    def determine_lazy_fields(options = {})
+      stored_fields = options[:lazy]
+      if stored_fields && !(Array === stored_fields)
+        stored_fields = aaf_configuration[:ferret_fields].select { |field, config| config[:store] == :yes }.map(&:first)
+      end
+      logger.debug "stored_fields: #{stored_fields}"
+      return stored_fields
+    end
+
+    # Queries the Ferret index to retrieve model class, id, score and the
+    # values of any fields stored in the index for each hit.
     # If a block is given, these are yielded and the number of total hits is
     # returned. Otherwise [total_hits, result_array] is returned.
     def find_id_by_contents(query, options = {})
       result = []
       index = ferret_index
-      logger.debug "query: #{ferret_index.process_query query}"
+      logger.debug "query: #{ferret_index.process_query query}" # TODO only enable this for debugging purposes
+      lazy_fields = determine_lazy_fields options
+
       total_hits = index.search_each(query, options) do |hit, score|
         doc = index[hit]
         model = aaf_configuration[:store_class_name] ? doc[:class_name] : aaf_configuration[:class_name]
+        # fetch stored fields if lazy loading
+        data = {}
+        lazy_fields.each { |field| data[field] = doc[field] } if lazy_fields
         if block_given?
-          yield model, doc[:id], score
+          yield model, doc[:id], score, data
         else
-          result << { :model => model, :id => doc[:id], :score => score }
+          result << { :model => model, :id => doc[:id], :score => score, :data => data }
         end
       end
       #logger.debug "id_score_model array: #{result.inspect}"
@@ -96,12 +111,16 @@ module ActsAsFerret
       models.map!(&:constantize)
       index = multi_index(models)
       result = []
+      lazy_fields = determine_lazy_fields options
       total_hits = index.search_each(query, options) do |hit, score|
         doc = index[hit]
+        # fetch stored fields if lazy loading
+        data = {}
+        lazy_fields.each { |field| data[field] = doc[field] } if lazy_fields
         if block_given?
-          yield doc[:class_name], doc[:id], score
+          yield doc[:class_name], doc[:id], score, doc, data
         else
-          result << { :model => doc[:class_name], :id => doc[:id], :score => score }
+          result << { :model => doc[:class_name], :id => doc[:id], :score => score, :data => data }
         end
       end
       return block_given? ? total_hits : [ total_hits, result ]
