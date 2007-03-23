@@ -36,7 +36,7 @@ module ActsAsFerret
 
     def yield_results(total_hits, results)
       results.each do |result|
-        yield result[:model], result[:id], result[:score]
+        yield result[:model], result[:id], result[:score], result[:data]
       end
       total_hits
     end

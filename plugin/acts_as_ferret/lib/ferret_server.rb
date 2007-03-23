@@ -15,10 +15,11 @@ module Remote
         'port' => '9009'
       }
       # reads connection settings from config file
-      def load(file)
+      def load(file = "#{RAILS_ROOT}/config/ferret_server.yml")
         config = DEFAULTS.merge(YAML.load(ERB.new(IO.read(file)).result))
         if config = config[RAILS_ENV]
-          return "druby://#{config['host']}:#{config['port']}"
+          config[:uri] = "druby://#{config['host']}:#{config['port']}"
+          return config
         end
       end
     end
@@ -40,7 +41,7 @@ module Remote
 
     def self.start(uri = nil)
       ActiveRecord::Base.allow_concurrency = true
-      uri ||= ActsAsFerret::Remote::Config.load("#{RAILS_ROOT}/config/ferret_server.yml")
+      uri ||= ActsAsFerret::Remote::Config.load[:uri]
       DRb.start_service(uri, ActsAsFerret::Remote::Server.new)
       self.running = true
     end
