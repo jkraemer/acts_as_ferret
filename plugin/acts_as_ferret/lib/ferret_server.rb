@@ -21,6 +21,7 @@ module Remote
           config[:uri] = "druby://#{config['host']}:#{config['port']}"
           return config
         end
+        {}
       end
     end
   end
