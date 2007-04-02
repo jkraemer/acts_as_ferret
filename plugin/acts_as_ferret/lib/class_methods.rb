@@ -141,10 +141,6 @@ module ActsAsFerret
       # correct result size if the user specified conditions
       total_hits = result.length if find_options[:conditions]
 
-      # order results as they were found by ferret, unless an AR :order
-      # option was given
-      result.sort! { |a, b| a.ferret_rank <=> b.ferret_rank } unless find_options[:order]
-
       [ total_hits, result ]
     end
 
@@ -201,6 +197,10 @@ module ActsAsFerret
           raise "#{model} must use :store_class_name option if you want to use multi_search against it.\n#{$!}"
         end
       end
+      
+      # order results as they were found by ferret, unless an AR :order
+      # option was given
+      result.sort! { |a, b| a.ferret_rank <=> b.ferret_rank } unless find_options[:order]
       return result
     end
 
