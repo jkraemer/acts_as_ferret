@@ -221,6 +221,13 @@ class ContentTest < Test::Unit::TestCase
     result = Content.find_by_contents('comment_count:2', :sort => sorting)
     assert result.first.id < result.last.id
   end
+  
+  def test_multi_search_sorting
+    sorting = [ Ferret::Search::SortField.new(:id) ]
+    
+    result = Content.multi_search('*:title OR *:comment', [Comment], :sort => sorting)
+    assert_equal result.map(&:ferret_rank), result.sort_by(&:ferret_rank).map(&:ferret_rank)
+  end
 
   # TODO: Sort usage fails with drb
   #def test_sort_class
