@@ -139,8 +139,11 @@ class Ferret::Search::SortField
   end
 
   def self._load(string)
-    raise "invalid value: #{string}" unless string =~ /^(\w+):<(\w+)>(\!)?$/
-    new($1.to_sym, :type => $2.to_sym, :reverse => !$3.nil?)
+    case string
+      when '<SCORE>'              : Ferret::Search::SortField::SCORE
+      when /^(\w+):<(\w+)>(\!)?$/ : new($1.to_sym, :type => $2.to_sym, :reverse => !$3.nil?)
+      else raise "invalid value: #{string}"
+    end
   end
 end
 
