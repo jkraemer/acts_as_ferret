@@ -59,11 +59,22 @@ module ActsAsFerret #:nodoc:
 
       # force local mode if running *inside* the Ferret server - somewhere the
       # real indexing has to be done after all :-)
-      options.delete(:remote) if ActsAsFerret::Remote::Server.running
+      # Usually the automatic detection of server mode works fine, however if you 
+      # require your model classes in environment.rb they will get loaded before the 
+      # DRb server is started, so this code is executed too early and detection won't 
+      # work. In this case you'll get endless loops resulting in "stack level too deep" 
+      # errors. 
+      # To get around this, start the server with the environment variable 
+      # FERRET_USE_LOCAL_INDEX set to '1'.
+      logger.debug "Asked for a remote server ? #{options[:remote].inspect}, ENV[\"FERRET_USE_LOCAL_INDEX\"] is #{ENV["FERRET_USE_LOCAL_INDEX"].inspect}, server is #{ActsAsFerret::Remote::Server.running ? :running : :not_running}"
+      options.delete(:remote) if ENV["FERRET_USE_LOCAL_INDEX"] || ActsAsFerret::Remote::Server.running
 
       if options[:remote] && options[:remote] !~ /^druby/
         # read server location from config/ferret_server.yml
         options[:remote] = ActsAsFerret::Remote::Config.load("#{RAILS_ROOT}/config/ferret_server.yml")[:uri]
+        logger.debug "Will use remote index server which should be available at #{options[:remote]}"
+      else
+        logger.debug "Will use local index"
       end
 
 

@@ -63,9 +63,9 @@ module Remote
     # TODO: rebuild indexes in separate directory so no lock errors in these
     # cases.
     def method_missing(name, *args)
+      @logger.debug "\#method_missing(#{name.inspect}, #{args.inspect})"
       clazz = args.shift.constantize
       begin
-        @logger.debug "call index method: #{name} with #{args.inspect}"
         clazz.aaf_index.send name, *args
       rescue NoMethodError
         @logger.debug "no luck, trying to call class method instead"
