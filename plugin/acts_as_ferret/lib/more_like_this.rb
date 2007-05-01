@@ -123,7 +123,7 @@ module ActsAsFerret #:nodoc:
               # puts 'no stored term vector'
               # no term vector stored, but we have stored the contents in the index
               # -> extract terms from there
-              doc = reader[doc_number]
+              doc = reader[document_number]
               content = doc[field]
               unless content
                 # no term vector, no stored content, so try content from this instance
