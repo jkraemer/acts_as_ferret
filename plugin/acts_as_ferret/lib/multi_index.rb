@@ -69,9 +69,8 @@ module ActsAsFerret #:nodoc:
                 begin
                   reader = Ferret::Index::IndexReader.new(clazz.aaf_configuration[:index_dir])
                 rescue Exception
-                  puts "error opening #{clazz.aaf_configuration[:index_dir]}: #{$!}"
+                  raise "error opening #{clazz.aaf_configuration[:index_dir]}: #{$!}"
                 end
-                reader
               }
               close
               @reader = Ferret::Index::IndexReader.new(@sub_readers)

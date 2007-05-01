@@ -182,20 +182,21 @@ module ActsAsFerret
         next if id_array.empty?
         begin
           model = model.constantize
-          # merge conditions
-          conditions = combine_conditions([ "#{model.table_name}.#{primary_key} in (?)", id_array.keys ], 
-                                          find_options[:conditions])
-          # fetch
-          tmp_result = model.find(:all, find_options.merge(:conditions => conditions))
-          # set scores and rank
-          tmp_result.each do |record|
-            record.ferret_rank, record.ferret_score = id_array[record.id.to_s]
-          end
-          # merge with result array
-          result.concat tmp_result
-        rescue TypeError
-          raise "#{model} must use :store_class_name option if you want to use multi_search against it.\n#{$!}"
+        rescue
+          raise "Please use ':store_class_name => true' if you want to use multi_search.\n#{$!}"
         end
+
+        # merge conditions
+        conditions = combine_conditions([ "#{model.table_name}.#{primary_key} in (?)", id_array.keys ], 
+                                        find_options[:conditions])
+        # fetch
+        tmp_result = model.find(:all, find_options.merge(:conditions => conditions))
+        # set scores and rank
+        tmp_result.each do |record|
+          record.ferret_rank, record.ferret_score = id_array[record.id.to_s]
+        end
+        # merge with result array
+        result.concat tmp_result
       end
       
       # order results as they were found by ferret, unless an AR :order
