@@ -138,8 +138,20 @@ module ActsAsFerret
       end
 
       result = retrieve_records( { self.name => result_ids }, find_options )
-      # correct result size if the user specified conditions
-      total_hits = result.length if find_options[:conditions]
+      
+      if find_options[:conditions]
+        if options[:limit] != :all
+          # correct result size if the user specified conditions
+          #  wenn conditions: options[:limit] != :all --> ferret-query mit :all wiederholen und select count machen
+          result_ids = {}
+          find_id_by_contents(q, options.update(:limit => :all)) do |model, id, score, data|
+            result_ids[id] = [ result_ids.size + 1, score ]
+          end
+          total_hits = count_records( { self.name => result_ids }, find_options )
+        else
+          total_hits = result.length
+        end
+      end
 
       [ total_hits, result ]
     end
@@ -203,6 +215,23 @@ module ActsAsFerret
       # option was given
       result.sort! { |a, b| a.ferret_rank <=> b.ferret_rank } unless find_options[:order]
       return result
+    end
+
+    def count_records(id_arrays, find_options = {})
+      count = 0
+      id_arrays.each do |model, id_array|
+        next if id_array.empty?
+        begin
+          model = model.constantize
+          # merge conditions
+          conditions = combine_conditions([ "#{model.table_name}.#{primary_key} in (?)", id_array.keys ], 
+                                          find_options[:conditions])
+          count += model.count(find_options.merge(:conditions => conditions))
+        rescue TypeError
+          raise "#{model} must use :store_class_name option if you want to use multi_search against it.\n#{$!}"
+        end
+      end
+      count
     end
 
     def deprecated_options_support(options)
