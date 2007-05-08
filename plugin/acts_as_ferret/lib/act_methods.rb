@@ -37,24 +37,29 @@ module ActsAsFerret #:nodoc:
     #                    this to true. the model class name will be stored in a keyword field 
     #                    named class_name
     #
-    # ====ferret_options:
-    # or_default:: whether query terms are required by
-    #              default (the default, false), or not (true)
+    # ferret:: Hash of Options that directly influence the way the Ferret engine works. You 
+    #          can use most of the options the Ferret::I class accepts here, too. Among the 
+    #          more useful are:
+    #
+    #     or_default:: whether query terms are required by
+    #                  default (the default, false), or not (true)
     # 
-    # analyzer:: the analyzer to use for query parsing (default: nil,
-    #            which means the ferret StandardAnalyzer gets used)
+    #     analyzer:: the analyzer to use for query parsing (default: nil,
+    #                which means the ferret StandardAnalyzer gets used)
     #
-    # default_field:: use to set one or more fields that are searched for query terms
-    #                 that don't have an explicit field list. This list should *not*
-    #                 contain any untokenized fields. If it does, you're asking
-    #                 for trouble (i.e. not getting results for queries having
-    #                 stop words in them). Aaf by default initializes the default field 
-    #                 list to contain all tokenized fields. If you use :single_index => true, 
-    #                 you really should set this option specifying your default field
-    #                 list (which should be equal in all your classes sharing the index).
-    #                 Otherwise you might get incorrect search results and you won't get 
-    #                 any lazy loading of stored field data.
+    #     default_field:: use to set one or more fields that are searched for query terms
+    #                     that don't have an explicit field list. This list should *not*
+    #                     contain any untokenized fields. If it does, you're asking
+    #                     for trouble (i.e. not getting results for queries having
+    #                     stop words in them). Aaf by default initializes the default field 
+    #                     list to contain all tokenized fields. If you use :single_index => true, 
+    #                     you really should set this option specifying your default field
+    #                     list (which should be equal in all your classes sharing the index).
+    #                     Otherwise you might get incorrect search results and you won't get 
+    #                     any lazy loading of stored field data.
     #
+    # For downwards compatibility reasons you can also specify the Ferret options in the 
+    # last Hash argument.
     def acts_as_ferret(options={}, ferret_options={})
 
       # force local mode if running *inside* the Ferret server - somewhere the
@@ -101,29 +106,28 @@ module ActsAsFerret #:nodoc:
         :name => self.table_name,
         :class_name => self.name,
         :single_index => false,
-        :ferret => {
-          :or_default => false, 
-          :handle_parse_errors => true,
-          :default_field => nil # will be set later on
-          #:max_clauses => 512,
-          #:analyzer => Ferret::Analysis::StandardAnalyzer.new,
-          # :wild_card_downcase => true
-        }
+        :ferret => {},                    # Ferret config Hash
+        :ferret_fields => {}              # list of indexed fields that will be filled later
       }
 
       # merge aaf options with args
       aaf_configuration.update(options) if options.is_a?(Hash)
-
-      # list of indexed fields will be filled later
-      aaf_configuration[:ferret_fields] = Hash.new
-
       # apply appropriate settings for shared index
       if aaf_configuration[:single_index] 
         aaf_configuration[:index_dir] = "#{ActsAsFerret::index_dir}/shared" 
         aaf_configuration[:store_class_name] = true 
       end
 
-      # merge default ferret options with args
+      # set ferret default options
+      aaf_configuration[:ferret].reverse_merge!( :or_default => false, 
+                                                 :handle_parse_errors => true,
+                                                 :default_field => nil # will be set later on
+                                                 #:max_clauses => 512,
+                                                 #:analyzer => Ferret::Analysis::StandardAnalyzer.new,
+                                                 # :wild_card_downcase => true
+                                               )
+
+      # merge ferret options with those from second parameter hash
       aaf_configuration[:ferret].update(ferret_options) if ferret_options.is_a?(Hash)
 
       # these properties are somewhat vital to the plugin and shouldn't
