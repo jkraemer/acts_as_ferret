@@ -37,6 +37,8 @@ module ActsAsFerret #:nodoc:
     #                    this to true. the model class name will be stored in a keyword field 
     #                    named class_name
     #
+    # reindex_batch_size:: reindexing is done in batches of this size, default is 1000
+    #
     # ferret:: Hash of Options that directly influence the way the Ferret engine works. You 
     #          can use most of the options the Ferret::I class accepts here, too. Among the 
     #          more useful are:
@@ -106,6 +108,7 @@ module ActsAsFerret #:nodoc:
         :name => self.table_name,
         :class_name => self.name,
         :single_index => false,
+        :reindex_batch_size => 1000,
         :ferret => {},                    # Ferret config Hash
         :ferret_fields => {}              # list of indexed fields that will be filled later
       }
@@ -130,6 +133,13 @@ module ActsAsFerret #:nodoc:
       # merge ferret options with those from second parameter hash
       aaf_configuration[:ferret].update(ferret_options) if ferret_options.is_a?(Hash)
 
+      unless options[:remote]
+        ActsAsFerret::ensure_directory aaf_configuration[:index_dir] 
+        aaf_configuration[:index_base_dir] = aaf_configuration[:index_dir]
+        aaf_configuration[:index_dir] = find_last_index_version(aaf_configuration[:index_dir])
+        logger.debug "using index in #{aaf_configuration[:index_dir]}"
+      end
+
       # these properties are somewhat vital to the plugin and shouldn't
       # be overwritten by the user:
       aaf_configuration[:ferret].update(
@@ -145,8 +155,6 @@ module ActsAsFerret #:nodoc:
         add_fields(self.new.attributes.keys.map { |k| k.to_sym })
         add_fields(aaf_configuration[:additional_fields])
       end
-
-      ActsAsFerret::ensure_directory aaf_configuration[:index_dir] unless options[:remote]
 
       # now that all fields have been added, we can initialize the default
       # field list to be used by the query parser.
@@ -174,6 +182,19 @@ module ActsAsFerret #:nodoc:
 
     protected
     
+    # find the most recent version of an index
+    def find_last_index_version(basedir)
+      # check for versioned index
+      versions = Dir.entries(basedir).select { |f| File.directory?(File.join(basedir, f)) && f =~ /^\d+$/ }
+      if versions.any?
+        # select latest version
+        versions.sort!
+        File.join basedir, versions.last
+      else
+        basedir
+      end
+    end
+
     # helper that defines a method that adds the given field to a ferret 
     # document instance
     def define_to_field_method(field, options = {})

@@ -1,5 +1,4 @@
-#!/usr/bin/env script/runner
-
+#!/usr/bin/env ruby
 # Ferret DRb server launcher script
 #
 # Place doc/ferret_server.yml into RAILS_ROOT/config and fit to taste. Start
@@ -17,6 +16,10 @@
 #
 # The server writes a log file in log/ferret_server.log, it's 
 # STDOUT gets redirected to log/ferret_server.out
+
+ENV['FERRET_USE_LOCAL_INDEX'] = 'true'
+require File.dirname(__FILE__) + '/../config/boot'
+require RAILS_ROOT + '/config/environment'
 
 
 config = ActsAsFerret::Remote::Config.load

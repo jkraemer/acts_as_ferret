@@ -12,8 +12,15 @@ module ActsAsFerret
     # the same field options in the shared index.
     def rebuild_index(*models)
       models << self unless models.include?(self)
-      aaf_index.rebuild_index(models.map(&:to_s))
+      aaf_index.rebuild_index models.map(&:to_s)
     end                                                            
+
+    # Switches this class to a new index located in dir.
+    # Used by the DRb server when switching to a new index version.
+    def index_dir=(dir)
+      aaf_configuration[:index_dir] = aaf_configuration[:ferret][:path] = dir
+      aaf_index.reopen!
+    end
     
     # Retrieve the index instance for this model class. This can either be a
     # LocalIndex, or a RemoteIndex instance.

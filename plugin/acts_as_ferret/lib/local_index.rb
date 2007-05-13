@@ -9,6 +9,15 @@ module ActsAsFerret
       ensure_index_exists
     end
 
+    def reopen!
+      if @ferret_index
+        @ferret_index.close
+        @ferret_index = nil
+      end
+      logger.debug "reopening index at #{aaf_configuration[:ferret][:path]}"
+      ferret_index
+    end
+
     # The 'real' Ferret Index instance
     def ferret_index
       ensure_index_exists
@@ -37,20 +46,25 @@ module ActsAsFerret
     # to. Arguments can be given in shared index scenarios to name multiple
     # model classes to include in the index
     def rebuild_index(*models)
-      logger.debug "rebuild index: #{models.inspect}"
       models << aaf_configuration[:class_name] unless models.include?(aaf_configuration[:class_name])
       models = models.flatten.uniq.map(&:constantize)
+      logger.debug "rebuild index: #{models.inspect}"
       index = Ferret::Index::Index.new(aaf_configuration[:ferret].dup.update(:auto_flush => false, 
                                                                              :field_infos => field_infos(models),
                                                                              :create => true))
+      do_rebuild_with_index(index, models)
+    end
+
+    def do_rebuild_with_index(index, models)
       models.each do |model|
         reindex_model(index, model)
       end
-      logger.debug("Created Ferret index in: #{aaf_configuration[:index_dir]}")
       index.flush
+      logger.debug("Created Ferret index in: #{index.options[:path]}. Will now optimize...")
       index.optimize
       index.close
       close_multi_indexes
+      logger.debug("Done.")
     end
 
     # Parses the given query string into a Ferret Query object.
@@ -179,6 +193,30 @@ module ActsAsFerret
       Ferret::Search::TermQuery.new(:id, id.to_s)
     end
 
+    # builds a FieldInfos instance for creation of an index containing fields
+    # for the given model classes.
+    def field_infos(models)
+      # default attributes for fields
+      fi = Ferret::Index::FieldInfos.new(:store => :no, 
+                                         :index => :yes, 
+                                         :term_vector => :no,
+                                         :boost => 1.0)
+      # primary key
+      fi.add_field(:id, :store => :yes, :index => :untokenized) 
+      # class_name
+      if aaf_configuration[:store_class_name]
+        fi.add_field(:class_name, :store => :yes, :index => :untokenized) 
+      end
+      fields = {}
+      models.each do |model|
+        fields.update(model.aaf_configuration[:ferret_fields])
+      end
+      fields.each_pair do |field, options|
+        fi.add_field(field, { :store => :no, 
+                              :index => :yes }.update(options)) 
+      end
+      return fi
+    end
 
     protected
 
@@ -204,10 +242,11 @@ module ActsAsFerret
       ActsAsFerret::multi_indexes.clear
     end
 
+    # indexing is done in batches to limit memory consumption (fixes #24).
+    # The default batch size is 1000, this can be changed with the :reindex_batch_size
+    # option of acts_as_ferret.
     def reindex_model(index, model = aaf_configuration[:class_name].constantize)
-      # index in batches of 1000 to limit memory consumption (fixes #24)
-      # TODO make configurable through options
-      batch_size = 1000
+      batch_size = aaf_configuration[:reindex_batch_size]
       model_count = model.count.to_f
       work_done = 0
       batch_time = 0
@@ -215,11 +254,11 @@ module ActsAsFerret
       order = "#{model.primary_key} ASC" # this works around a bug in sqlserver-adapter (where paging only works with an order applied)
       model.transaction do
         0.step(model.count, batch_size) do |i|
-          b1 = Time.now.to_f
-          model.find(:all, :limit => batch_size, :offset => i, :order => order).each do |rec|
-            index << rec.to_doc if rec.ferret_enabled?(true)
-          end
-          batch_time = Time.now.to_f - b1
+          batch_time = measure_time {
+            model.find(:all, :limit => batch_size, :offset => i, :order => order).each do |rec|
+              index << rec.to_doc if rec.ferret_enabled?(true)
+            end
+          }.to_f
           work_done = i.to_f / model_count * 100.0 if model_count > 0
           remaining_time = ( batch_time / batch_size ) * ( model_count - i + batch_size )
           logger.info "reindex model #{model.name} : #{'%.2f' % work_done}% complete : #{'%.2f' % remaining_time} secs to finish"
@@ -227,30 +266,12 @@ module ActsAsFerret
       end
     end
 
-    # builds a FieldInfos instance for creation of an index containing fields
-    # for the given model classes.
-    def field_infos(models)
-      # default attributes for fields
-      fi = Ferret::Index::FieldInfos.new(:store => :no, 
-                                         :index => :yes, 
-                                         :term_vector => :no,
-                                         :boost => 1.0)
-      # primary key
-      fi.add_field(:id, :store => :yes, :index => :untokenized) 
-      # class_name
-      if aaf_configuration[:store_class_name]
-        fi.add_field(:class_name, :store => :yes, :index => :untokenized) 
-      end
-      fields = {}
-      models.each do |model|
-        fields.update(model.aaf_configuration[:ferret_fields])
-      end
-      fields.each_pair do |field, options|
-        fi.add_field(field, { :store => :no, 
-                              :index => :yes }.update(options)) 
-      end
-      return fi
+    def measure_time
+      t1 = Time.now
+      yield
+      Time.now - t1
     end
+
 
   end
 

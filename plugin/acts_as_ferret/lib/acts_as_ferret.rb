@@ -75,6 +75,7 @@ module ActsAsFerret
     # key is the index directory.
     @@ferret_indexes = Hash.new
     def self.ferret_indexes; @@ferret_indexes end
+
  
   # decorator that adds a total_hits accessor to search result arrays
   class SearchResults

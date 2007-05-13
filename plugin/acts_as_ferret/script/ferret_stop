@@ -17,6 +17,10 @@ end
 
 pid_file = config['pid_file']
 puts "Stopping ferret_server..."
-send_signal("TERM", pid_file)
+if File.file?(pid_file)
+  send_signal("TERM", pid_file) 
+else
+  puts "no pid file found"
+end
 
 # vim:set filetype=ruby:
