@@ -96,6 +96,14 @@ module ActsAsFerret
         index = new_index_for(clazz, models)
         clazz.aaf_index.do_rebuild_with_index(index, models)
         new_version = File.join clazz.aaf_configuration[:index_base_dir], Time.now.utc.strftime('%Y%m%d%H%M%S')
+        # create a unique directory name (needed for unit tests where 
+        # multiple rebuilds per second may occur)
+        if File.exists?(new_version)
+          i = 0
+          i+=1 while File.exists?("#{new_version}_#{i}")
+          new_version << "_#{i}"
+        end
+        
         File.rename index.options[:path], new_version
         clazz.index_dir = new_version 
       end

@@ -13,6 +13,9 @@ module ActsAsFerret
     def rebuild_index(*models)
       models << self unless models.include?(self)
       aaf_index.rebuild_index models.map(&:to_s)
+      if aaf_configuration[:remote]
+        index_dir = find_last_index_version(aaf_configuration[:index_base_dir])
+      end
     end                                                            
 
     # Switches this class to a new index located in dir.
@@ -65,8 +68,13 @@ module ActsAsFerret
 
    
 
-    # return the total number of hits for the given query 
+    # Returns the total number of hits for the given query 
+    # To count the results of a multi_search query, specify an array of 
+    # class names with the :models option.
     def total_hits(q, options={})
+      if models = options[:models]
+        options[:models] = add_self_to_model_list_if_necessary(models).map(&:to_s)
+      end
       aaf_index.total_hits(q, options)
     end
 
@@ -88,7 +96,7 @@ module ActsAsFerret
       deprecated_options_support(options)
       aaf_index.find_id_by_contents(q, options, &block)
     end
-    
+
     # requires the store_class_name option of acts_as_ferret to be true
     # for all models queried this way.
     def multi_search(query, additional_models = [], options = {}, find_options = {})
@@ -119,13 +127,17 @@ module ActsAsFerret
     # be yielded, and the total number of hits is returned.
     def id_multi_search(query, additional_models = [], options = {}, &proc)
       deprecated_options_support(options)
-      additional_models = [ additional_models ] unless additional_models.is_a? Array
-      additional_models << self
+      additional_models = add_self_to_model_list_if_necessary(additional_models)
       aaf_index.id_multi_search(query, additional_models.map(&:to_s), options, &proc)
     end
     
 
     protected
+
+    def add_self_to_model_list_if_necessary(models)
+      models = [ models ] unless models.is_a? Array
+      models << self unless models.include?(self)
+    end
 
     def find_records_lazy_or_not(q, options = {}, find_options = {})
       if options[:lazy]

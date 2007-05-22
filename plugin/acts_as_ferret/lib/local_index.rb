@@ -78,8 +78,11 @@ module ActsAsFerret
     end
 
     # Total number of hits for the given query. 
+    # To count the results of a multi_search query, specify an array of 
+    # class names with the :models option.
     def total_hits(query, options = {})
-      ferret_index.search(query, options).total_hits
+      index = (models = options.delete(:models)) ? multi_index(models) : ferret_index
+      index.search(query, options).total_hits
     end
 
     def determine_lazy_fields(options = {})
@@ -122,7 +125,6 @@ module ActsAsFerret
     # If a block is given, model, id and score are yielded and the number of 
     # total hits is returned. Otherwise [total_hits, result_array] is returned.
     def id_multi_search(query, models, options = {})
-      models.map!(&:constantize)
       index = multi_index(models)
       result = []
       lazy_fields = determine_lazy_fields options
@@ -222,6 +224,7 @@ module ActsAsFerret
 
     # returns a MultiIndex instance operating on a MultiReader
     def multi_index(model_classes)
+      model_classes.map!(&:constantize) if String === model_classes.first
       model_classes.sort! { |a, b| a.name <=> b.name }
       key = model_classes.inject("") { |s, clazz| s + clazz.name }
       multi_config = aaf_configuration[:ferret].dup

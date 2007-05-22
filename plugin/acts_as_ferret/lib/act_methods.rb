@@ -135,10 +135,10 @@ module ActsAsFerret #:nodoc:
 
       unless options[:remote]
         ActsAsFerret::ensure_directory aaf_configuration[:index_dir] 
-        aaf_configuration[:index_base_dir] = aaf_configuration[:index_dir]
-        aaf_configuration[:index_dir] = find_last_index_version(aaf_configuration[:index_dir])
-        logger.debug "using index in #{aaf_configuration[:index_dir]}"
       end
+      aaf_configuration[:index_base_dir] = aaf_configuration[:index_dir]
+      aaf_configuration[:index_dir] = find_last_index_version(aaf_configuration[:index_dir])
+      logger.debug "using index in #{aaf_configuration[:index_dir]}"
 
       # these properties are somewhat vital to the plugin and shouldn't
       # be overwritten by the user:
@@ -185,7 +185,10 @@ module ActsAsFerret #:nodoc:
     # find the most recent version of an index
     def find_last_index_version(basedir)
       # check for versioned index
-      versions = Dir.entries(basedir).select { |f| File.directory?(File.join(basedir, f)) && f =~ /^\d+$/ }
+      versions = Dir.entries(basedir).select do |f| 
+        dir = File.join(basedir, f)
+        File.directory?(dir) && File.file?(File.join(dir, 'segments')) && f =~ /^\d+(_\d+)?$/
+      end
       if versions.any?
         # select latest version
         versions.sort!
