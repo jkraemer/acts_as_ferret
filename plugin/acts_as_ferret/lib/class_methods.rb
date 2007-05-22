@@ -206,7 +206,7 @@ module ActsAsFerret
         end
 
         # merge conditions
-        conditions = combine_conditions([ "#{model.table_name}.#{primary_key} in (?)", id_array.keys ], 
+        conditions = combine_conditions([ "#{model.table_name}.#{model.primary_key} in (?)", id_array.keys ], 
                                         find_options[:conditions])
         # fetch
         tmp_result = model.find(:all, find_options.merge(:conditions => conditions))
@@ -231,7 +231,7 @@ module ActsAsFerret
         begin
           model = model.constantize
           # merge conditions
-          conditions = combine_conditions([ "#{model.table_name}.#{primary_key} in (?)", id_array.keys ], 
+          conditions = combine_conditions([ "#{model.table_name}.#{model.primary_key} in (?)", id_array.keys ], 
                                           find_options[:conditions])
           count += model.count(find_options.merge(:conditions => conditions))
         rescue TypeError
