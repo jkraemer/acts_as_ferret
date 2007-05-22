@@ -206,10 +206,22 @@ module ActsAsFerret
         end
 
         # merge conditions
-        conditions = combine_conditions([ "#{model.table_name}.#{model.primary_key} in (?)", id_array.keys ], 
+        conditions = combine_conditions([ "#{model.table_name}.#{model.primary_key} in (?)", 
+                                          id_array.keys ], 
                                         find_options[:conditions])
+
+        # check for include association that might only exist on some models in case of multi_search
+        filtered_include_options = []
+        if include_options = find_options[:include]
+          include_options.each do |include_option|
+            filtered_include_options << include_option if model.reflections.has_key?(include_option.is_a?(Hash) ? include_option.keys[0].to_sym : include_option.to_sym)
+          end
+        end
+        filtered_include_options=nil if filtered_include_options.empty?
+
         # fetch
-        tmp_result = model.find(:all, find_options.merge(:conditions => conditions))
+        tmp_result = model.find(:all, find_options.merge(:conditions => conditions, 
+                                                         :include=>filtered_include_options))
         # set scores and rank
         tmp_result.each do |record|
           record.ferret_rank, record.ferret_score = id_array[record.id.to_s]
