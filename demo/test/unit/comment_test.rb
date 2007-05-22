@@ -13,7 +13,7 @@ class CommentTest < Test::Unit::TestCase
   end
 
   def test_class_index_dir
-    assert_equal "#{RAILS_ROOT}/index/test/comment", Comment.aaf_configuration[:index_dir]
+    assert Comment.aaf_configuration[:index_dir] =~ %r{^#{RAILS_ROOT}/index/test/comment}
   end
 
   def test_search_for_id

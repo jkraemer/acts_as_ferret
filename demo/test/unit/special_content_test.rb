@@ -11,7 +11,7 @@ class SpecialContentTest < Test::Unit::TestCase
   end
   
   def test_class_index_dir
-    assert_equal "#{RAILS_ROOT}/index/test/content_base", SpecialContent.aaf_configuration[:index_dir]
+    assert SpecialContent.aaf_configuration[:index_dir] =~ %r{^#{RAILS_ROOT}/index/test/content_base}
   end
 
   def test_find_by_contents
