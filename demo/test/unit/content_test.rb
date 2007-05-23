@@ -229,9 +229,25 @@ class ContentTest < Test::Unit::TestCase
 
   def test_multi_search_sorting
     sorting = [ Ferret::Search::SortField.new(:id) ]
-    
     result = Content.multi_search('*:title OR *:comment', [Comment], :sort => sorting)
-    assert_equal result.map(&:ferret_rank), result.sort_by(&:ferret_rank).map(&:ferret_rank)
+    assert_equal result.map(&:id).sort, result.map(&:id)
+
+    sorting = [ Ferret::Search::SortField.new(:title) ]
+    result = Content.multi_search('*:title OR *:comment', [Comment], :sort => sorting)
+    sorting = [ Ferret::Search::SortField.new(:title, :reverse => true) ]
+    result2 = Content.multi_search('*:title OR *:comment', [Comment], :sort => sorting)
+    assert result.any?
+    assert result.map(&:id) != result2.map(&:id)
+
+    sorting = [ Ferret::Search::SortField::SCORE ]
+    result = Content.multi_search('*:title OR *:comment', [Comment], :sort => sorting)
+    assert result.any?
+    assert_equal result.map(&:ferret_score).sort.reverse, result.map(&:ferret_score)
+
+    sorting = [ Ferret::Search::SortField::SCORE_REV ]
+    result2 = Content.multi_search('*:title OR *:comment', [Comment], :sort => sorting)
+    assert_equal result2.map(&:ferret_score).sort, result2.map(&:ferret_score)
+    assert_equal result.map(&:ferret_score), result2.map(&:ferret_score).reverse
   end
 
   # TODO: Sort usage fails with drb
