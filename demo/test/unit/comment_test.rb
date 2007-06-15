@@ -60,6 +60,7 @@ class CommentTest < Test::Unit::TestCase
 
   def test_score
     comments_from_ferret = Comment.find_by_contents('comment AND fixture', :limit => 1)
+    assert comments_from_ferret.first
     assert comments_from_ferret.first.ferret_score > 0
   end
 
