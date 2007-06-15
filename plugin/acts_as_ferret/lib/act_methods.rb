@@ -206,6 +206,7 @@ module ActsAsFerret #:nodoc:
                               :index       => :yes, 
                               :term_vector => :with_positions_offsets,
                               :boost       => 1.0 )
+      options[:term_vector] = :no if options[:index] == :no
       aaf_configuration[:ferret_fields][field] = options
       define_method("#{field}_to_ferret".to_sym) do
         begin
