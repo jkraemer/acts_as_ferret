@@ -28,6 +28,7 @@ module ActsAsFerret
     # Rebuilds the index if none exists.
     def ensure_index_exists
       unless File.file? "#{aaf_configuration[:index_dir]}/segments"
+        ActsAsFerret::ensure_directory(aaf_configuration[:index_dir])
         close
         rebuild_index 
       end
