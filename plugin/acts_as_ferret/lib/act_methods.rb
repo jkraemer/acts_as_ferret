@@ -135,10 +135,10 @@ module ActsAsFerret #:nodoc:
 
       unless options[:remote]
         ActsAsFerret::ensure_directory aaf_configuration[:index_dir] 
+        aaf_configuration[:index_base_dir] = aaf_configuration[:index_dir]
+        aaf_configuration[:index_dir] = find_last_index_version(aaf_configuration[:index_dir])
+        logger.debug "using index in #{aaf_configuration[:index_dir]}"
       end
-      aaf_configuration[:index_base_dir] = aaf_configuration[:index_dir]
-      aaf_configuration[:index_dir] = find_last_index_version(aaf_configuration[:index_dir])
-      logger.debug "using index in #{aaf_configuration[:index_dir]}"
 
       # these properties are somewhat vital to the plugin and shouldn't
       # be overwritten by the user:
