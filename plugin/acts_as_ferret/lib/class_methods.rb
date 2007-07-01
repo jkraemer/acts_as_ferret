@@ -13,16 +13,16 @@ module ActsAsFerret
     def rebuild_index(*models)
       models << self unless models.include?(self)
       aaf_index.rebuild_index models.map(&:to_s)
-      if aaf_configuration[:remote]
-        index_dir = find_last_index_version(aaf_configuration[:index_base_dir])
-      end
+      index_dir = find_last_index_version(aaf_configuration[:index_base_dir]) unless aaf_configuration[:remote]
     end                                                            
 
     # Switches this class to a new index located in dir.
     # Used by the DRb server when switching to a new index version.
     def index_dir=(dir)
+      logger.debug "changing index dir to #{dir}"
       aaf_configuration[:index_dir] = aaf_configuration[:ferret][:path] = dir
       aaf_index.reopen!
+      logger.debug "index dir is now #{dir}"
     end
     
     # Retrieve the index instance for this model class. This can either be a
@@ -287,9 +287,7 @@ module ActsAsFerret
       end
     end
 
-    # creates a new Index::Index instance. Before that, a check is done
-    # to see if the index exists in the file system. If not, index rebuild
-    # from all model data retrieved by find(:all) is triggered.
+    # creates a new Index instance.
     def create_index_instance
       if aaf_configuration[:remote]
        RemoteIndex

@@ -59,6 +59,9 @@ module ActsAsFerret #:nodoc:
 
       module IndexMethods
 
+        # TODO to allow morelikethis for unsaved records, we have to give the
+        # unsaved record's data to this method. check how this will work out
+        # via drb...
         def build_more_like_this_query(id, class_name, options)
           [:similarity, :analyzer].each { |sym| options[sym] = options[sym].constantize.new }
           ferret_index.synchronize do # avoid that concurrent writes close our reader
@@ -103,7 +106,7 @@ module ActsAsFerret #:nodoc:
         # creates a term/term_frequency map for terms from the fields
         # given in options[:field_names]
         def retrieve_terms(id, class_name, reader, options)
-          document_number = document_number(id, class_name)
+          document_number = document_number(id, class_name) rescue nil
           field_names = options[:field_names]
           max_num_tokens = options[:max_num_tokens]
           term_freq_map = Hash.new(0)
@@ -111,7 +114,7 @@ module ActsAsFerret #:nodoc:
           record = nil
           field_names.each do |field|
             #puts "field: #{field}"
-            term_freq_vector = reader.term_vector(document_number, field)
+            term_freq_vector = reader.term_vector(document_number, field) if document_number
             #if false
             if term_freq_vector
               # use stored term vector
@@ -123,8 +126,11 @@ module ActsAsFerret #:nodoc:
               # puts 'no stored term vector'
               # no term vector stored, but we have stored the contents in the index
               # -> extract terms from there
-              doc = reader[document_number]
-              content = doc[field]
+              content = nil
+              if document_number
+                doc = reader[document_number]
+                content = doc[field]
+              end
               unless content
                 # no term vector, no stored content, so try content from this instance
                 record ||= options[:base_class].constantize.find(id)

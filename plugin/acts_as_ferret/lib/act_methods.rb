@@ -73,7 +73,7 @@ module ActsAsFerret #:nodoc:
       # errors. 
       # To get around this, start the server with the environment variable 
       # FERRET_USE_LOCAL_INDEX set to '1'.
-      logger.debug "Asked for a remote server ? #{options[:remote].inspect}, ENV[\"FERRET_USE_LOCAL_INDEX\"] is #{ENV["FERRET_USE_LOCAL_INDEX"].inspect}, server is #{ActsAsFerret::Remote::Server.running ? :running : :not_running}"
+      logger.debug "Asked for a remote server ? #{options[:remote].inspect}, ENV[\"FERRET_USE_LOCAL_INDEX\"] is #{ENV["FERRET_USE_LOCAL_INDEX"].inspect}, looks like we are#{ActsAsFerret::Remote::Server.running || ENV['FERRET_USE_LOCAL_INDEX'] ? '' : ' not'} the server"
       options.delete(:remote) if ENV["FERRET_USE_LOCAL_INDEX"] || ActsAsFerret::Remote::Server.running
 
       if options[:remote] && options[:remote] !~ /^druby/
@@ -84,7 +84,7 @@ module ActsAsFerret #:nodoc:
       if options[:remote]
         logger.debug "Will use remote index server which should be available at #{options[:remote]}"
       else
-        logger.debug "Will use local index"
+        logger.debug "Will use local index."
       end
 
 
@@ -177,6 +177,10 @@ module ActsAsFerret #:nodoc:
         end
       end
       logger.info "default field list: #{aaf_configuration[:ferret][:default_field].inspect}"
+
+      if options[:remote]
+        aaf_index.ensure_index_exists
+      end
     end
 
 
@@ -197,6 +201,7 @@ module ActsAsFerret #:nodoc:
         basedir
       end
     end
+
 
     # helper that defines a method that adds the given field to a ferret 
     # document instance

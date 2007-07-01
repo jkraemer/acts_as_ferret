@@ -111,11 +111,93 @@ module ActsAsFerret
     base.extend(ClassMethods)
   end
   
+  # builds a FieldInfos instance for creation of an index containing fields
+  # for the given model classes.
+  def self.field_infos(models)
+    # default attributes for fields
+    fi = Ferret::Index::FieldInfos.new(:store => :no, 
+                                        :index => :yes, 
+                                        :term_vector => :no,
+                                        :boost => 1.0)
+    # primary key
+    fi.add_field(:id, :store => :yes, :index => :untokenized) 
+    fields = {}
+    have_class_name = false
+    models.each do |model|
+      fields.update(model.aaf_configuration[:ferret_fields])
+      # class_name
+      if !have_class_name && model.aaf_configuration[:store_class_name]
+        fi.add_field(:class_name, :store => :yes, :index => :untokenized) 
+        have_class_name = true
+      end
+    end
+    fields.each_pair do |field, options|
+      fi.add_field(field, { :store => :no, 
+                            :index => :yes }.update(options)) 
+    end
+    return fi
+  end
+
+  def self.close_multi_indexes
+    # close combined index readers, just in case
+    # this seems to fix a strange test failure that seems to relate to a
+    # multi_index looking at an old version of the content_base index.
+    multi_indexes.each_pair do |key, index|
+      # puts "#{key} -- #{self.name}"
+      # TODO only close those where necessary (watch inheritance, where
+      # self.name is base class of a class where key is made from)
+      index.close #if key =~ /#{self.name}/
+    end
+    multi_indexes.clear
+  end
+
 end
 
 # include acts_as_ferret method into ActiveRecord::Base
 ActiveRecord::Base.extend ActsAsFerret::ActMethods
 
+class Ferret::Index::Index
+  attr_accessor :batch_size
+  attr_accessor :logger
+
+  def index_models(models)
+    models.each do |model|
+      index_model model
+    end
+    flush
+    optimize
+    close
+    ActsAsFerret::close_multi_indexes
+  end
+
+  def index_model(model)
+    @batch_size ||= 0
+    model_count = model.count.to_f
+    work_done = 0
+    batch_time = 0
+    logger.info "reindexing model #{model.name}"
+    order = "#{model.primary_key} ASC" # this works around a bug in sqlserver-adapter (where paging only works with an order applied)
+    model.transaction do
+      0.step(model.count, batch_size) do |i|
+        batch_time = measure_time {
+          model.find(:all, :limit => batch_size, :offset => i, :order => order).each do |rec|
+            self << rec.to_doc if rec.ferret_enabled?(true)
+          end
+        }.to_f
+        work_done = i.to_f / model_count * 100.0 if model_count > 0
+        remaining_time = ( batch_time / batch_size ) * ( model_count - i + batch_size )
+        logger.info "reindex model #{model.name} : #{'%.2f' % work_done}% complete : #{'%.2f' % remaining_time} secs to finish"
+      end
+    end
+  end
+
+  def measure_time
+    t1 = Time.now
+    yield
+    Time.now - t1
+  end
+
+end
 
 # small Ferret monkey patch
 # TODO check if this is still necessary
@@ -141,6 +223,7 @@ class Ferret::Search::SortField
 
   def self._load(string)
     case string
+      when '<SCORE>!'              : Ferret::Search::SortField::SCORE_REV
       when '<SCORE>'              : Ferret::Search::SortField::SCORE
       when /^(\w+):<(\w+)>(\!)?$/ : new($1.to_sym, :type => $2.to_sym, :reverse => !$3.nil?)
       else raise "invalid value: #{string}"
