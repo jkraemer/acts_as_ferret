@@ -180,4 +180,10 @@ class CommentTest < Test::Unit::TestCase
     comment.destroy
   end
 
+  def test_array_conditions_combining 
+    comments_from_ferret = Comment.find_by_contents('comment AND fixture', {}, :conditions => [ 'id IN (?)', [ 2, 3 ] ]) 
+    assert_equal 1, comments_from_ferret.size 
+    assert_equal 1, comments_from_ferret.total_hits 
+  end
+
 end
