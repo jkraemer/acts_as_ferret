@@ -226,7 +226,7 @@ module ActsAsFerret #:nodoc:
     end
 
     def add_fields(field_config)
-      if field_config.respond_to?(:each_pair)
+      if field_config.is_a? Hash
         field_config.each_pair do |key,val|
           define_to_field_method(key,val)                  
         end
