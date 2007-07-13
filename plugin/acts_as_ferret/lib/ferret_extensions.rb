@@ -70,7 +70,7 @@ module Ferret
         when /<DOC(_ID)?>/          : Ferret::Search::SortField::DOC_ID
         when '<SCORE>!'             : Ferret::Search::SortField::SCORE_REV
         when '<SCORE>'              : Ferret::Search::SortField::SCORE
-        when /^(\w+):<(\w+)>(\!)?$/ : new($1.to_sym, :type => $2.to_sym, :reverse => !$3.nil?)
+        when /^(\w+):<(\w+)>(!)?$/ : new($1.to_sym, :type => $2.to_sym, :reverse => !$3.nil?)
         else raise "invalid value: #{string}"
       end
     end
@@ -83,12 +83,13 @@ module Ferret
     end
 
     def self._load(string)
-      if string =~ /^Sort\[(.+?)(, <DOC>(\!)?)?\]$/
+      # we exclude the last <DOC> sorting as it is appended by new anyway
+      if string =~ /^Sort\[(.*?)(<DOC>(!)?)?\]$/
         sort_fields = $1.split(',').map do |value| 
-          value.strip!
-          Ferret::Search::SortField._load value
+        value.strip!
+          Ferret::Search::SortField._load value unless value.blank?
         end
-      new sort_fields.compact
+        new sort_fields.compact
       else
         raise "invalid value: #{string}"
       end
