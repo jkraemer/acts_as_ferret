@@ -29,9 +29,9 @@ module ActsAsFerret #:nodoc:
         #                                           equals Ferret's internal similarity implementation)
         # :analyzer => 'Ferret::Analysis::StandardAnalyzer' # class name of the analyzer to use
         # :append_to_query => nil # proc taking a query object as argument, which will be called after generating the query. can be used to further manipulate the query used to find related documents, i.e. to constrain the search to a given class in single table inheritance scenarios
-        # find_options : Ferret options handed over to find_by_contents (i.e. for limits and sorting)
+        # ferret_options : Ferret options handed over to find_by_contents (i.e. for limits and sorting)
         # ar_options : options handed over to find_by_contents for AR scoping
-        def more_like_this(options = {}, find_options = {}, ar_options = {})
+        def more_like_this(options = {}, ferret_options = {}, ar_options = {})
           options = {
             :field_names => nil,  # Default field names
             :min_term_freq => 2,  # Ignore terms with less than this frequency in the source doc.
@@ -53,7 +53,7 @@ module ActsAsFerret #:nodoc:
           options[:base_class] = clazz.name
           query = clazz.aaf_index.build_more_like_this_query(self.id, self.class.name, options)
           options[:append_to_query].call(query) if options[:append_to_query]
-          clazz.find_by_contents(query, find_options, ar_options)
+          clazz.find_by_contents(query, ferret_options, ar_options)
         end
 
       end
@@ -107,6 +107,7 @@ module ActsAsFerret #:nodoc:
         # creates a term/term_frequency map for terms from the fields
         # given in options[:field_names]
         def retrieve_terms(id, class_name, reader, options)
+          raise "more_like_this atm only works on saved records" if id.nil?
           document_number = document_number(id, class_name) rescue nil
           field_names = options[:field_names]
           max_num_tokens = options[:max_num_tokens]
