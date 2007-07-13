@@ -177,6 +177,19 @@ class ContentTest < Test::Unit::TestCase
     assert_equal @c2, similar.first
   end
 
+  def test_more_like_this_new_record
+    assert Content.find_by_contents('lorem ipsum').empty?
+    @c1 = Content.new( :title => 'Content item 1', 
+                       :description => 'lorem ipsum dolor sit amet. lorem.' )
+    @c2 = Content.new( :title => 'Content item 2', 
+                       :description => 'lorem ipsum dolor sit amet. lorem ipsum.' )
+    @c2.save
+    assert_equal 1, Content.find_by_contents('lorem ipsum').size
+    similar = @c1.more_like_this(:field_names => [:description], :min_doc_freq => 1, :min_term_freq => 1)
+    assert_equal 1, similar.size
+    assert_equal @c2, similar.first
+  end
+
   def test_class_index_dir
     assert Content.aaf_configuration[:index_dir] =~ %r{^#{RAILS_ROOT}/index/test/content_base}
   end
@@ -220,6 +233,14 @@ class ContentTest < Test::Unit::TestCase
     sorting = [ Ferret::Search::SortField.new(:id) ]
     result = Content.find_by_contents('comment_count:2', :sort => sorting)
     assert result.first.id < result.last.id
+
+    sorting = Ferret::Search::Sort.new([ Ferret::Search::SortField.new(:id), 
+                                         Ferret::Search::SortField::SCORE ],
+                                        :reverse => true)
+
+
+    result = Content.find_by_contents('comment_count:2', :sort => sorting)
+    assert result.first.id > result.last.id
   end
   
   def test_total_hits_multi
