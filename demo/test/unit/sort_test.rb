@@ -5,6 +5,7 @@ class SortTest < Test::Unit::TestCase
 
   def test_sort_marshalling
     [ Sort.new,
+      Sort.new( [], :reverse => true) ,
       Sort.new([ Ferret::Search::SortField.new(:id, :reverse => true), 
                  Ferret::Search::SortField::SCORE,
                  Ferret::Search::SortField::DOC_ID ],
