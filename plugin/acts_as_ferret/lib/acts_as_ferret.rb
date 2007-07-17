@@ -94,7 +94,7 @@ module ActsAsFerret
   end
   
   def self.ensure_directory(dir)
-    FileUtils.mkdir_p dir unless File.directory? dir
+    FileUtils.mkdir_p dir unless (File.directory? dir || File.symlink? dir)
   end
   
   # make sure the default index base dir exists. by default, all indexes are created
