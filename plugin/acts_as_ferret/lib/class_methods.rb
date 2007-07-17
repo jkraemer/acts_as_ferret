@@ -18,15 +18,16 @@ module ActsAsFerret
 
     # runs across all records yielding those to be indexed when the index is rebuilt
     def records_for_rebuild(batch_size = 1000)
+      finder = lambda { |offset| find :all, :conditions => ["id > ?", offset ], :limit => batch_size }
       transaction do
         if connection.class.name =~ /Mysql/ && primary_key == 'id'
           logger.info "using mysql specific batched find :all"
-          rows = find :all, :conditions => ["id > ?", 0], :limit => batch_size
           offset = 0
+          rows = finder.call(offset)
           while rows.any?
             offset = rows.last.id
             yield rows, offset
-            rows = find :all, :conditions => ["id > ?", offset ], :limit => batch_size
+            rows = finder.call(offset)
           end
         else
           # sql server adapter won't batch correctly without defined ordering
