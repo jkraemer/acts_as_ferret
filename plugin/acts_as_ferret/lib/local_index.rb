@@ -204,13 +204,6 @@ module ActsAsFerret
       ActsAsFerret::multi_indexes[key] ||= MultiIndex.new(model_classes, multi_config)
     end
  
-    # indexing is done in batches to limit memory consumption (fixes #24).
-    # The default batch size is 1000, this can be changed with the :reindex_batch_size
-    # option of acts_as_ferret.
-    #def reindex_model(index, model = aaf_configuration[:class_name].constantize)
-    #  index.reindex_model model
-    #end
-
   end
 
 end

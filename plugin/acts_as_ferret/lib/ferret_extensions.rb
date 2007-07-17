@@ -1,12 +1,12 @@
 module Ferret
+
+
   class Index::Index
     attr_accessor :batch_size
     attr_accessor :logger
 
     def index_models(models)
-      models.each do |model|
-        index_model model
-      end
+      models.each { |model| index_model model }
       flush
       optimize
       close
@@ -15,22 +15,19 @@ module Ferret
 
     def index_model(model)
       @batch_size ||= 0
-      model_count = model.count.to_f
       work_done = 0
       batch_time = 0
       logger.info "reindexing model #{model.name}"
-      order = "#{model.primary_key} ASC" # this works around a bug in sqlserver-adapter (where paging only works with an order applied)
-      model.transaction do
-        0.step(model.count, batch_size) do |i|
-          batch_time = measure_time {
-            model.find(:all, :limit => batch_size, :offset => i, :order => order).each do |rec|
-              self << rec.to_doc if rec.ferret_enabled?(true)
-            end
-          }.to_f
-          work_done = i.to_f / model_count * 100.0 if model_count > 0
-          remaining_time = ( batch_time / batch_size ) * ( model_count - i + batch_size )
-          logger.info "reindex model #{model.name} : #{'%.2f' % work_done}% complete : #{'%.2f' % remaining_time} secs to finish"
-        end
+
+      model_count  = model.count.to_f
+      model.records_for_rebuild(@batch_size) do |records, offset|
+        #records = [ records ] unless records.is_a?(Array)
+        batch_time = measure_time {
+          records.each { |rec| self << rec.to_doc if rec.ferret_enabled?(true) }
+        }.to_f
+        work_done = offset.to_f / model_count * 100.0 if model_count > 0
+        remaining_time = ( batch_time / @batch_size ) * ( model_count - offset + @batch_size )
+        logger.info "reindex model #{model.name} : #{'%.2f' % work_done}% complete : #{'%.2f' % remaining_time} secs to finish"
       end
     end
 
@@ -42,21 +39,6 @@ module Ferret
 
   end
 
-  # small Ferret monkey patch
-  # TODO check if this is still necessary
-  class Index::MultiReader
-    def latest?
-      # TODO: Exception handling added to resolve ticket #6. 
-      # It should be clarified wether this is a bug in Ferret
-      # in which case a bug report should be posted on the Ferret Trac. 
-      begin
-        @sub_readers.each { |r| return false unless r.latest? }
-      rescue
-        return false
-      end
-      true
-    end
-  end
 
   # add marshalling support to SortFields
   class Search::SortField
@@ -95,4 +77,5 @@ module Ferret
       end
     end
   end
+
 end

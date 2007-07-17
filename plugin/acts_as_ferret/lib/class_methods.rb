@@ -14,7 +14,29 @@ module ActsAsFerret
       models << self unless models.include?(self)
       aaf_index.rebuild_index models.map(&:to_s)
       index_dir = find_last_index_version(aaf_configuration[:index_base_dir]) unless aaf_configuration[:remote]
-    end                                                            
+    end
+
+    # runs across all records yielding those to be indexed when the index is rebuilt
+    def records_for_rebuild(batch_size = 1000)
+      transaction do
+        if connection.class.name =~ /Mysql/ && primary_key == 'id'
+          logger.info "using mysql specific batched find :all"
+          rows = find :all, :conditions => ["id > ?", 0], :limit => batch_size
+          offset = 0
+          while rows.any?
+            offset = rows.last.id
+            yield rows, offset
+            rows = find :all, :conditions => ["id > ?", offset ], :limit => batch_size
+          end
+        else
+          # sql server adapter won't batch correctly without defined ordering
+          order = "#{primary_key} ASC" if connection.class.name =~ /SQLServer/
+          0.step(self.count, batch_size) do |offset|
+            yield find( :all, :limit => batch_size, :offset => offset, :order => order ), offset
+          end
+        end
+      end
+    end
 
     # Switches this class to a new index located in dir.
     # Used by the DRb server when switching to a new index version.
@@ -35,36 +57,39 @@ module ActsAsFerret
       ActsAsFerret::ferret_indexes[aaf_configuration[:index_dir]] ||= create_index_instance
     end 
     
-    # Finds instances by contents. Terms are ANDed by default, can be circumvented 
-    # by using OR between terms. 
-    # options:
+    # Finds instances by searching the Ferret index. Terms are ANDed by default, use 
+    # OR between terms for ORed queries. Or specify +:or_default => true+ in the
+    # +:ferret+ options hash of acts_as_ferret.
+    #
+    # == options:
     # offset::      first hit to retrieve (useful for paging)
     # limit::       number of hits to retrieve, or :all to retrieve
     #               all results
     # lazy::        Array of field names whose contents should be read directly
     #               from the index. Those fields have to be marked 
-    #               :store => :yes in their field options. Give true to get all
-    #               stored fields (if you have a shared index, you have to
-    #               explicitly state the fields you want to fetch, true won't
-    #               work)
+    #               +:store => :yes+ in their field options. Give true to get all
+    #               stored fields. Note that if you have a shared index, you have 
+    #               to explicitly state the fields you want to fetch, true won't
+    #               work here)
     # models::      only for single_index scenarios: an Array of other Model classes to 
     #               include in this search. Use :all to query all models.
     #
-    # find_options is a hash passed on to active_record's find when
-    # retrieving the data from db, useful to i.e. prefetch relationships.
+    # +find_options+ is a hash passed on to active_record's find when
+    # retrieving the data from db, useful to i.e. prefetch relationships with
+    # :include or to specify additional filter criteria with :conditions.
     #
-    # this method returns a SearchResults instance, which really is an Array that has 
-    # been decorated with a total_hits accessor that delivers the total
-    # number of hits (including those not fetched because of a low num_docs
-    # value).
+    # This method returns a +SearchResults+ instance, which really is an Array that has 
+    # been decorated with a total_hits attribute holding the total number of hits.
+    #
     # Please keep in mind that the number of total hits might be wrong if you specify 
     # both ferret options and active record find_options that somehow limit the result 
-    # set (e.g. :num_docs and some :conditions).
-    def find_by_contents(q, options = {}, find_options = {})
+    # set (e.g. +:num_docs+ and some +:conditions+).
+    def find_with_ferret(q, options = {}, find_options = {})
       total_hits, result = find_records_lazy_or_not q, options, find_options
       logger.debug "Query: #{q}\ntotal hits: #{total_hits}, results delivered: #{result.size}"
       return SearchResults.new(result, total_hits)
     end 
+    alias find_by_contents find_with_ferret
 
    
 
