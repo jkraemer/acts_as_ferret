@@ -7,19 +7,19 @@
 #   http://dev.mysql.com/doc/refman/5.0/en/old-client.html
 #
 # mysql config
-#development:
-#  adapter: mysql
-#  database: ferret_development
-#  username: ferret
-#  password: ferret
-#  socket: /var/run/mysqld/mysqld.sock
+development:
+  adapter: mysql
+  database: aaf_dev
+  username: ferret
+  password: ferret
+  socket: /var/run/mysqld/mysqld.sock
   
-#test:
-#  adapter: mysql
-#  database: ferret_test
-#  username: ferret
-#  password: ferret
-#  socket: /var/run/mysqld/mysqld.sock
+test:
+  adapter: mysql
+  database: aaf_test
+  username: ferret
+  password: ferret
+  socket: /var/run/mysqld/mysqld.sock
 
 # since this is a demo, we won't need this one
 #production:
