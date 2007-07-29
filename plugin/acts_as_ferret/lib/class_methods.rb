@@ -81,7 +81,7 @@ module ActsAsFerret
     #
     # Please keep in mind that the number of total hits might be wrong if you specify 
     # both ferret options and active record find_options that somehow limit the result 
-    # set (e.g. +:num_docs+ and some +:conditions+).
+    # set (e.g. +:limit+ and some +:conditions+).
     def find_with_ferret(q, options = {}, find_options = {})
       total_hits, result = find_records_lazy_or_not q, options, find_options
       logger.debug "Query: #{q}\ntotal hits: #{total_hits}, results delivered: #{result.size}"

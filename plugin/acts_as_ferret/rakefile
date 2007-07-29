@@ -92,8 +92,8 @@ if PKG_VERSION
         fail "SVK status is not clean ... do you have unchecked-in files?"
       end
       announce "No outstanding checkins found ... OK"
-      announce "Pushing to svn..."
-      `svk push .`
+#      announce "Pushing to svn..."
+#      `svk push .`
     end
   end
   
