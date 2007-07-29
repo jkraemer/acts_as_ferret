@@ -1,5 +1,37 @@
 module Ferret
 
+  module Analysis
+  
+    # = PerFieldAnalyzer
+    #
+    # This PerFieldAnalyzer is a workaround to a memory leak in 
+    # ferret 0.11.4. It does basically do the same as the original
+    # Ferret::Analysis::PerFieldAnalyzer, but without the leak :)
+    # 
+    # http://ferret.davebalmain.com/api/classes/Ferret/Analysis/PerFieldAnalyzer.html
+    #
+    # Thanks to Ben from omdb.org for tracking this down and creating this
+    # workaround.
+    # You can read more about the issue there:
+    # http://blog.omdb-beta.org/2007/7/29/tracking-down-a-memory-leak-in-ferret-0-11-4
+    class PerFieldAnalyzer < ::Ferret::Analysis::Analyzer
+      def initialize( default_analyzer )
+        @analyzers = {}
+        @default_analyzer = default_analyzer
+      end
+            
+      def add_field( field, analyzer )
+        @analyzers[field] = analyzer
+      end
+      alias []= add_field
+                
+      def token_stream(field, string)
+        @analyzers.has_key?(field) ? @analyzers[field].token_stream(field, string) : 
+        @default_analyzer.token_stream(field, string)
+      end
+    end
+  end
+
 
   class Index::Index
     attr_accessor :batch_size
