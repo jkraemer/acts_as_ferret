@@ -15,7 +15,7 @@ module Ferret
     # You can read more about the issue there:
     # http://blog.omdb-beta.org/2007/7/29/tracking-down-a-memory-leak-in-ferret-0-11-4
     class PerFieldAnalyzer < ::Ferret::Analysis::Analyzer
-      def initialize( default_analyzer )
+      def initialize( default_analyzer = StandardAnalyzer.new )
         @analyzers = {}
         @default_analyzer = default_analyzer
       end
