@@ -1,5 +1,5 @@
 Acts_as_Ferret demo project
----------------------------
+===========================
 
 To use this demo, you'll need to set up a database for it.
 SQL scripts for both SQLite and MySQL are provided in db/ .
@@ -10,6 +10,13 @@ in config/database.yml .
 after that run 
 rake
 to see the unit tests pass.
+
+If using rails > 1.2.3
+----------------------
+do
+  script/plugin install svn://errtheblog.com/svn/plugins/classic_pagination
+to avoid some pagination errors (Thanks to Sam Giffney for pointing this 
+out).
 
 
 Please feel free to post bugs/enhancements/patches at 
