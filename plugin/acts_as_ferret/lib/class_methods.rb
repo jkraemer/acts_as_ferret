@@ -270,6 +270,7 @@ module ActsAsFerret
         # check for include association that might only exist on some models in case of multi_search
         filtered_include_options = []
         if include_options = find_options[:include]
+          include_options = [ include_options ] unless include_options.respond_to?(:each)
           include_options.each do |include_option|
             filtered_include_options << include_option if model.reflections.has_key?(include_option.is_a?(Hash) ? include_option.keys[0].to_sym : include_option.to_sym)
           end
