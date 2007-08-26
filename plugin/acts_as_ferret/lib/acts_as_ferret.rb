@@ -25,6 +25,7 @@ require 'ferret'
 
 require 'ferret_extensions'
 require 'act_methods'
+require 'search_results'
 require 'class_methods'
 require 'shared_index_class_methods'
 require 'ferret_result'
@@ -66,32 +67,18 @@ require 'ferret_server'
 #
 module ActsAsFerret
 
-    # global Hash containing all multi indexes created by all classes using the plugin
-    # key is the concatenation of alphabetically sorted names of the classes the
-    # searcher searches.
-    @@multi_indexes = Hash.new
-    def self.multi_indexes; @@multi_indexes end
+  # global Hash containing all multi indexes created by all classes using the plugin
+  # key is the concatenation of alphabetically sorted names of the classes the
+  # searcher searches.
+  @@multi_indexes = Hash.new
+  def self.multi_indexes; @@multi_indexes end
 
-    # global Hash containing the ferret indexes of all classes using the plugin
-    # key is the index directory.
-    @@ferret_indexes = Hash.new
-    def self.ferret_indexes; @@ferret_indexes end
+  # global Hash containing the ferret indexes of all classes using the plugin
+  # key is the index directory.
+  @@ferret_indexes = Hash.new
+  def self.ferret_indexes; @@ferret_indexes end
 
  
-  # decorator that adds a total_hits accessor to search result arrays
-  class SearchResults
-    attr_reader :total_hits
-    def initialize(results, total_hits)
-      @results = results
-      @total_hits = total_hits
-    end
-    def method_missing(symbol, *args, &block)
-      @results.send(symbol, *args, &block)
-    end
-    def respond_to?(name)
-      self.methods.include?(name) || @results.respond_to?(name)
-    end
-  end
   
   def self.ensure_directory(dir)
     FileUtils.mkdir_p dir unless (File.directory?(dir) || File.symlink?(dir))

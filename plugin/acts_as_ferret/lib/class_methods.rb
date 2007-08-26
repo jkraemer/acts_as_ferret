@@ -22,7 +22,7 @@ module ActsAsFerret
         if connection.class.name =~ /Mysql/ && primary_key == 'id'
           logger.info "using mysql specific batched find :all"
           offset = 0
-          while (rows = find :all, :conditions => ["id > ?", offset ], :limit => batch_size).any?
+          while (rows = find :all, :conditions => [ "id > ?", offset ], :limit => batch_size).any?
             offset = rows.last.id
             yield rows, offset
           end
@@ -59,7 +59,15 @@ module ActsAsFerret
     # OR between terms for ORed queries. Or specify +:or_default => true+ in the
     # +:ferret+ options hash of acts_as_ferret.
     #
+    # You may either use the +offset+ and +limit+ options to implement your own
+    # pagination logic, or use the +page+ and +per_page+ options to use the
+    # built in pagination support which is compatible with will_paginate's view
+    # helpers. If +page+ and +per_page+ are given, +offset+ and +limit+ will be
+    # ignored.
+    #
     # == options:
+    # page::        page of search results to retrieve
+    # per_page::    number of search results that are displayed per page
     # offset::      first hit to retrieve (useful for paging)
     # limit::       number of hits to retrieve, or :all to retrieve
     #               all results
@@ -78,14 +86,33 @@ module ActsAsFerret
     #
     # This method returns a +SearchResults+ instance, which really is an Array that has 
     # been decorated with a total_hits attribute holding the total number of hits.
+    # Additionally, SearchResults is compatible with the pagination helper
+    # methods of the will_paginate plugin.
     #
-    # Please keep in mind that the number of total hits might be wrong if you specify 
-    # both ferret options and active record find_options that somehow limit the result 
-    # set (e.g. +:limit+ and some +:conditions+).
+    # Please keep in mind that the number of results delivered might be less than 
+    # +limit+ if you specify any active record conditions that further limit 
+    # the result. Use +limit+ and +offset+ as AR find_options instead.
+    # +page+ and +per_page+ are supposed to work regardless of any 
+    # +conitions+ present in +find_options+.
     def find_with_ferret(q, options = {}, find_options = {})
+      if options[:page] && options[:per_page]
+        limit = options[:per_page]
+        offset = (options[:page] - 1) * limit
+        if find_options[:conditions]
+          # do pagination with ActiveRecord
+          find_options[:limit] = limit
+          find_options[:offset] = offset
+          options[:limit] = :all
+          options.delete :offset
+        else
+          # do pagination with ferret
+          options[:limit] = limit
+          options[:offset] = offset
+        end
+      end
       total_hits, result = find_records_lazy_or_not q, options, find_options
       logger.debug "Query: #{q}\ntotal hits: #{total_hits}, results delivered: #{result.size}"
-      return SearchResults.new(result, total_hits)
+      return SearchResults.new(result, total_hits, options[:page], options[:per_page])
     end 
     alias find_by_contents find_with_ferret
 
@@ -182,7 +209,7 @@ module ActsAsFerret
       result = retrieve_records( { self.name => result_ids }, find_options )
       
       if find_options[:conditions]
-        if options[:limit] != :all
+        if options[:limit] != :all || options[:page]
           # correct result size if the user specified conditions
           #  wenn conditions: options[:limit] != :all --> ferret-query mit :all wiederholen und select count machen
           result_ids = {}
@@ -247,7 +274,7 @@ module ActsAsFerret
             filtered_include_options << include_option if model.reflections.has_key?(include_option.is_a?(Hash) ? include_option.keys[0].to_sym : include_option.to_sym)
           end
         end
-        filtered_include_options=nil if filtered_include_options.empty?
+        filtered_include_options = nil if filtered_include_options.empty?
 
         # fetch
         tmp_result = nil
@@ -272,12 +299,15 @@ module ActsAsFerret
     end
 
     def count_records(id_arrays, find_options = {})
+      count_options = find_options.dup
+      count_options.delete :limit
+      count_options.delete :offset
       count = 0
       id_arrays.each do |model, id_array|
         next if id_array.empty?
         begin
           model = model.constantize
-          model.send(:with_scope, :find => find_options) do 
+          model.send(:with_scope, :find => count_options) do 
             count += model.count(:conditions => [ "#{model.table_name}.#{model.primary_key} in (?)",
                                                   id_array.keys ]) 
           end
