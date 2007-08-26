@@ -187,6 +187,7 @@ module ActsAsFerret
     def add_self_to_model_list_if_necessary(models)
       models = [ models ] unless models.is_a? Array
       models << self unless models.include?(self)
+      models
     end
 
     def find_records_lazy_or_not(q, options = {}, find_options = {})
