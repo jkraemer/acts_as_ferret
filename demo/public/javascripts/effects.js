@@ -1,4 +1,4 @@
-// Copyright (c) 2005, 2006 Thomas Fuchs (http://script.aculo.us, http://mir.aculo.us)
+// Copyright (c) 2005-2007 Thomas Fuchs (http://script.aculo.us, http://mir.aculo.us)
 // Contributors:
 //  Justin Palmer (http://encytemedia.com/)
 //  Mark Pilgrim (http://diveintomark.org/)
@@ -43,42 +43,13 @@ Element.collectTextNodesIgnoreClass = function(element, className) {
 Element.setContentZoom = function(element, percent) {
   element = $(element);  
   element.setStyle({fontSize: (percent/100) + 'em'});   
-  if(navigator.appVersion.indexOf('AppleWebKit')>0) window.scrollBy(0,0);
+  if(Prototype.Browser.WebKit) window.scrollBy(0,0);
   return element;
 }
 
-Element.getOpacity = function(element){
-  element = $(element);
-  var opacity;
-  if (opacity = element.getStyle('opacity'))  
-    return parseFloat(opacity);  
-  if (opacity = (element.getStyle('filter') || '').match(/alpha\(opacity=(.*)\)/))  
-    if(opacity[1]) return parseFloat(opacity[1]) / 100;  
-  return 1.0;  
-}
-
-Element.setOpacity = function(element, value){  
-  element= $(element);  
-  if (value == 1){
-    element.setStyle({ opacity: 
-      (/Gecko/.test(navigator.userAgent) && !/Konqueror|Safari|KHTML/.test(navigator.userAgent)) ? 
-      0.999999 : 1.0 });
-    if(/MSIE/.test(navigator.userAgent) && !window.opera)  
-      element.setStyle({filter: Element.getStyle(element,'filter').replace(/alpha\([^\)]*\)/gi,'')});  
-  } else {  
-    if(value < 0.00001) value = 0;  
-    element.setStyle({opacity: value});
-    if(/MSIE/.test(navigator.userAgent) && !window.opera)  
-      element.setStyle(
-        { filter: element.getStyle('filter').replace(/alpha\([^\)]*\)/gi,'') +
-            'alpha(opacity='+value*100+')' });  
-  }
-  return element;
-}  
- 
-Element.getInlineOpacity = function(element){  
+Element.getInlineOpacity = function(element){
   return $(element).style.opacity || '';
-}  
+}
 
 Element.forceRerendering = function(element) {
   try {
@@ -108,7 +79,7 @@ var Effect = {
       throw("Effect.tagifyText requires including script.aculo.us' builder.js library");
       
     var tagifyStyle = 'position:relative';
-    if(/MSIE/.test(navigator.userAgent) && !window.opera) tagifyStyle += ';zoom:1';
+    if(Prototype.Browser.IE) tagifyStyle += ';zoom:1';
     
     element = $(element);
     $A(element.childNodes).each( function(child) {
@@ -171,7 +142,8 @@ Effect.Transitions = {
     return 1-pos;
   },
   flicker: function(pos) {
-    return ((-Math.cos(pos*Math.PI)/4) + 0.75) + Math.random()/4;
+    var pos = ((-Math.cos(pos*Math.PI)/4) + 0.75) + Math.random()/4;
+    return (pos > 1 ? 1 : pos);
   },
   wobble: function(pos) {
     return (-Math.cos(pos*Math.PI*(9*pos))/2) + 0.5;
@@ -198,7 +170,7 @@ Effect.ScopedQueue = Class.create();
 Object.extend(Object.extend(Effect.ScopedQueue.prototype, Enumerable), {
   initialize: function() {
     this.effects  = [];
-    this.interval = null;
+    this.interval = null;    
   },
   _each: function(iterator) {
     this.effects._each(iterator);
@@ -232,8 +204,8 @@ Object.extend(Object.extend(Effect.ScopedQueue.prototype, Enumerable), {
     if(!effect.options.queue.limit || (this.effects.length < effect.options.queue.limit))
       this.effects.push(effect);
     
-    if(!this.interval) 
-      this.interval = setInterval(this.loop.bind(this), 40);
+    if(!this.interval)
+      this.interval = setInterval(this.loop.bind(this), 15);
   },
   remove: function(effect) {
     this.effects = this.effects.reject(function(e) { return e==effect });
@@ -244,7 +216,8 @@ Object.extend(Object.extend(Effect.ScopedQueue.prototype, Enumerable), {
   },
   loop: function() {
     var timePos = new Date().getTime();
-    this.effects.invoke('loop', timePos);
+    for(var i=0, len=this.effects.length;i<len;i++) 
+      this.effects[i] && this.effects[i].loop(timePos);
   }
 });
 
@@ -264,7 +237,7 @@ Effect.Queue = Effect.Queues.get('global');
 Effect.DefaultOptions = {
   transition: Effect.Transitions.sinoidal,
   duration:   1.0,   // seconds
-  fps:        25.0,  // max. 25fps due to Effect.Queue implementation
+  fps:        100,   // 100= assume 66fps max.
   sync:       false, // true for combining
   from:       0.0,
   to:         1.0,
@@ -276,11 +249,35 @@ Effect.Base = function() {};
 Effect.Base.prototype = {
   position: null,
   start: function(options) {
+    function codeForEvent(options,eventName){
+      return (
+        (options[eventName+'Internal'] ? 'this.options.'+eventName+'Internal(this);' : '') +
+        (options[eventName] ? 'this.options.'+eventName+'(this);' : '')
+      );
+    }
+    if(options.transition === false) options.transition = Effect.Transitions.linear;
     this.options      = Object.extend(Object.extend({},Effect.DefaultOptions), options || {});
     this.currentFrame = 0;
     this.state        = 'idle';
     this.startOn      = this.options.delay*1000;
-    this.finishOn     = this.startOn + (this.options.duration*1000);
+    this.finishOn     = this.startOn+(this.options.duration*1000);
+    this.fromToDelta  = this.options.to-this.options.from;
+    this.totalTime    = this.finishOn-this.startOn;
+    this.totalFrames  = this.options.fps*this.options.duration;
+    
+    eval('this.render = function(pos){ '+
+      'if(this.state=="idle"){this.state="running";'+
+      codeForEvent(options,'beforeSetup')+
+      (this.setup ? 'this.setup();':'')+ 
+      codeForEvent(options,'afterSetup')+
+      '};if(this.state=="running"){'+
+      'pos=this.options.transition(pos)*'+this.fromToDelta+'+'+this.options.from+';'+
+      'this.position=pos;'+
+      codeForEvent(options,'beforeUpdate')+
+      (this.update ? 'this.update(pos);':'')+
+      codeForEvent(options,'afterUpdate')+
+      '}}');
+    
     this.event('beforeStart');
     if(!this.options.sync)
       Effect.Queues.get(typeof this.options.queue == 'string' ? 
@@ -296,29 +293,12 @@ Effect.Base.prototype = {
         this.event('afterFinish');
         return;  
       }
-      var pos   = (timePos - this.startOn) / (this.finishOn - this.startOn);
-      var frame = Math.round(pos * this.options.fps * this.options.duration);
+      var pos   = (timePos - this.startOn) / this.totalTime,
+          frame = Math.round(pos * this.totalFrames);
       if(frame > this.currentFrame) {
         this.render(pos);
         this.currentFrame = frame;
       }
-    }
-  },
-  render: function(pos) {
-    if(this.state == 'idle') {
-      this.state = 'running';
-      this.event('beforeSetup');
-      if(this.setup) this.setup();
-      this.event('afterSetup');
-    }
-    if(this.state == 'running') {
-      if(this.options.transition) pos = this.options.transition(pos);
-      pos *= (this.options.to-this.options.from);
-      pos += this.options.from;
-      this.position = pos;
-      this.event('beforeUpdate');
-      if(this.update) this.update(pos);
-      this.event('afterUpdate');
     }
   },
   cancel: function() {
@@ -332,7 +312,10 @@ Effect.Base.prototype = {
     if(this.options[eventName]) this.options[eventName](this);
   },
   inspect: function() {
-    return '#<Effect:' + $H(this).inspect() + ',options:' + $H(this.options).inspect() + '>';
+    var data = $H();
+    for(property in this)
+      if(typeof this[property] != 'function') data[property] = this[property];
+    return '#<Effect:' + data.inspect() + ',options:' + $H(this.options).inspect() + '>';
   }
 }
 
@@ -373,7 +356,7 @@ Object.extend(Object.extend(Effect.Opacity.prototype, Effect.Base.prototype), {
     this.element = $(element);
     if(!this.element) throw(Effect._elementDoesNotExistError);
     // make this work on IE on elements without 'layout'
-    if(/MSIE/.test(navigator.userAgent) && !window.opera && (!this.element.currentStyle.hasLayout))
+    if(Prototype.Browser.IE && (!this.element.currentStyle.hasLayout))
       this.element.setStyle({zoom: 1});
     var options = Object.extend({
       from: this.element.getOpacity() || 0.0,
@@ -513,9 +496,11 @@ Object.extend(Object.extend(Effect.Highlight.prototype, Effect.Base.prototype), 
     // Prevent executing on elements not in the layout flow
     if(this.element.getStyle('display')=='none') { this.cancel(); return; }
     // Disable background image during the effect
-    this.oldStyle = {
-      backgroundImage: this.element.getStyle('background-image') };
-    this.element.setStyle({backgroundImage: 'none'});
+    this.oldStyle = {};
+    if (!this.options.keepBackgroundImage) {
+      this.oldStyle.backgroundImage = this.element.getStyle('background-image');
+      this.element.setStyle({backgroundImage: 'none'});
+    }
     if(!this.options.endcolor)
       this.options.endcolor = this.element.getStyle('background-color').parseColor('#ffffff');
     if(!this.options.restorecolor)
@@ -945,8 +930,32 @@ Object.extend(Object.extend(Effect.Morph.prototype, Effect.Base.prototype), {
     this.element = $(element);
     if(!this.element) throw(Effect._elementDoesNotExistError);
     var options = Object.extend({
-      style: ''
+      style: {}
     }, arguments[1] || {});
+    if (typeof options.style == 'string') {
+      if(options.style.indexOf(':') == -1) {
+        var cssText = '', selector = '.' + options.style;
+        $A(document.styleSheets).reverse().each(function(styleSheet) {
+          if (styleSheet.cssRules) cssRules = styleSheet.cssRules;
+          else if (styleSheet.rules) cssRules = styleSheet.rules;
+          $A(cssRules).reverse().each(function(rule) {
+            if (selector == rule.selectorText) {
+              cssText = rule.style.cssText;
+              throw $break;
+            }
+          });
+          if (cssText) throw $break;
+        });
+        this.style = cssText.parseStyle();
+        options.afterFinishInternal = function(effect){
+          effect.element.addClassName(effect.options.style);
+          effect.transforms.each(function(transform) {
+            if(transform.style != 'opacity')
+              effect.element.style[transform.style] = '';
+          });
+        }
+      } else this.style = options.style.parseStyle();
+    } else this.style = $H(options.style)
     this.start(options);
   },
   setup: function(){
@@ -957,16 +966,29 @@ Object.extend(Object.extend(Effect.Morph.prototype, Effect.Base.prototype), {
         return parseInt( color.slice(i*2+1,i*2+3), 16 ) 
       });
     }
-    this.transforms = this.options.style.parseStyle().map(function(property){
-      var originalValue = this.element.getStyle(property[0]);
-      return $H({ 
-        style: property[0], 
-        originalValue: property[1].unit=='color' ? 
-          parseColor(originalValue) : parseFloat(originalValue || 0), 
-        targetValue: property[1].unit=='color' ? 
-          parseColor(property[1].value) : property[1].value,
-        unit: property[1].unit
-      });
+    this.transforms = this.style.map(function(pair){
+      var property = pair[0], value = pair[1], unit = null;
+
+      if(value.parseColor('#zzzzzz') != '#zzzzzz') {
+        value = value.parseColor();
+        unit  = 'color';
+      } else if(property == 'opacity') {
+        value = parseFloat(value);
+        if(Prototype.Browser.IE && (!this.element.currentStyle.hasLayout))
+          this.element.setStyle({zoom: 1});
+      } else if(Element.CSS_LENGTH.test(value)) {
+          var components = value.match(/^([\+\-]?[0-9\.]+)(.*)$/);
+          value = parseFloat(components[1]);
+          unit = (components.length == 3) ? components[2] : null;
+      }
+
+      var originalValue = this.element.getStyle(property);
+      return { 
+        style: property.camelize(), 
+        originalValue: unit=='color' ? parseColor(originalValue) : parseFloat(originalValue || 0), 
+        targetValue: unit=='color' ? parseColor(value) : value,
+        unit: unit
+      };
     }.bind(this)).reject(function(transform){
       return (
         (transform.originalValue == transform.targetValue) ||
@@ -978,17 +1000,19 @@ Object.extend(Object.extend(Effect.Morph.prototype, Effect.Base.prototype), {
     });
   },
   update: function(position) {
-    var style = $H(), value = null;
-    this.transforms.each(function(transform){
-      value = transform.unit=='color' ?
-        $R(0,2).inject('#',function(m,v,i){
-          return m+(Math.round(transform.originalValue[i]+
-            (transform.targetValue[i] - transform.originalValue[i])*position)).toColorPart() }) : 
+    var style = {}, transform, i = this.transforms.length;
+    while(i--)
+      style[(transform = this.transforms[i]).style] = 
+        transform.unit=='color' ? '#'+
+          (Math.round(transform.originalValue[0]+
+            (transform.targetValue[0]-transform.originalValue[0])*position)).toColorPart() +
+          (Math.round(transform.originalValue[1]+
+            (transform.targetValue[1]-transform.originalValue[1])*position)).toColorPart() +
+          (Math.round(transform.originalValue[2]+
+            (transform.targetValue[2]-transform.originalValue[2])*position)).toColorPart() :
         transform.originalValue + Math.round(
           ((transform.targetValue - transform.originalValue) * position) * 1000)/1000 + transform.unit;
-      style[transform.style] = value;
-    });
-    this.element.setStyle(style);
+    this.element.setStyle(style, true);
   }
 });
 
@@ -1021,51 +1045,31 @@ Object.extend(Effect.Transform.prototype, {
   }
 });
 
-Element.CSS_PROPERTIES = ['azimuth', 'backgroundAttachment', 'backgroundColor', 'backgroundImage', 
-  'backgroundPosition', 'backgroundRepeat', 'borderBottomColor', 'borderBottomStyle', 
-  'borderBottomWidth', 'borderCollapse', 'borderLeftColor', 'borderLeftStyle', 'borderLeftWidth',
-  'borderRightColor', 'borderRightStyle', 'borderRightWidth', 'borderSpacing', 'borderTopColor',
-  'borderTopStyle', 'borderTopWidth', 'bottom', 'captionSide', 'clear', 'clip', 'color', 'content',
-  'counterIncrement', 'counterReset', 'cssFloat', 'cueAfter', 'cueBefore', 'cursor', 'direction',
-  'display', 'elevation', 'emptyCells', 'fontFamily', 'fontSize', 'fontSizeAdjust', 'fontStretch',
-  'fontStyle', 'fontVariant', 'fontWeight', 'height', 'left', 'letterSpacing', 'lineHeight',
-  'listStyleImage', 'listStylePosition', 'listStyleType', 'marginBottom', 'marginLeft', 'marginRight',
-  'marginTop', 'markerOffset', 'marks', 'maxHeight', 'maxWidth', 'minHeight', 'minWidth', 'opacity',
-  'orphans', 'outlineColor', 'outlineOffset', 'outlineStyle', 'outlineWidth', 'overflowX', 'overflowY',
-  'paddingBottom', 'paddingLeft', 'paddingRight', 'paddingTop', 'page', 'pageBreakAfter', 'pageBreakBefore',
-  'pageBreakInside', 'pauseAfter', 'pauseBefore', 'pitch', 'pitchRange', 'position', 'quotes',
-  'richness', 'right', 'size', 'speakHeader', 'speakNumeral', 'speakPunctuation', 'speechRate', 'stress',
-  'tableLayout', 'textAlign', 'textDecoration', 'textIndent', 'textShadow', 'textTransform', 'top',
-  'unicodeBidi', 'verticalAlign', 'visibility', 'voiceFamily', 'volume', 'whiteSpace', 'widows',
-  'width', 'wordSpacing', 'zIndex'];
+Element.CSS_PROPERTIES = $w(
+  'backgroundColor backgroundPosition borderBottomColor borderBottomStyle ' + 
+  'borderBottomWidth borderLeftColor borderLeftStyle borderLeftWidth ' +
+  'borderRightColor borderRightStyle borderRightWidth borderSpacing ' +
+  'borderTopColor borderTopStyle borderTopWidth bottom clip color ' +
+  'fontSize fontWeight height left letterSpacing lineHeight ' +
+  'marginBottom marginLeft marginRight marginTop markerOffset maxHeight '+
+  'maxWidth minHeight minWidth opacity outlineColor outlineOffset ' +
+  'outlineWidth paddingBottom paddingLeft paddingRight paddingTop ' +
+  'right textIndent top width wordSpacing zIndex');
   
 Element.CSS_LENGTH = /^(([\+\-]?[0-9\.]+)(em|ex|px|in|cm|mm|pt|pc|\%))|0$/;
 
 String.prototype.parseStyle = function(){
-  var element = Element.extend(document.createElement('div'));
+  var element = document.createElement('div');
   element.innerHTML = '<div style="' + this + '"></div>';
-  var style = element.down().style, styleRules = $H();
+  var style = element.childNodes[0].style, styleRules = $H();
   
   Element.CSS_PROPERTIES.each(function(property){
-   if(style[property]) styleRules[property] = style[property]; 
+    if(style[property]) styleRules[property] = style[property]; 
   });
-  
-  var result = $H();
-  
-  styleRules.each(function(pair){
-    var property = pair[0], value = pair[1], unit = null;
-    
-    if(value.parseColor('#zzzzzz') != '#zzzzzz') {
-      value = value.parseColor();
-      unit  = 'color';
-    } else if(Element.CSS_LENGTH.test(value)) 
-      var components = value.match(/^([\+\-]?[0-9\.]+)(.*)$/),
-          value = parseFloat(components[1]), unit = (components.length == 3) ? components[2] : null;
-    
-    result[property.underscore().dasherize()] = $H({ value:value, unit:unit });
-  }.bind(this));
-  
-  return result;
+  if(Prototype.Browser.IE && this.indexOf('opacity') > -1) {
+    styleRules.opacity = this.match(/opacity:\s*((?:0|1)?(?:\.\d*)?)/)[1];
+  }
+  return styleRules;
 };
 
 Element.morph = function(element, style) {
@@ -1073,13 +1077,13 @@ Element.morph = function(element, style) {
   return element;
 };
 
-['setOpacity','getOpacity','getInlineOpacity','forceRerendering','setContentZoom',
+['getInlineOpacity','forceRerendering','setContentZoom',
  'collectTextNodes','collectTextNodesIgnoreClass','morph'].each( 
   function(f) { Element.Methods[f] = Element[f]; }
 );
 
 Element.Methods.visualEffect = function(element, effect, options) {
-  s = effect.gsub(/_/, '-').camelize();
+  s = effect.dasherize().camelize();
   effect_class = s.charAt(0).toUpperCase() + s.substring(1);
   new Effect[effect_class](element, options);
   return $(element);

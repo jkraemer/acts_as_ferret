@@ -8,9 +8,6 @@ class ContentControllerTest < Test::Unit::TestCase
   fixtures :contents
 
   def setup
-    index = Ferret::Index::Index.new( :path => Content.aaf_configuration[:index_dir], :create => true	)
-    index.flush
-    index.close
     @controller = ContentController.new
     @request    = ActionController::TestRequest.new
     @response   = ActionController::TestResponse.new
@@ -19,15 +16,7 @@ class ContentControllerTest < Test::Unit::TestCase
   def test_index
     get :index
     assert_response :success
-    assert_template 'list'
-  end
-
-  def test_list
-    get :list
-
-    assert_response :success
-    assert_template 'list'
-
+    assert_template 'index'
     assert_not_nil assigns(:contents)
   end
 
@@ -89,29 +78,4 @@ class ContentControllerTest < Test::Unit::TestCase
     }
   end
 
-  def test_search
-    post :create, :content => { :title => 'my title', :description => 'a little bit of content' }
-    get :search
-    assert_template 'search'
-    assert_nil assigns(:results)
-
-    post :search, :query => 'title'
-    assert_template 'search'
-    assert_equal 1, assigns(:results).size
-    
-    post :search, :query => 'monkey'
-    assert_template 'search'
-    assert assigns(:results).empty?
-    
-    # check that model changes are picked up by the searcher (searchers have to
-    # be reopened to reflect changes done to the index)
-    # wait for the searcher to age a bit (it seems fs timestamp resolution is
-    # only 1 sec)
-    sleep 1
-    post :create, :content => { :title => 'another content object', :description => 'description goes hers' }
-    post :search, :query => 'another'
-    assert_template 'search'
-    assert_equal 1, assigns(:results).size
-    
-  end
 end

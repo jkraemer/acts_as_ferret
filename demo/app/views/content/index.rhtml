@@ -1,5 +1,6 @@
 <h1>Listing contents</h1>
 
+<p><%= will_paginate @contents %></p>
 <table>
   <tr>
   <% for column in Content.content_columns %>
@@ -19,9 +20,5 @@
 <% end %>
 </table>
 
-<%= link_to 'Previous page', { :page => @content_pages.current.previous } if @content_pages.current.previous %>
-<%= link_to 'Next page', { :page => @content_pages.current.next } if @content_pages.current.next %> 
-
-<br />
-
-<%= link_to 'New content', :action => 'new' %>
+<p><%= will_paginate @contents %></p>
+<p><%= link_to 'New content', :action => 'new' %></p>

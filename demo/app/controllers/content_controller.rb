@@ -1,15 +1,11 @@
 class ContentController < ApplicationController
-  def index
-    list
-    render :action => 'list'
-  end
+  before_filter :find_content, :only => [ :show, :edit, :update, :destroy ]
 
-  def list
-    @content_pages, @contents = paginate :contents, :per_page => 10
+  def index 
+    @contents = Content.paginate :page => params[:page]
   end
 
   def show
-    @content = Content.find(params[:id])
   end
 
   def new
@@ -27,11 +23,9 @@ class ContentController < ApplicationController
   end
 
   def edit
-    @content = Content.find(params[:id])
   end
 
   def update
-    @content = Content.find(params[:id])
     if @content.update_attributes(params[:content])
       flash[:notice] = 'Content was successfully updated.'
       redirect_to :action => 'show', :id => @content
@@ -41,14 +35,14 @@ class ContentController < ApplicationController
   end
 
   def destroy
-    Content.find(params[:id]).destroy
+    @content.destroy
     redirect_to :action => 'list'
   end
 
-  def search
-    @query = params[:query] || ''
-    unless @query.blank?
-      @results = Content.find_by_contents @query
+  protected
+
+    def find_content
+      @content = Content.find params[:id]
     end
-  end
+
 end

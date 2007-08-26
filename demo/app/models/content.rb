@@ -1,5 +1,7 @@
 class Content < ContentBase #ActiveRecord::Base
 
+  def self.per_page; 10; end
+
   has_many :comments
 
   # returns the number of comments attached to this content.

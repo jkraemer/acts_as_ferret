@@ -1,0 +1,22 @@
+<h1>Search</h1>
+<% form_for :search, @search, search_path, :method => :get do |f| %>
+  <fieldset>
+    <legend>Search</legend>
+    <%= f.text_field 'query' %>
+  </fieldset>
+  <%= submit_tag 'search' %>
+<% end %>
+
+<% if @results -%>
+
+  <p>Your search for <%= h @search.query %> returned <%= @results.total_hits %> Results:</p>
+
+  <p><%= will_paginate @results %></p>
+  <ul>
+    <% @results.each { |result| -%>
+      <li><%= link_to result.title, :action => 'show', :id => result %></li>
+    <% } -%>
+  </ul>
+  <p><%= will_paginate @results %></p>
+
+<% end -%>

@@ -186,4 +186,58 @@ class CommentTest < Test::Unit::TestCase
     assert_equal 1, comments_from_ferret.total_hits 
   end
 
+  def test_pagination
+    more_contents
+
+    r = Content.find_with_ferret 'title', :page => 1, :per_page => 10, :sort => 'title'
+    assert_equal 30, r.total_hits
+    assert_equal 10, r.size
+    assert_equal "0", r.first.description
+    assert_equal "9", r.last.description
+    assert_equal 1, r.current_page
+    assert_equal 3, r.page_count
+
+    r = Content.find_with_ferret 'title', :page => 2, :per_page => 10, :sort => 'title'
+    assert_equal 30, r.total_hits
+    assert_equal 10, r.size
+    assert_equal "10", r.first.description
+    assert_equal "19", r.last.description
+    assert_equal 2, r.current_page
+    assert_equal 3, r.page_count
+
+    r = Content.find_with_ferret 'title', :page => 4, :per_page => 10, :sort => 'title'
+    assert_equal 30, r.total_hits
+    assert_equal 0, r.size
+  end
+
+  def test_pagination_with_ar_conditions
+    more_contents
+
+    r = Content.find_with_ferret 'title', { :page => 1, :per_page => 10 }, 
+                                          { :conditions => "description != '0'", :order => 'title ASC' }
+    assert_equal 29, r.total_hits
+    assert_equal 10, r.size
+    assert_equal "1", r.first.description
+    assert_equal "10", r.last.description
+    assert_equal 1, r.current_page
+    assert_equal 3, r.page_count
+
+    r = Content.find_with_ferret 'title', { :page => 3, :per_page => 10 },
+                                          { :conditions => "description != '0'", :order => 'title ASC' }
+    assert_equal 29, r.total_hits
+    assert_equal 9, r.size
+    assert_equal "21", r.first.description
+    assert_equal "29", r.last.description
+    assert_equal 3, r.current_page
+    assert_equal 3, r.page_count
+  end
+
+  protected
+  def more_contents
+    Content.destroy_all
+    30.times do |i|
+      Content.create! :title => sprintf("title of Content %02d", i), :description => "#{i}"
+    end
+  end
+
 end
