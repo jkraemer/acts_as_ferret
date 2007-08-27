@@ -1,10 +1,10 @@
 require File.dirname(__FILE__) + '/../test_helper'
-require 'content_controller'
+require 'contents_controller'
 
 # Re-raise errors caught by the controller.
-class ContentController; def rescue_action(e) raise e end; end
+class ContentsController; def rescue_action(e) raise e end; end
 
-class ContentControllerTest < Test::Unit::TestCase
+class ContentsControllerTest < Test::Unit::TestCase
   fixtures :contents
 
   def setup

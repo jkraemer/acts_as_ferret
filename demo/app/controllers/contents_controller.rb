@@ -1,4 +1,4 @@
-class ContentController < ApplicationController
+class ContentsController < ApplicationController
   before_filter :find_content, :only => [ :show, :edit, :update, :destroy ]
 
   def index 

@@ -1,10 +1,10 @@
 require File.dirname(__FILE__) + '/../test_helper'
-require 'search_controller'
+require 'searches_controller'
 
 # Re-raise errors caught by the controller.
-class SearchController; def rescue_action(e) raise e end; end
+class SearchesController; def rescue_action(e) raise e end; end
 
-class SearchControllerTest < Test::Unit::TestCase
+class SearchesControllerTest < Test::Unit::TestCase
   fixtures :contents
 
   def setup
@@ -15,19 +15,19 @@ class SearchControllerTest < Test::Unit::TestCase
   end
 
   def test_show
-    get :show
+    get :search
     assert_template 'show'
     assert_response :success
     assert_nil assigns(:results)
   end
 
   def test_search
-    get :show, :q => 'title'
+    get :search, :q => 'title'
     assert_template 'show'
     assert_equal 1, assigns(:results).total_hits
     assert_equal 1, assigns(:results).size
     
-    get :show, :q => 'monkey'
+    get :search, :q => 'monkey'
     assert_template 'show'
     assert assigns(:results).empty?
     
@@ -37,7 +37,7 @@ class SearchControllerTest < Test::Unit::TestCase
     # only 1 sec)
     sleep 1
     Content.create :title => 'another content object', :description => 'description goes hers'
-    get :show, :q => 'another'
+    get :search, :q => 'another'
     assert_template 'show'
     assert_equal 1, assigns(:results).total_hits
     assert_equal 1, assigns(:results).size
@@ -49,7 +49,7 @@ class SearchControllerTest < Test::Unit::TestCase
     30.times do |i|
       Content.create! :title => "title of Content #{i}", :description => "#{i}"
     end
-    get :show, :q => 'title'
+    get :search, :q => 'title'
     r = assigns(:results)
     assert_equal 30, r.total_hits
     assert_equal 10, r.size
@@ -58,7 +58,7 @@ class SearchControllerTest < Test::Unit::TestCase
     assert_equal 1, r.current_page
     assert_equal 3, r.page_count
 
-    get :show, :q => 'title', :page => 2
+    get :search, :q => 'title', :page => 2
     r = assigns(:results)
     assert_equal 30, r.total_hits
     assert_equal 10, r.size

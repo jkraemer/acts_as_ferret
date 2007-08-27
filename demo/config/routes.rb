@@ -1,7 +1,7 @@
 ActionController::Routing::Routes.draw do |map|
 
-  map.resources :content
-  map.resource :search
+  map.resources :contents
+  map.search 'search', :controller => 'searches', :action => 'search'
 
 
   # Install the default route as the lowest priority.
