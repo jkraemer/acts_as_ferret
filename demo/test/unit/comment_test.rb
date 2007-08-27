@@ -232,6 +232,19 @@ class CommentTest < Test::Unit::TestCase
     assert_equal 3, r.page_count
   end
 
+  def test_pagination_with_more_conditions
+    more_contents
+
+    r = Content.find_with_ferret 'title -description:0', { :page => 1, :per_page => 10 },
+                                            { :conditions => "description != '9'", :order => 'title ASC' }
+    assert_equal 28, r.total_hits
+    assert_equal 10, r.size
+    assert_equal "1", r.first.description
+    assert_equal "11", r.last.description
+    assert_equal 1, r.current_page
+    assert_equal 3, r.page_count
+  end
+
   protected
   def more_contents
     Content.destroy_all
