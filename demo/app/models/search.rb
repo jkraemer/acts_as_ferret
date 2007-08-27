@@ -14,6 +14,6 @@ class Search
 
   # run the search
   def run
-    Content.find_with_ferret @query, :page => @page, :per_page => 10, :sort => 'title'
+    Content.find_with_ferret @query, :page => @page, :per_page => 10, :sort => 'title', :lazy => true
   end
 end

@@ -8,27 +8,27 @@ class SearchesControllerTest < Test::Unit::TestCase
   fixtures :contents
 
   def setup
-    @controller = SearchController.new
+    @controller = SearchesController.new
     @request    = ActionController::TestRequest.new
     @response   = ActionController::TestResponse.new
     ContentBase.rebuild_index
   end
 
-  def test_show
+  def test_search
     get :search
-    assert_template 'show'
+    assert_template 'search'
     assert_response :success
     assert_nil assigns(:results)
   end
 
   def test_search
     get :search, :q => 'title'
-    assert_template 'show'
+    assert_template 'search'
     assert_equal 1, assigns(:results).total_hits
     assert_equal 1, assigns(:results).size
     
     get :search, :q => 'monkey'
-    assert_template 'show'
+    assert_template 'search'
     assert assigns(:results).empty?
     
     # check that model changes are picked up by the searcher (searchers have to
@@ -38,7 +38,7 @@ class SearchesControllerTest < Test::Unit::TestCase
     sleep 1
     Content.create :title => 'another content object', :description => 'description goes hers'
     get :search, :q => 'another'
-    assert_template 'show'
+    assert_template 'search'
     assert_equal 1, assigns(:results).total_hits
     assert_equal 1, assigns(:results).size
     

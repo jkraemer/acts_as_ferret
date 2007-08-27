@@ -8,7 +8,7 @@ class ContentsControllerTest < Test::Unit::TestCase
   fixtures :contents
 
   def setup
-    @controller = ContentController.new
+    @controller = ContentsController.new
     @request    = ActionController::TestRequest.new
     @response   = ActionController::TestResponse.new
   end
