@@ -211,8 +211,9 @@ module ActsAsFerret
       
       if find_options[:conditions]
         if options[:limit] != :all || options[:page]
-          # correct result size if the user specified conditions
-          #  wenn conditions: options[:limit] != :all --> ferret-query mit :all wiederholen und select count machen
+          # correct result size if the user specified database conditions by
+          # removing the ferret limit to get the complete ferret result set so 
+          # we can ask the database for the total size of the result set.
           result_ids = {}
           find_id_by_contents(q, options.update(:limit => :all)) do |model, id, score, data|
             result_ids[id] = [ result_ids.size + 1, score ]
