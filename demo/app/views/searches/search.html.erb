@@ -1,8 +1,8 @@
 <h1>Search</h1>
-<% form_for :search, @search, search_path, :html => { :method => :post } do |f| %>
+<% form_tag search_path do |f| %>
   <fieldset>
     <legend>Search</legend>
-    <%= f.text_field 'query' %>
+    <%= text_field_tag 'q', @search.query %>
   </fieldset>
   <%= submit_tag 'search' %>
 <% end %>
@@ -13,9 +13,9 @@
 
   <p><%= will_paginate @results %></p>
   <ul>
-    <% @results.each { |result| -%>
-      <li><%= link_to result.title, :action => 'show', :id => result %></li>
-    <% } -%>
+    <% for result in @results -%>
+      <li><%= link_to result.title, content_path(result) %></li>
+    <% end -%>
   </ul>
   <p><%= will_paginate @results %></p>
 
