@@ -147,10 +147,18 @@ module ActsAsFerret
       aaf_index.find_id_by_contents(q, options, &block)
     end
 
+    # Search across multiple classes each having their own index.
     # requires the store_class_name option of acts_as_ferret to be true
     # for all models queried this way.
+    #
+    # Pagination with the +page+ and +per_page+ options is not supported when
+    # combined with active_record +conditions+ in +find_options+.
     def multi_search(query, additional_models = [], options = {}, find_options = {})
       result = []
+
+      if options[:page] && find_options[:per_page]
+        logger.warn "pagination is unsupported in multi_search when combined with find_options[:conditions]"
+      end
 
       if options[:lazy]
         logger.warn "find_options #{find_options} are ignored because :lazy => true" unless find_options.empty?
@@ -210,16 +218,20 @@ module ActsAsFerret
       result = retrieve_records( { self.name => result_ids }, find_options )
       
       if find_options[:conditions]
+        # chances are the ferret result count is not our total_hits value, so
+        # we correct this here.
         if options[:limit] != :all || options[:page]
-          # correct result size if the user specified database conditions by
-          # removing the ferret limit to get the complete ferret result set so 
-          # we can ask the database for the total size of the result set.
+          # our ferret result has been limited, so we need to re-run that
+          # search to get the full result set from ferret.
           result_ids = {}
           find_id_by_contents(q, options.update(:limit => :all)) do |model, id, score, data|
             result_ids[id] = [ result_ids.size + 1, score ]
           end
+          # Now ask the database for the total size of the final result set.
           total_hits = count_records( { self.name => result_ids }, find_options )
         else
+          # what we got from the database is our full result set, so take
+          # it's size
           total_hits = result.length
         end
       end
