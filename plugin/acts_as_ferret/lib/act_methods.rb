@@ -38,6 +38,9 @@ module ActsAsFerret #:nodoc:
     #                    named class_name
     #
     # reindex_batch_size:: reindexing is done in batches of this size, default is 1000
+    # mysql_fast_batches:: set this to false to disable the faster mysql batching
+    #                      algorithm if this model uses a non-integer primary key named
+    #                      'id' on MySQL.
     #
     # ferret:: Hash of Options that directly influence the way the Ferret engine works. You 
     #          can use most of the options the Ferret::I class accepts here, too. Among the 
@@ -110,7 +113,9 @@ module ActsAsFerret #:nodoc:
         :single_index => false,
         :reindex_batch_size => 1000,
         :ferret => {},                    # Ferret config Hash
-        :ferret_fields => {}              # list of indexed fields that will be filled later
+        :ferret_fields => {},             # list of indexed fields that will be filled later
+        :enabled => true,                 # used for class-wide disabling of Ferret
+        :mysql_fast_batches => true       # turn off to disable the faster, id based batching mechanism for MySQL
       }
 
       # merge aaf options with args

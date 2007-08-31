@@ -32,10 +32,8 @@ module Ferret
     end
   end
 
-
   class Index::Index
-    attr_accessor :batch_size
-    attr_accessor :logger
+    attr_accessor :batch_size, :logger
 
     def index_models(models)
       models.each { |model| index_model model }
@@ -46,31 +44,31 @@ module Ferret
     end
 
     def index_model(model)
-      @batch_size ||= 0
-      work_done = 0
-      batch_time = 0
+      bulk_indexer = ActsAsFerret::BulkIndexer.new(:batch_size => @batch_size, :logger => logger, 
+                                                   :model => model, :index => self, :reindex => true)
       logger.info "reindexing model #{model.name}"
 
-      model_count  = model.count.to_f
       model.records_for_rebuild(@batch_size) do |records, offset|
         #records = [ records ] unless records.is_a?(Array)
-        batch_time = measure_time {
-          records.each { |rec| self << rec.to_doc if rec.ferret_enabled?(true) }
-        }.to_f
-        work_done = offset.to_f / model_count * 100.0 if model_count > 0
-        remaining_time = ( batch_time / @batch_size ) * ( model_count - offset + @batch_size )
-        logger.info "reindex model #{model.name} : #{'%.2f' % work_done}% complete : #{'%.2f' % remaining_time} secs to finish"
+        bulk_indexer.index_records(records, offset)
       end
     end
 
-    def measure_time
-      t1 = Time.now
-      yield
-      Time.now - t1
+    def bulk_index(model, ids)
+      orig_flush = @auto_flush
+      @auto_flush = false
+      bulk_indexer = ActsAsFerret::BulkIndexer.new(:batch_size => @batch_size, :logger => logger, 
+                                                   :model => model, :index => self, :total => ids.size)
+      model.records_for_bulk_index(ids, @batch_size) do |records, offset|
+        logger.debug "#{model} bulk indexing #{records.size} at #{offset}"
+        bulk_indexer.index_records(records, offset)
+      end
+      flush
+      optimize
+      @auto_flush = orig_flush
     end
 
   end
-
 
   # add marshalling support to SortFields
   class Search::SortField

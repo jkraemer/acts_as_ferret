@@ -21,8 +21,10 @@
 require 'active_support'
 require 'active_record'
 require 'set'
+require 'enumerator'
 require 'ferret'
 
+require 'bulk_indexer'
 require 'ferret_extensions'
 require 'act_methods'
 require 'search_results'

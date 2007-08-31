@@ -31,20 +31,32 @@ module ActsAsFerret #:nodoc:
       self.class.aaf_index.highlight(id, self.class.name, query, options)
     end
     
-    # re-eneable ferret indexing after a call to #disable_ferret
-    def ferret_enable; @ferret_disabled = nil end
+    # re-eneable ferret indexing for this instance after a call to #disable_ferret
+    def enable_ferret  
+      @ferret_disabled = nil 
+    end
+    alias ferret_enable enable_ferret  # compatibility
     
-    # returns true if ferret indexing is enabled
-    # the optional parameter will be true if the method is called by rebuild_index, 
-    # and false otherwise. I.e. useful to enable a model only for indexing during 
-    # scheduled reindex runs.
-    def ferret_enabled?(is_rebuild = false); @ferret_disabled.nil? end
+    # returns true if ferret indexing is enabled for this record.
+    #
+    # The optional parameter will be true if the method is called by rebuild_index, 
+    # and false otherwise. Might be useful if you override this method to enable a 
+    # model only for indexing during scheduled reindex runs.
+    def ferret_enabled?(is_rebuild = false)
+      @ferret_disabled.nil? && self.class.ferret_enabled?
+    end
 
-    # Disable Ferret for a specified amount of time. ::once will disable
-    # Ferret for the next call to #save (this is the default), ::always will 
-    # do so for all subsequent calls.
-    # To manually trigger reindexing of a record, you can call #ferret_update 
-    # directly. 
+    # Disable Ferret for this record for a specified amount of time. ::once will 
+    # disable Ferret for the next call to #save (this is the default), ::always 
+    # will do so for all subsequent calls. 
+    #
+    # Note that this will turn off only the create and update hooks, but not the 
+    # destroy hook. I think that's reasonable, if you think the opposite, please 
+    # tell me.
+    #
+    # To manually trigger reindexing of a record after you're finished modifying 
+    # it, you can call #ferret_update directly instead of #save (remember to
+    # enable ferret again before).
     #
     # When given a block, this will be executed without any ferret indexing of 
     # this object taking place. The optional argument in this case can be used 
@@ -52,6 +64,7 @@ module ActsAsFerret #:nodoc:
     # (::index_when_finished). Automatic Ferret indexing of this object will be 
     # turned on after the block has been executed. If passed ::index_when_true, 
     # the index will only be updated if the block evaluated not to false or nil.
+    #
     def disable_ferret(option = :once)
       if block_given?
         @ferret_disabled = :always

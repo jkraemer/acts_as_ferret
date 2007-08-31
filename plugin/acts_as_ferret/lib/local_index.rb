@@ -62,6 +62,10 @@ module ActsAsFerret
       index.index_models models
     end
 
+    def bulk_index(ids)
+      ferret_index.bulk_index(aaf_configuration[:class_name].constantize, ids)
+    end
+
     # Parses the given query string into a Ferret Query object.
     def process_query(query)
       # work around ferret bug in #process_query (doesn't ensure the

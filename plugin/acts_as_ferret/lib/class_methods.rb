@@ -2,6 +2,24 @@ module ActsAsFerret
         
   module ClassMethods
 
+    # Disables ferret index updates for this model. When a block is given,
+    # Ferret will be re-enabled again after executing the block.
+    def disable_ferret
+      aaf_configuration[:enabled] = false
+      if block_given?
+        yield
+        enable_ferret
+      end
+    end
+
+    def enable_ferret
+      aaf_configuration[:enabled] = true
+    end
+
+    def ferret_enabled?
+      aaf_configuration[:enabled]
+    end
+
     # rebuild the index from all data stored for this model.
     # This is called automatically when no index exists yet.
     #
@@ -16,11 +34,27 @@ module ActsAsFerret
       index_dir = find_last_index_version(aaf_configuration[:index_base_dir]) unless aaf_configuration[:remote]
     end
 
+    # re-index a number records specified by the given ids. Use for large
+    # indexing jobs i.e. after modifying a lot of records with Ferret disabled.
+    def bulk_index(*ids)
+      ids = ids.first if ids.size == 1 && ids.first.is_a?(Enumerable)
+      aaf_index.bulk_index(ids)
+    end
+
+    # true if our db and table appear to be suitable for the mysql fast batch
+    # hack (see
+    # http://weblog.jamisbuck.org/2007/4/6/faking-cursors-in-activerecord)
+    def use_fast_batches?
+      if connection.class.name =~ /Mysql/ && primary_key == 'id' && aaf_configuration[:mysql_fast_batches]
+        logger.info "using mysql specific batched find :all. Turn off with  :mysql_fast_batches => false if you encounter problems (i.e. because of non-integer UUIDs in the id column)"
+        true
+      end
+    end
+
     # runs across all records yielding those to be indexed when the index is rebuilt
     def records_for_rebuild(batch_size = 1000)
       transaction do
-        if connection.class.name =~ /Mysql/ && primary_key == 'id'
-          logger.info "using mysql specific batched find :all"
+        if use_fast_batches?
           offset = 0
           while (rows = find :all, :conditions => [ "id > ?", offset ], :limit => batch_size).any?
             offset = rows.last.id
@@ -32,6 +66,21 @@ module ActsAsFerret
           0.step(self.count, batch_size) do |offset|
             yield find( :all, :limit => batch_size, :offset => offset, :order => order ), offset
           end
+        end
+      end
+    end
+
+    # yields the records with the given ids, in batches of batch_size
+    def records_for_bulk_index(ids, batch_size = 1000)
+      transaction do
+        offset = 0
+        ids.each_slice(batch_size) do |id_slice|
+          logger.debug "########## slice: #{id_slice.join(',')}"
+          records = find( :all, :conditions => ["id in (?)", id_slice] )
+          logger.debug "########## slice records: #{records.inspect}"
+          #yield records, offset
+          yield find( :all, :conditions => ["id in (?)", id_slice] ), offset
+          offset += batch_size
         end
       end
     end
