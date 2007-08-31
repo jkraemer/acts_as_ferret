@@ -106,6 +106,30 @@ class ContentTest < Test::Unit::TestCase
     assert_equal content, Content.find_by_contents('"find me"').first
   end
 
+  def test_disable_ferret_on_class_level
+    Content.disable_ferret
+    content = Content.new(:title => 'should not get saved', :description => 'do not find me')
+    assert !content.ferret_enabled?
+    assert !Content.ferret_enabled?
+    2.times do 
+      content.save
+      assert Content.find_by_contents('"find me"').empty?
+      assert !Content.ferret_enabled?
+      assert !content.ferret_enabled?
+    end
+    content.enable_ferret  # record level enabling should have no effect on class level
+    assert !Content.ferret_enabled?
+    assert !content.ferret_enabled?
+    Content.enable_ferret
+    assert Content.ferret_enabled?
+    assert content.ferret_enabled?
+
+    content.save
+    assert content.ferret_enabled?
+    assert Content.ferret_enabled?
+    assert_equal content, Content.find_by_contents('"find me"').first
+  end
+
   def test_disable_ferret_block
     content = Content.new(:title => 'should not get saved', :description => 'do not find me')
     content.disable_ferret do
@@ -128,6 +152,45 @@ class ContentTest < Test::Unit::TestCase
     assert content.ferret_enabled?
     assert_equal content, Content.find_by_contents('"find me"').first
   end
+
+  def test_disable_ferret_on_class_level_block
+    content = Content.new(:title => 'should not get saved', :description => 'do not find me')
+    Content.disable_ferret do
+      2.times do
+        content.save
+        assert Content.find_by_contents('"find me"').empty?
+        assert !content.ferret_enabled?
+        assert !Content.ferret_enabled?
+      end
+    end
+    assert content.ferret_enabled?
+    assert Content.ferret_enabled?
+    assert Content.find_by_contents('"find me"').empty?
+    content.save
+    assert_equal content, Content.find_by_contents('"find me"').first
+  end
+
+  def test_records_for_bulk_index
+    Content.disable_ferret do
+      more_contents
+    end
+    min = Content.find(:all, :order => 'id asc').first.id
+    Content.records_for_bulk_index([min, min+1, min+2, min+3, min+4, min+6], 10) do |records, offset|
+      assert_equal 6, records.size
+    end
+  end
+
+  def test_bulk_index
+    Content.disable_ferret do
+      more_contents
+    end
+
+    assert Content.find_with_ferret('title').empty?
+    min = Content.find(:all, :order => 'id asc').first.id
+    Content.bulk_index([min, min+1, min+2, min+3, min+4, min+6])
+    assert_equal 6, Content.find_with_ferret('title').size
+  end
+
 
   def test_unicode
     content = Content.new(:title => 'Title with some Ümläuts - äöü', 
@@ -662,6 +725,7 @@ class ContentTest < Test::Unit::TestCase
   protected
   def more_contents
     Content.destroy_all
+    SpecialContent.destroy_all
     30.times do |i|
       Content.create! :title => sprintf("title of Content %02d", i), :description => "#{i}"
     end
