@@ -722,6 +722,17 @@ class ContentTest < Test::Unit::TestCase
     assert_equal 3, r.page_count
   end
 
+  def test_reconnect_in_drb_mode
+    if ENV['AAF_REMOTE'] && Content.connection.is_a?(ActiveRecord::ConnectionAdapters::MysqlAdapter)
+      puts "have DRb and MySQL - doing db reconnect test"
+      Content.aaf_index.send(:db_disconnect!)
+      c = Content.create! :title => 'another one', :description => 'description'
+      assert_equal c, Content.find_with_ferret('another').first
+    else
+      assert true
+    end
+  end
+
   protected
   def more_contents
     Content.destroy_all

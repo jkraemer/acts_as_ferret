@@ -59,17 +59,20 @@ module ActsAsFerret
       #
       def method_missing(name, *args)
         @logger.debug "\#method_missing(#{name.inspect}, #{args.inspect})"
+        retried = false
         with_class args.shift do |clazz|
-          begin
-            clazz.aaf_index.send name, *args
-          rescue NoMethodError
-            @logger.debug "no luck, trying to call class method instead"
-            clazz.send name, *args
+          reconnect_when_needed(clazz) do
+            begin
+              clazz.aaf_index.send name, *args
+            rescue NoMethodError
+              @logger.debug "no luck, trying to call class method instead"
+              clazz.send name, *args
+            end
           end
         end
-      rescue
-        @logger.error "ferret server error #{$!}\n#{$!.backtrace.join '\n'}"
-        raise
+      rescue => e
+        @logger.error "ferret server error #{$!}\n#{$!.backtrace.join "\n"}"
+        raise e
       end
 
       # make sure we have a versioned index in place, building one if necessary
@@ -83,14 +86,24 @@ module ActsAsFerret
         end
       end
 
+      # disconnects the db connection for the class specified by class_name
+      # used only in unit tests to check the automatic reconnection feature
+      def db_disconnect!(class_name)
+        with_class class_name do |clazz|
+          clazz.connection.disconnect!
+        end
+      end
+
       # hides LocalIndex#rebuild_index to implement index versioning
       def rebuild_index(clazz, *models)
         with_class clazz do |clazz|
           models = models.flatten.uniq.map(&:constantize)
           models << clazz unless models.include?(clazz)
           index = new_index_for(clazz, models)
-          @logger.debug "DRb server: rebuild index for class(es) #{models.inspect} in #{index.options[:path]}"
-          index.index_models models
+          reconnect_when_needed(clazz) do
+            @logger.debug "DRb server: rebuild index for class(es) #{models.inspect} in #{index.options[:path]}"
+            index.index_models models
+          end
           new_version = File.join clazz.aaf_configuration[:index_base_dir], Time.now.utc.strftime('%Y%m%d%H%M%S')
           # create a unique directory name (needed for unit tests where 
           # multiple rebuilds per second may occur)
@@ -111,6 +124,27 @@ module ActsAsFerret
         def with_class(clazz, *args)
           clazz = clazz.constantize if String === clazz
           yield clazz, *args
+        end
+
+        def reconnect_when_needed(clazz)
+          retried = false
+          begin
+            yield
+          rescue ActiveRecord::StatementInvalid => e
+            if e.message =~ /MySQL server has gone away/
+              if retried
+                raise e
+              else
+                @logger.info "StatementInvalid caught, trying to reconnect..."
+                clazz.connection.reconnect!
+                retried = true
+                retry
+              end
+            else
+              @logger.error "StatementInvalid caught, but unsure what to do with it: #{e}"
+              raise e
+            end
+          end
         end
 
         def new_index_for(clazz, models)
