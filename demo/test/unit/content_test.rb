@@ -666,7 +666,7 @@ class ContentTest < Test::Unit::TestCase
   def test_pagination
     more_contents
 
-    r = Content.find_with_ferret 'title', :page => 1, :per_page => 10, :sort => 'title'
+    r = Content.find_with_ferret 'title', :per_page => 10, :sort => 'title'
     assert_equal 30, r.total_hits
     assert_equal 10, r.size
     assert_equal "0", r.first.description
@@ -674,7 +674,7 @@ class ContentTest < Test::Unit::TestCase
     assert_equal 1, r.current_page
     assert_equal 3, r.page_count
 
-    r = Content.find_with_ferret 'title', :page => 2, :per_page => 10, :sort => 'title'
+    r = Content.find_with_ferret 'title', :page => '2', :per_page => 10, :sort => 'title'
     assert_equal 30, r.total_hits
     assert_equal 10, r.size
     assert_equal "10", r.first.description
