@@ -27,7 +27,7 @@ module Ferret
                 
       def token_stream(field, string)
         @analyzers.has_key?(field) ? @analyzers[field].token_stream(field, string) : 
-        @default_analyzer.token_stream(field, string)
+          @default_analyzer.token_stream(field, string)
       end
     end
   end

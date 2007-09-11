@@ -61,6 +61,9 @@ if PKG_VERSION
     #s.files           = FileList["{lib,test}/**/*"].to_a + %w(README MIT-LICENSE CHANGELOG)
   # s.files.delete  ...    
     s.require_path    = 'lib'
+    s.bindir          = "bin"
+    s.executables     = ["aaf_install"]
+    s.default_executable = "aaf_install"
     s.autorequire     = 'acts_as_ferret'
     s.has_rdoc        = true
   # s.test_files      = Dir['test/**/*_test.rb']
