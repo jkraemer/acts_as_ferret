@@ -49,7 +49,6 @@ module ActsAsFerret
         log_level = "Logger::#{cfg['log_level'].upcase}".constantize rescue Logger::DEBUG
         ActiveRecord::Base.logger = Logger.new(log_file)
         ActiveRecord::Base.logger.level = log_level
-        puts "log level: #{log_level}, file: #{log_file}"
         DRb.start_service(uri, ActsAsFerret::Remote::Server.new)
         self.running = true
       end
@@ -68,11 +67,16 @@ module ActsAsFerret
         retried = false
         with_class args.shift do |clazz|
           reconnect_when_needed(clazz) do
-            begin
+            # using respond_to? here so we not have to catch NoMethodError
+            # which would silently catch those from deep inside the indexing
+            # code, too...
+            if clazz.aaf_index.respond_to?(name)
               clazz.aaf_index.send name, *args
-            rescue NoMethodError
+            elsif clazz.respond_to?(name)
               @logger.debug "no luck, trying to call class method instead"
               clazz.send name, *args
+            else
+              raise NoMethodError.new("method #{name} not supported by DRb server")
             end
           end
         end
