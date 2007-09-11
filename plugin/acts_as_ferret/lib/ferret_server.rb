@@ -154,7 +154,7 @@ module ActsAsFerret
                             :create      => true,
                             :field_infos => ActsAsFerret::field_infos(models),
                             :path        => File.join(aaf_configuration[:index_base_dir], 'rebuild')
-          returning Ferret::Index::Index.new ferret_cfg do |i|
+          returning Ferret::Index::Index.new(ferret_cfg) do |i|
             i.batch_size = aaf_configuration[:reindex_batch_size]
             i.logger = @logger
           end
