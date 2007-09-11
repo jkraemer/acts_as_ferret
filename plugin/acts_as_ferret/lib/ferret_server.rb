@@ -45,10 +45,11 @@ module ActsAsFerret
 
         cfg = ActsAsFerret::Remote::Config.load
         uri     ||= cfg[:uri]
-        log_file  = cfg[:log_file] || "#{RAILS_ROOT}/log/ferret_server.log"
-        log_level = "Logger::#{cfg[:log_level].upcase}".constantize rescue Logger::DEBUG
+        log_file  = cfg['log_file'] || "#{RAILS_ROOT}/log/ferret_server.log"
+        log_level = "Logger::#{cfg['log_level'].upcase}".constantize rescue Logger::DEBUG
         ActiveRecord::Base.logger = Logger.new(log_file)
         ActiveRecord::Base.logger.level = log_level
+        puts "log level: #{log_level}, file: #{log_file}"
         DRb.start_service(uri, ActsAsFerret::Remote::Server.new)
         self.running = true
       end
