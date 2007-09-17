@@ -16,7 +16,7 @@ class ContentBase < ActiveRecord::Base
                                :special       => {} },
                   :store_class_name => true,
                   :boost => :record_boost,
-                  :remote           => ENV['AAF_REMOTE'] )
+                  :remote           => ENV['AAF_REMOTE'] == 'true')
 
   def comment_count; 0 end
 

@@ -16,10 +16,11 @@ class ContentsController < ApplicationController
     @content = Content.new(params[:content])
     if @content.save
       flash[:notice] = 'Content was successfully created.'
-      redirect_to :action => 'list'
+      redirect_to contents_url
     else
       render :action => 'new'
     end
+    logger.error "#############{@content.errors.full_messages}"
   end
 
   def edit

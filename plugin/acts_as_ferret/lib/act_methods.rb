@@ -66,6 +66,8 @@ module ActsAsFerret #:nodoc:
     # For downwards compatibility reasons you can also specify the Ferret options in the 
     # last Hash argument.
     def acts_as_ferret(options={}, ferret_options={})
+      # default to DRb mode
+      options[:remote] = true if options[:remote].nil?
 
       # force local mode if running *inside* the Ferret server - somewhere the
       # real indexing has to be done after all :-)
@@ -74,7 +76,7 @@ module ActsAsFerret #:nodoc:
       # DRb server is started, so this code is executed too early and detection won't 
       # work. In this case you'll get endless loops resulting in "stack level too deep" 
       # errors. 
-      # To get around this, start the server with the environment variable 
+      # To get around this, start the DRb server with the environment variable 
       # FERRET_USE_LOCAL_INDEX set to '1'.
       logger.debug "Asked for a remote server ? #{options[:remote].inspect}, ENV[\"FERRET_USE_LOCAL_INDEX\"] is #{ENV["FERRET_USE_LOCAL_INDEX"].inspect}, looks like we are#{ActsAsFerret::Remote::Server.running || ENV['FERRET_USE_LOCAL_INDEX'] ? '' : ' not'} the server"
       options.delete(:remote) if ENV["FERRET_USE_LOCAL_INDEX"] || ActsAsFerret::Remote::Server.running

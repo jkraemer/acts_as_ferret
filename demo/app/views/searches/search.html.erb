@@ -14,7 +14,7 @@
   <p><%= will_paginate @results %></p>
   <ul>
     <% for result in @results -%>
-      <li><%= link_to result.title, content_path(result) %></li>
+      <li><%= link_to result.title, content_path(result.id) %></li>
     <% end -%>
   </ul>
   <p><%= will_paginate @results %></p>

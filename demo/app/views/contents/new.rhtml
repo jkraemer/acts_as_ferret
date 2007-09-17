@@ -1,6 +1,6 @@
 <h1>New content</h1>
 
-<% form_for :content, @content, contents_path, :html => { :method => :post } do |f| %>
+<% form_for :content, @content, :url => contents_path, :html => { :method => :post } do |f| %>
   <%= render :partial => 'form', :object => f %>
   <%= submit_tag "Create" %>
 <% end %>
