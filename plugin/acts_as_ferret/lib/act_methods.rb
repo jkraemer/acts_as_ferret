@@ -211,6 +211,10 @@ module ActsAsFerret #:nodoc:
     # helper that defines a method that adds the given field to a ferret 
     # document instance
     def define_to_field_method(field, options = {})
+      if options[:boost].is_a?(Symbol)
+        dynamic_boost = options[:boost]
+        options.delete :boost
+      end
       options.reverse_merge!( :store       => :no, 
                               :highlight   => :yes, 
                               :index       => :yes, 
@@ -218,9 +222,10 @@ module ActsAsFerret #:nodoc:
                               :boost       => 1.0 )
       options[:term_vector] = :no if options[:index] == :no
       aaf_configuration[:ferret_fields][field] = options
+
       define_method("#{field}_to_ferret".to_sym) do
         begin
-          val = content_for_field_name(field)
+          val = content_for_field_name(field, dynamic_boost)
         rescue
           logger.warn("Error retrieving value for field #{field}: #{$!}")
           val = ''

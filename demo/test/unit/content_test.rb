@@ -553,7 +553,7 @@ class ContentTest < Test::Unit::TestCase
     assert contents_from_ferret.first[:score] >= contents_from_ferret.last[:score]
      
     # give description field higher boost:
-    total_hits, contents_from_ferret = Content.find_id_by_contents('title:title OR description:title^10')
+    total_hits, contents_from_ferret = Content.find_id_by_contents('title:title OR description:title^200')
     assert_equal 2, contents_from_ferret.size
     assert_equal 2, total_hits
     #puts "first (id=#{contents_from_ferret.first[:id]}): #{contents_from_ferret.first[:score]}"
@@ -566,7 +566,7 @@ class ContentTest < Test::Unit::TestCase
   
   def test_find_by_contents_boost
     # give description field higher boost:
-    contents_from_ferret = Content.find_by_contents('title:title OR description:title^10')
+    contents_from_ferret = Content.find_by_contents('title:title OR description:title^200')
     assert_equal 2, contents_from_ferret.size
     assert_equal @another_content.id, contents_from_ferret.first.id
     assert_equal contents(:first).id, contents_from_ferret.last.id 
@@ -732,6 +732,31 @@ class ContentTest < Test::Unit::TestCase
       assert true
     end
   end
+
+  def test_per_field_boost
+    Content.destroy_all
+    Content.create! :title => 'the title'
+    boosted = Content.new :title => 'the title'
+    boosted.title_boost = 100
+    boosted.save!
+    Content.create! :title => 'the title'
+    results = Content.find_with_ferret 'title:title'
+    assert_equal 3, results.size
+    assert_equal boosted.id, results.first.id
+  end
+
+  def test_per_document_boost
+    Content.destroy_all
+    Content.create! :title => 'the title'
+    boosted = Content.new :title => 'the title'
+    boosted.record_boost = 10
+    boosted.save!
+    Content.create! :title => 'the title'
+    results = Content.find_with_ferret 'title'
+    assert_equal 3, results.size
+    assert_equal boosted.id, results.first.id
+  end
+
 
   protected
   def more_contents

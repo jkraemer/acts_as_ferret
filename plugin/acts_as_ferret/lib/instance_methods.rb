@@ -107,7 +107,7 @@ module ActsAsFerret #:nodoc:
     # fieldname => value pairs)
     def to_doc
       logger.debug "creating doc for class: #{self.class.name}, id: #{self.id}"
-      returning doc = Ferret::Document.new do
+      returning Ferret::Document.new do |doc|
         # store the id of each item
         doc[:id] = self.id
 
@@ -117,6 +117,14 @@ module ActsAsFerret #:nodoc:
         # iterate through the fields and add them to the document
         aaf_configuration[:ferret_fields].each_pair do |field, config|
           doc[field] = self.send("#{field}_to_ferret") unless config[:ignore]
+        end
+        if aaf_configuration[:boost]
+          if self.respond_to?(aaf_configuration[:boost])
+            boost = self.send aaf_configuration[:boost]
+            doc.boost = boost.to_i if boost
+          else
+            logger.error "boost option should point to an instance method: #{aaf_configuration[:boost]}"
+          end
         end
       end
     end
@@ -129,8 +137,14 @@ module ActsAsFerret #:nodoc:
       self.class.aaf_index.query_for_record(id, self.class.name)
     end
 
-    def content_for_field_name(field)
-      self[field] || self.instance_variable_get("@#{field.to_s}".to_sym) || self.send(field.to_sym)
+    def content_for_field_name(field, dynamic_boost = nil)
+      field_data = self[field] || self.instance_variable_get("@#{field.to_s}".to_sym) || self.send(field.to_sym)
+      if (dynamic_boost && boost_value = self.send(dynamic_boost))
+        field_data = Ferret::Field.new(field_data)
+        field_data.boost = boost_value.to_i
+        logger.debug "####### #{field_data}"
+      end
+      field_data
     end
 
 

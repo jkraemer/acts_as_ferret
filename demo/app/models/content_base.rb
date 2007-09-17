@@ -11,14 +11,20 @@ class ContentBase < ActiveRecord::Base
   # 'more like this' queries to find other content instances with similar
   # descriptions
   acts_as_ferret( :fields => { :comment_count => {},
-                               :title         => { :boost => 2 }, 
+                               :title         => { :boost => :title_boost }, 
                                :description   => { :boost => 1, :store => :yes },
                                :special       => {} },
                   :store_class_name => true,
+                  :boost => :record_boost,
                   :remote           => ENV['AAF_REMOTE'] )
 
   def comment_count; 0 end
 
+  attr_accessor :record_boost
+  attr_writer :title_boost
+  def title_boost
+    @title_boost || 2
+  end
 end
 
 
