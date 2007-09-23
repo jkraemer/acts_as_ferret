@@ -80,7 +80,7 @@ module ActsAsFerret
     # To count the results of a multi_search query, specify an array of 
     # class names with the :models option.
     def total_hits(query, options = {})
-      index = (models = options.delete(:models)) ? multi_index(models) : ferret_index
+      index = (models = options.delete(:multi)) ? multi_index(models) : ferret_index
       index.search(query, options).total_hits
     end
 

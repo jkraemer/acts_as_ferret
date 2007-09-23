@@ -142,7 +142,6 @@ module ActsAsFerret #:nodoc:
       if (dynamic_boost && boost_value = self.send(dynamic_boost))
         field_data = Ferret::Field.new(field_data)
         field_data.boost = boost_value.to_i
-        logger.debug "####### #{field_data}"
       end
       field_data
     end
