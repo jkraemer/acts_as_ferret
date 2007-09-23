@@ -45,7 +45,7 @@ class ContentsControllerTest < Test::Unit::TestCase
     post :create, :content => {}
 
     assert_response :redirect
-    assert_redirected_to :action => 'list'
+    assert_redirected_to contents_url
 
     assert_equal num_contents + 1, Content.count
   end
