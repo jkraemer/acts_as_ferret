@@ -54,7 +54,8 @@ module Ferret
       end
     end
 
-    def bulk_index(model, ids)
+    def bulk_index(model, ids, options = {})
+      options.reverse_merge! :optimize => true
       orig_flush = @auto_flush
       @auto_flush = false
       bulk_indexer = ActsAsFerret::BulkIndexer.new(:batch_size => @batch_size, :logger => logger, 
@@ -63,8 +64,12 @@ module Ferret
         logger.debug "#{model} bulk indexing #{records.size} at #{offset}"
         bulk_indexer.index_records(records, offset)
       end
+      logger.info 'finishing bulk index...'
       flush
-      optimize
+      if options[:optimize]
+        logger.info 'optimizing...'
+        optimize 
+      end
       @auto_flush = orig_flush
     end
 

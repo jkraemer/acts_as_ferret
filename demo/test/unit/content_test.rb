@@ -27,6 +27,10 @@ class ContentTest < Test::Unit::TestCase
     Comment.find(:all).each { |c| c.destroy }
   end
 
+  def test_include_option
+    assert_equal 1, Content.find_with_ferret('description', {}, :include => :comments).size
+  end
+
   # weiter: single index / multisearch lazy loading
   def test_lazy_loading
     results = Content.find_with_ferret 'description', :lazy => true
@@ -178,6 +182,17 @@ class ContentTest < Test::Unit::TestCase
     Content.records_for_bulk_index([min, min+1, min+2, min+3, min+4, min+6], 10) do |records, offset|
       assert_equal 6, records.size
     end
+  end
+
+  def test_bulk_index_no_optimize
+    Content.disable_ferret do
+      more_contents
+    end
+
+    assert Content.find_with_ferret('title').empty?
+    min = Content.find(:all, :order => 'id asc').first.id
+    Content.bulk_index(min, min+1, min+2, min+3, min+4, min+6, :optimize => false)
+    assert_equal 6, Content.find_with_ferret('title').size
   end
 
   def test_bulk_index

@@ -37,8 +37,9 @@ module ActsAsFerret
     # re-index a number records specified by the given ids. Use for large
     # indexing jobs i.e. after modifying a lot of records with Ferret disabled.
     def bulk_index(*ids)
+      options = Hash === ids.last ? ids.pop : {}
       ids = ids.first if ids.size == 1 && ids.first.is_a?(Enumerable)
-      aaf_index.bulk_index(ids)
+      aaf_index.bulk_index(ids, options)
     end
 
     # true if our db and table appear to be suitable for the mysql fast batch
