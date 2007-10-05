@@ -36,6 +36,10 @@ module ActsAsFerret
 
     # re-index a number records specified by the given ids. Use for large
     # indexing jobs i.e. after modifying a lot of records with Ferret disabled.
+    # Please note that the state of Ferret (enabled or disabled at class or
+    # record level) is not checked by this method, so if you need to do so
+    # (e.g. because of a custom ferret_enabled? implementation), you have to do
+    # so yourself.
     def bulk_index(*ids)
       options = Hash === ids.last ? ids.pop : {}
       ids = ids.first if ids.size == 1 && ids.first.is_a?(Enumerable)

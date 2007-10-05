@@ -16,7 +16,7 @@ module ActsAsFerret
 
     def index_records(records, offset)
       batch_time = measure_time {
-        records.each { |rec| @index << rec.to_doc if rec.ferret_enabled?(true) }
+        records.each { |rec| @index << rec.to_doc }
       }.to_f
       @work_done = offset.to_f / @model_count * 100.0 if @model_count > 0
       remaining_time = ( batch_time / @batch_size ) * ( @model_count - offset + @batch_size )
