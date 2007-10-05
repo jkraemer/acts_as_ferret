@@ -39,11 +39,15 @@ module ActsAsFerret #:nodoc:
     
     # returns true if ferret indexing is enabled for this record.
     #
-    # The optional parameter will be true if the method is called by rebuild_index, 
-    # and false otherwise. Might be useful if you override this method to enable a 
-    # model only for indexing during scheduled reindex runs.
-    def ferret_enabled?(is_rebuild = false)
-      @ferret_disabled.nil? && self.class.ferret_enabled?
+    # The optional is_bulk_index parameter will be true if the method is called
+    # by rebuild_index or bulk_index, and false otherwise.
+    #
+    # If is_bulk_index is true, the class level ferret_enabled state will be
+    # ignored by this method (per-instance ferret_enabled checks however will 
+    # take place, so if you override this method to forbid indexing of certain 
+    # records you're still safe).
+    def ferret_enabled?(is_bulk_index = false)
+      @ferret_disabled.nil? && (is_bulk_index || self.class.ferret_enabled?)
     end
 
     # Disable Ferret for this record for a specified amount of time. ::once will 

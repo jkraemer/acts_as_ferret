@@ -49,7 +49,6 @@ module Ferret
       logger.info "reindexing model #{model.name}"
 
       model.records_for_rebuild(@batch_size) do |records, offset|
-        #records = [ records ] unless records.is_a?(Array)
         bulk_indexer.index_records(records, offset)
       end
     end
