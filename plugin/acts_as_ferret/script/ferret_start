@@ -18,9 +18,12 @@
 # STDOUT gets redirected to log/ferret_server.out
 
 ENV['FERRET_USE_LOCAL_INDEX'] = 'true'
-require File.dirname(__FILE__) + '/../config/boot'
-require RAILS_ROOT + '/config/environment'
 
+unless defined?(ActiveRecord)
+  # avoid loading rails if this already happened (when running via script/runner)
+  require File.dirname(__FILE__) + '/../config/boot' 
+  require RAILS_ROOT + '/config/environment'
+end
 
 config = ActsAsFerret::Remote::Config.load
 @pid_file = config['pid_file']
