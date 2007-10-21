@@ -61,7 +61,7 @@ module ActsAsFerret
       transaction do
         if use_fast_batches?
           offset = 0
-          while (rows = find :all, :conditions => [ "id > ?", offset ], :limit => batch_size).any?
+          while (rows = find :all, :conditions => [ "#{table_name}.id > ?", offset ], :limit => batch_size).any?
             offset = rows.last.id
             yield rows, offset
           end
