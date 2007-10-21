@@ -174,6 +174,16 @@ class ContentTest < Test::Unit::TestCase
     assert_equal content, Content.find_with_ferret('"find me"').first
   end
 
+  # ticket 178
+  def test_records_for_rebuild_works_with_includes
+    size = Content.count
+    Content.send( :with_scope, :find => { :include => :comments } ) do
+      Content.records_for_rebuild do |records, offset|
+        assert_equal size, records.size
+      end
+    end
+  end
+
   def test_records_for_bulk_index
     Content.disable_ferret do
       more_contents
