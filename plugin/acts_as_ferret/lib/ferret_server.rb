@@ -3,29 +3,41 @@ require 'thread'
 require 'yaml'
 require 'erb'
 
-
+################################################################################
 module ActsAsFerret
-
   module Remote
 
-    module Config
-      class << self
-        DEFAULTS = {
-          'host' => 'localhost',
-          'port' => '9009'
-        }
-        # read connection settings from config file
-        def load(file = "#{RAILS_ROOT}/config/ferret_server.yml")
-          config = DEFAULTS.merge(YAML.load(ERB.new(IO.read(file)).result))
-          if config = config[RAILS_ENV]
-            config[:uri] = "druby://#{config['host']}:#{config['port']}"
-            return config
-          end
-          {}
-        end
+    ################################################################################
+    class Config
+
+      ################################################################################
+      DEFAULTS = {
+        'host'      => 'localhost',
+        'port'      => '9009',
+        'cf'        => "#{RAILS_ROOT}/config/ferret_server.yml",
+        'pid_file'  => "#{RAILS_ROOT}/log/ferret_server.pid",
+        'log_file'  => "#{RAILS_ROOT}/log/ferret_server.log",
+        'log_level' => 'debug',
+      }
+
+      ################################################################################
+      # load the configuration file and apply default settings
+      def initialize (file=DEFAULTS['cf'])
+        @everything = YAML.load(ERB.new(IO.read(file)).result)
+        raise "malformed ferret server config" unless @everything.is_a?(Hash)
+        @config = DEFAULTS.merge(@everything[RAILS_ENV] || {})
+        @config['uri'] = "druby://#{host}:#{port}" if @everything[RAILS_ENV]
       end
+
+      ################################################################################
+      # treat the keys of the config data as methods
+      def method_missing (name, *args)
+        @config.has_key?(name.to_s) ? @config[name.to_s] : super
+      end
+
     end
 
+    #################################################################################
     # This class acts as a drb server listening for indexing and
     # search requests from models declared to 'acts_as_ferret :remote => true'
     #
@@ -33,30 +45,44 @@ module ActsAsFerret
     # - modify RAILS_ROOT/config/ferret_server.yml to suit your needs. 
     # - environments for which no section in the config file exists will use 
     #   the index locally (good for unit tests/development mode)
-    # - run script/ferret_start to start the server:
-    # RAILS_ENV=production script/ferret_start
+    # - run script/ferret_server to start the server:
+    # script/ferret_server -e production
     #
     class Server
 
+      #################################################################################
+      # FIXME include detection of OS and include the correct file
+      require 'unix_daemon'
+      include(ActsAsFerret::Remote::UnixDaemon)
+
+      ################################################################################
       cattr_accessor :running
 
-      def self.start(uri = nil)
-        ActiveRecord::Base.allow_concurrency = true
-
-        cfg = ActsAsFerret::Remote::Config.load
-        uri     ||= cfg[:uri]
-        log_file  = cfg['log_file'] || "#{RAILS_ROOT}/log/ferret_server.log"
-        log_level = "Logger::#{cfg['log_level'].upcase}".constantize rescue Logger::DEBUG
-        ActiveRecord::Base.logger = Logger.new(log_file)
-        ActiveRecord::Base.logger.level = log_level
-        DRb.start_service(uri, ActsAsFerret::Remote::Server.new)
-        self.running = true
-      end
-
+      ################################################################################
       def initialize
-        @logger = ActiveRecord::Base.logger
+        @cfg = ActsAsFerret::Remote::Config.new
+        ActiveRecord::Base.allow_concurrency = true
+        ActiveRecord::Base.logger = @logger = Logger.new(@cfg.log_file)
+        ActiveRecord::Base.logger.level = Logger.const_get(@cfg.log_level.upcase) rescue Logger::DEBUG
       end
 
+      ################################################################################
+      # start the server
+      def start
+        raise "ferret_server not configured for #{RAILS_ENV}" unless (@cfg.uri rescue nil)
+        $stdout.puts("starting ferret server...")
+
+        platform_daemon do 
+          self.class.running = true
+          DRb.start_service(@cfg.uri, self)
+          DRb.thread.join
+        end
+      rescue Exception => e
+        @logger.error(e.to_s)
+        raise
+      end
+
+      #################################################################################
       # handles all incoming method calls, and sends them on to the LocalIndex
       # instance of the correct model class.
       #

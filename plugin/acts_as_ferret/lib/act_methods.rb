@@ -83,7 +83,7 @@ module ActsAsFerret #:nodoc:
 
       if options[:remote] && options[:remote] !~ /^druby/
         # read server location from config/ferret_server.yml
-        options[:remote] = ActsAsFerret::Remote::Config.load("#{RAILS_ROOT}/config/ferret_server.yml")[:uri] rescue nil
+        options[:remote] = ActsAsFerret::Remote::Config.new.uri rescue nil
       end
 
       if options[:remote]
