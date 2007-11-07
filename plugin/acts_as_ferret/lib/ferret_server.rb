@@ -46,7 +46,9 @@ module ActsAsFerret
     # - environments for which no section in the config file exists will use 
     #   the index locally (good for unit tests/development mode)
     # - run script/ferret_server to start the server:
-    # script/ferret_server -e production
+    # script/ferret_server -e production start
+    # - to stop the server run
+    # script/ferret_server -e production stop
     #
     class Server
 

@@ -16,8 +16,7 @@ def install(dir, file, executable=false)
 end
 
 
-install 'script', 'ferret_start', true
-install 'script', 'ferret_stop', true
+install 'script', 'ferret_server', true
 install 'config', 'ferret_server.yml'
 
 puts IO.read(File.join(@basedir, 'README'))
