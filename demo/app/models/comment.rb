@@ -15,8 +15,10 @@ class Comment < ActiveRecord::Base
   # do this in our custom to_doc method)
   acts_as_ferret( :store_class_name => true, 
                   :remote           => ENV['AAF_REMOTE'] == 'true',  # for testing drb remote indexing
-                  :additional_fields => {
-                    :added => { :index => :untokenized, :store => :yes, :ignore => true }
+                  :fields => {
+                    :content => { :store => :yes },
+                    :author  => { },
+                    :added   => { :index => :untokenized, :store => :yes, :ignore => true }
                   }, :ferret => { :analyzer => Ferret::Analysis::StandardAnalyzer.new(['fax', 'gsm', 'the', 'or']) } )
 
   # only index the named fields:
