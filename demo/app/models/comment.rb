@@ -1,3 +1,16 @@
+
+class PlainAsciiAnalyzer < ::Ferret::Analysis::Analyzer
+  include ::Ferret::Analysis
+  def token_stream(field, str)
+        StopFilter.new(
+          StandardTokenizer.new(str) ,
+          ["fax", "gsm"]
+        )
+    # raise #<<<----- is never executed when uncommented !!
+  end
+end
+
+
 class Comment < ActiveRecord::Base
   belongs_to :parent, :class_name => 'Content', :foreign_key => :parent_id
   
@@ -20,6 +33,7 @@ class Comment < ActiveRecord::Base
                     :author  => { },
                     :added   => { :index => :untokenized, :store => :yes, :ignore => true }
                   }, :ferret => { :analyzer => Ferret::Analysis::StandardAnalyzer.new(['fax', 'gsm', 'the', 'or']) } )
+                  #}, :ferret => { :analyzer => PlainAsciiAnalyzer.new(['fax', 'gsm', 'the', 'or']) } )
 
   # only index the named fields:
   #acts_as_ferret :fields => [:author, :content ]
