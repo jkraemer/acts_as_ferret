@@ -12,6 +12,12 @@ class CommentTest < Test::Unit::TestCase
     assert_kind_of Comment, comments(:first)
   end
 
+  def test_analyzer
+    c = Comment.create! :content => 'a fax modem'
+    assert_equal 0, Comment.find_with_ferret('fax').size
+    assert_equal 1, Comment.find_with_ferret('modem').size
+  end
+
   def test_class_index_dir
     assert Comment.aaf_configuration[:index_dir] =~ %r{^#{RAILS_ROOT}/index/test/comment}
   end

@@ -17,7 +17,7 @@ class Comment < ActiveRecord::Base
                   :remote           => ENV['AAF_REMOTE'] == 'true',  # for testing drb remote indexing
                   :additional_fields => {
                     :added => { :index => :untokenized, :store => :yes, :ignore => true }
-                  } )
+                  }, :ferret => { :analyzer => Ferret::Analysis::StandardAnalyzer.new(['fax', 'gsm', 'the', 'or']) } )
 
   # only index the named fields:
   #acts_as_ferret :fields => [:author, :content ]

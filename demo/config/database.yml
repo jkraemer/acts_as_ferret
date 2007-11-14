@@ -30,11 +30,11 @@ test:
 #  socket: /var/run/mysqld/mysqld.sock
 
 # SQLITE
-#development:
-#  adapter: sqlite3
-#  dbfile: db/dev.sqlite
+development:
+  adapter: sqlite3
+  dbfile: db/dev.sqlite
 
-#test:
-#  adapter: sqlite3
-#  dbfile: db/test.sqlite
+test:
+  adapter: sqlite3
+  dbfile: db/test.sqlite
 
