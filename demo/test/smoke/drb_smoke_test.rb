@@ -73,7 +73,7 @@ module DrbSmokeTest
   class TestBase
     def initialize(id)
       @id = id
-      @t1 = Time.now
+      @time = 0
     end
 
     def get_time
@@ -82,18 +82,25 @@ module DrbSmokeTest
       end
     end
 
+    def benchmark
+      t = Time.now
+      yield
+      Time.now - t
+    end
+
   end
 
   class Writer < TestBase
     def run
       RECORDS_PER_PROCESS.times do |i|
-        Content.create! :title => "record #{@id} / #{i}", :description => DrbSmokeTest::random_document
+        @time += benchmark do
+          Content.create! :title => "record #{@id} / #{i}", :description => DrbSmokeTest::random_document
+        end
         if i % NUM_RECORDS_PER_LOGENTRY == 0
           # write stats
-          time = get_time
-          puts "#{@id}: #{i} records indexed, last #{NUM_RECORDS_PER_LOGENTRY} in #{time}"
+          puts "#{@id}: #{i} records indexed, last #{NUM_RECORDS_PER_LOGENTRY} in #{@time}"
           Stats.create! :process_id => @id, :kind => 'write', :info => i, 
-                        :processing_time => time * TIME_FACTOR,
+                        :processing_time => @time * TIME_FACTOR,        # average processing time per record in this batch
                         :open_connections => Monitor::count_connections
         end
       end
@@ -104,9 +111,10 @@ module DrbSmokeTest
   class Searcher < TestBase
     def run
       while Monitor::running?
-        t = Time.now
-        result = Content.find_with_ferret 'findme', :lazy => true
-        time = Time.now - t
+        result = nil
+        time = benchmark do
+          result = Content.find_with_ferret 'findme', :lazy => true
+        end
         Stats.create! :process_id => @id, :kind => 'search', :info => "total_hits: #{result.total_hits} ; results: #{result.size}", 
                       :processing_time => time * 1000,
                       :open_connections => Monitor::count_connections
@@ -135,7 +143,7 @@ module DrbSmokeTest
         Content.create! :title => "to find #{i}", :description => ("findme #{i} " << random_document)
       end
 
-      while true 
+      while Monitor::running?
         puts "open connections: #{Monitor::count_connections}; time elapsed: #{Time.now - @start} seconds"
         sleep 10 
       end
