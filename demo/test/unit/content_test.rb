@@ -808,8 +808,8 @@ class ContentTest < Test::Unit::TestCase
 
     r = Content.find_with_ferret 'title', { :page => 3, :per_page => 10 },
                                           { :conditions => "description != '0'", :order => 'title ASC' }
-    assert_equal 29, r.total_hits
     assert_equal 9, r.size
+    assert_equal 29, r.total_hits
     assert_equal "21", r.first.description
     assert_equal "29", r.last.description
     assert_equal 3, r.current_page
