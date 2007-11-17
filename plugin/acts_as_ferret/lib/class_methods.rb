@@ -365,6 +365,11 @@ module ActsAsFerret
           raise "Please use ':store_class_name => true' if you want to use multi_search.\n#{$!}"
         end
 
+        # merge conditions
+        conditions = combine_conditions([ "#{model.table_name}.#{model.primary_key} in (?)", 
+                                          id_array.keys ], 
+                                        find_options[:conditions])
+
         # check for include association that might only exist on some models in case of multi_search
         filtered_include_options = []
         if include_options = find_options[:include]
@@ -376,12 +381,8 @@ module ActsAsFerret
         filtered_include_options = nil if filtered_include_options.empty?
 
         # fetch
-        tmp_result = nil
-        model.send(:with_scope, :find => find_options) do 
-          tmp_result = model.find( :all, :conditions => [ 
-            "#{model.table_name}.#{model.primary_key} in (?)", id_array.keys ],  
-            :include => filtered_include_options ) 
-        end
+        tmp_result = model.find(:all, find_options.merge(:conditions => conditions, 
+                                                         :include => filtered_include_options))
 
         # set scores and rank
         tmp_result.each do |record|
@@ -406,10 +407,12 @@ module ActsAsFerret
         next if id_array.empty?
         begin
           model = model.constantize
-          model.send(:with_scope, :find => count_options) do 
-            count += model.count(:conditions => [ "#{model.table_name}.#{model.primary_key} in (?)",
-                                                  id_array.keys ]) 
-          end
+          # merge conditions
+          conditions = combine_conditions([ "#{model.table_name}.#{model.primary_key} in (?)", id_array.keys ], 
+                                          find_options[:conditions])
+          opts = find_options.merge :conditions => conditions
+          opts.delete :limit; opts.delete :offset
+          count += model.count opts
         rescue TypeError
           raise "#{model} must use :store_class_name option if you want to use multi_search against it.\n#{$!}"
         end
@@ -437,6 +440,17 @@ module ActsAsFerret
       else
         LocalIndex
       end.new(aaf_configuration)
+    end
+
+    # combine our conditions with those given by user, if any
+    def combine_conditions(conditions, additional_conditions = [])
+      returning conditions do
+        if additional_conditions && additional_conditions.any?
+          cust_opts = additional_conditions.respond_to?(:shift) ? additional_conditions.dup : [ additional_conditions ]
+          conditions.first << " and " << cust_opts.shift
+          conditions.concat(cust_opts)
+        end
+      end
     end
 
   end
