@@ -157,15 +157,27 @@ module ActsAsFerret
         options[:page] = options[:page] ? options[:page].to_i : 1
         limit = options[:per_page]
         offset = (options[:page] - 1) * limit
-        if find_options[:conditions]
+        if find_options[:conditions] && !options[:multi]
           find_options[:limit] = limit
           find_options[:offset] = offset
           options[:limit] = :all
           options.delete :offset
         else
-          # do pagination with ferret
+          # do pagination with ferret (or after everything is done in the case
+          # of multi_search)
           options[:limit] = limit
           options[:offset] = offset
+        end
+      elsif find_options[:conditions]
+        if options[:multi]
+          # multisearch ignores find_options limit and offset
+          options[:limit] ||= find_options.delete(:limit)
+          options[:offset] ||= find_options.delete(:offset)
+        else
+          # let the db do the limiting and offsetting for single-table searches
+          find_options[:limit] ||= options.delete(:limit)
+          find_options[:offset] ||= options.delete(:offset)
+          options[:limit] = :all
         end
       end
 
@@ -184,6 +196,9 @@ module ActsAsFerret
     # Returns the total number of hits for the given query 
     # To count the results of a query across multiple models, specify an array of 
     # class names with the :multi option.
+    #
+    # Note that since we don't query the database here, this method won't deliver 
+    # the expected results when used on an AR association.
     def total_hits(q, options={})
       if options[:models]
         # backwards compatibility
@@ -215,46 +230,6 @@ module ActsAsFerret
       aaf_index.find_id_by_contents(q, options, &block)
     end
 
-    # Search across multiple classes each having their own index.
-    # requires the store_class_name option of acts_as_ferret to be true
-    # for all models queried this way.
-    #
-    # Pagination with the +page+ and +per_page+ options is not supported when
-    # combined with active_record +conditions+ in +find_options+.
-    def multi_search(query, additional_models = [], options = {}, find_options = {})
-      logger.warn "multi_search is deprecated. Use find_with_ferret with the :multi option instead."
-      total_hits, result = _multi_search query, additional_models, options, find_options
-      SearchResults.new(result, total_hits)
-    end
-
-    def _multi_search(query, additional_models = [], options = {}, find_options = {})
-      result = []
-
-      if options[:lazy]
-        logger.warn "find_options #{find_options} are ignored because :lazy => true" unless find_options.empty?
-        total_hits = id_multi_search(query, additional_models, options) do |model, id, score, data|
-          result << FerretResult.new(model, id, score, data)
-        end
-      else
-        id_arrays = {}
-        rank = 0
-        total_hits = id_multi_search(query, additional_models, options) do |model, id, score, data|
-          id_arrays[model] ||= {}
-          id_arrays[model][id] = [ rank += 1, score ]
-        end
-        limit, offset = [nil, nil]
-        if options[:per_page]
-          limit = find_options.delete :limit
-          offset = find_options.delete :offset
-        end
-        result = retrieve_records(id_arrays, find_options)
-        total_hits = result.size if find_options[:conditions]
-        if limit && offset
-          result = result[offset..limit+offset-1]
-        end
-      end
-      [total_hits, result]
-    end
     
     # returns an array of hashes, each containing :class_name,
     # :id and :score for a hit.
@@ -269,6 +244,35 @@ module ActsAsFerret
     
 
     protected
+
+    def _multi_search(query, additional_models = [], options = {}, find_options = {})
+      result = []
+
+      if options[:lazy]
+        logger.warn "find_options #{find_options} are ignored because :lazy => true" unless find_options.empty?
+        total_hits = id_multi_search(query, additional_models, options) do |model, id, score, data|
+          result << FerretResult.new(model, id, score, data)
+        end
+      else
+        id_arrays = {}
+        rank = 0
+
+        limit = options.delete(:limit)
+        offset = options.delete(:offset) || 0
+        options[:limit] = :all
+        total_hits = id_multi_search(query, additional_models, options) do |model, id, score, data|
+          id_arrays[model] ||= {}
+          id_arrays[model][id] = [ rank += 1, score ]
+        end
+        result = retrieve_records(id_arrays, find_options)
+        total_hits = result.size if find_options[:conditions]
+ #       total_hits += offset if offset
+        if limit && limit != :all
+          result = result[offset..limit+offset-1]
+        end
+      end
+      [total_hits, result]
+    end
 
     def add_self_to_model_list_if_necessary(models)
       models = [ models ] unless models.is_a? Array
@@ -288,17 +292,19 @@ module ActsAsFerret
     def ar_find_by_contents(q, options = {}, find_options = {})
       result_ids = {}
       total_hits = find_id_by_contents(q, options) do |model, id, score, data|
-        # stores ids, index of each id for later ordering of
-        # results, and score
+        # stores ids, index and score of each hit for later ordering of
+        # results
         result_ids[id] = [ result_ids.size + 1, score ]
       end
 
       result = retrieve_records( { self.name => result_ids }, find_options )
       
-      if find_options[:conditions]
+      # count total_hits via sql when using conditions or when we're called
+      # from an ActiveRecord association.
+      if find_options[:conditions] or caller.find{ |call| call =~ %r{active_record/associations} }
         # chances are the ferret result count is not our total_hits value, so
         # we correct this here.
-        if options[:limit] != :all || options[:page] || options[:offset]
+        if options[:limit] != :all || options[:page] || options[:offset] || find_options[:limit] || find_options[:offset]
           # our ferret result has been limited, so we need to re-run that
           # search to get the full result set from ferret.
           result_ids = {}

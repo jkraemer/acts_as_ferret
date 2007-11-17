@@ -1,8 +1,6 @@
 module ActsAsFerret
-  
   class LocalIndex < AbstractIndex
     include MoreLikeThis::IndexMethods
-
 
     def initialize(aaf_configuration)
       super
@@ -78,7 +76,7 @@ module ActsAsFerret
 
     # Total number of hits for the given query. 
     # To count the results of a multi_search query, specify an array of 
-    # class names with the :models option.
+    # class names with the :multi option.
     def total_hits(query, options = {})
       index = (models = options.delete(:multi)) ? multi_index(models) : ferret_index
       index.search(query, options).total_hits
@@ -100,7 +98,7 @@ module ActsAsFerret
     def find_id_by_contents(query, options = {})
       result = []
       index = ferret_index
-      logger.debug "query: #{ferret_index.process_query query}" # TODO only enable this for debugging purposes
+      logger.debug "query: #{ferret_index.process_query query}" if logger.debug?
       lazy_fields = determine_lazy_fields options
 
       total_hits = index.search_each(query, options) do |hit, score|
