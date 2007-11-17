@@ -27,6 +27,19 @@ class ContentTest < Test::Unit::TestCase
     Comment.find(:all).each { |c| c.destroy }
   end
 
+  def test_find_with_ferret_on_has_many_assoc
+    c = contents(:first)
+    comments = c.comments.find_with_ferret 'second'
+    assert_equal 1, comments.size
+    assert_equal comments(:another), comments.first
+  end
+
+  def test_total_hits_on_has_many_assoc
+    c = contents(:first)
+    assert_equal 2, Comment.find_with_ferret('second OR regarding').total_hits
+    assert_equal 1, c.comments.find_with_ferret('second OR regarding').total_hits
+  end
+
   def test_include_option
     assert_equal 1, Content.find_with_ferret('description', {}, :include => :comments).size
   end
@@ -464,45 +477,69 @@ class ContentTest < Test::Unit::TestCase
     contents_from_ferret = Content.find_with_ferret('title', { :multi => Comment }, :order => 'id asc')
     assert contents_from_ferret.first.id < contents_from_ferret.last.id
 
+    contents_from_ferret = Content.find_with_ferret('title', :multi => Comment, :limit => 1)
+    assert_equal 1, contents_from_ferret.size
     contents_from_ferret = Content.find_with_ferret('title', { :multi => Comment }, :limit => 1)
     assert_equal 1, contents_from_ferret.size
+
+
+    more_contents(true)
+    r = Content.find_with_ferret('title OR comment', { :multi => Comment, :limit => :all } )
+    assert_equal 60, r.size
+    assert_equal 60, r.total_hits
+
+    id = Content.find_with_ferret('title').first.id
+    r = Content.find_with_ferret('title OR comment', { :multi => Comment, :limit => :all },
+                                                     { :conditions => ["id != ?", id] })
+    assert_equal 59, r.size
+    assert_equal 59, r.total_hits
+
+    r = Content.find_with_ferret('title OR comment', { :multi => Comment, :limit => 20 },
+                                                     { :conditions => ["id != ?", id] })
+    assert_equal 20, r.size
+    assert_equal 59, r.total_hits
+
+    r = Content.find_with_ferret('title OR comment', { :multi => Comment },
+                                                     { :conditions => ["id != ?", id], :limit => 20 })
+    assert_equal 20, r.size
+    assert_equal 59, r.total_hits
   end
 
   def test_multi_search
     assert_equal 4, ContentBase.find(:all).size
     
     Content.aaf_index.ferret_index.flush
-    contents_from_ferret = Content.multi_search('description:title')
+    contents_from_ferret = Content.find_with_ferret('description:title', :multi => [])
     assert_equal 1, contents_from_ferret.size
-    contents_from_ferret = Content.multi_search('title:title OR description:title')
+    contents_from_ferret = Content.find_with_ferret('title:title OR description:title', :multi => [])
     assert_equal 2, contents_from_ferret.size
-    contents_from_ferret = Content.multi_search('title:title')
+    contents_from_ferret = Content.find_with_ferret('title:title', :multi => [])
     assert_equal 1, contents_from_ferret.size
-    contents_from_ferret = Content.multi_search('*:title')
+    contents_from_ferret = Content.find_with_ferret('*:title', :multi => [])
     assert_equal 2, contents_from_ferret.size
-    contents_from_ferret = Content.multi_search('title')
+    contents_from_ferret = Content.find_with_ferret('title', :multi => [])
     assert_equal 2, contents_from_ferret.size
     
     assert_equal contents(:first).id, contents_from_ferret.first.id
     assert_equal @another_content.id, contents_from_ferret.last.id
     
-    contents_from_ferret = Content.multi_search('title', [])
+    contents_from_ferret = Content.find_with_ferret('title', :multi => [])
     assert_equal 2, contents_from_ferret.size
-    contents_from_ferret = Content.multi_search('title', [], :limit => 1)
+    contents_from_ferret = Content.find_with_ferret('title', :multi => [], :limit => 1)
     assert_equal 1, contents_from_ferret.size
-    contents_from_ferret = Content.multi_search('title', [], :offset => 1)
+    contents_from_ferret = Content.find_with_ferret('title', :multi => [], :offset => 1)
     assert_equal 1, contents_from_ferret.size
 
-    contents_from_ferret = Content.multi_search('title:title OR content:comment OR description:title', [Comment])
+    contents_from_ferret = Content.find_with_ferret('title:title OR content:comment OR description:title', :multi => [Comment])
     assert_equal 5, contents_from_ferret.size
-    contents_from_ferret = Content.multi_search('title:title OR content:comment OR description:title', [Comment], :limit => 2)
+    contents_from_ferret = Content.find_with_ferret('title:title OR content:comment OR description:title', :multi => [Comment], :limit => 2)
     assert_equal 2, contents_from_ferret.size
 
-    contents_from_ferret = Content.multi_search('*:title OR *:comment', Comment)
+    contents_from_ferret = Content.find_with_ferret('*:title OR *:comment', :multi => Comment)
     assert_equal 5, contents_from_ferret.size
-    contents_from_ferret = Content.multi_search('*:title OR *:comment', [Comment])
+    contents_from_ferret = Content.find_with_ferret('*:title OR *:comment', :multi => [Comment])
     assert_equal 5, contents_from_ferret.size
-    contents_from_ferret = Content.multi_search('title:(title OR comment) OR description:(title OR comment) OR content:(title OR comment)', [Comment])
+    contents_from_ferret = Content.find_with_ferret('title:(title OR comment) OR description:(title OR comment) OR content:(title OR comment)', :multi => [Comment])
     assert_equal 5, contents_from_ferret.size
   end
 
@@ -721,6 +758,40 @@ class ContentTest < Test::Unit::TestCase
     r = Content.find_with_ferret 'title', :page => 4, :per_page => 10, :sort => 'title'
     assert_equal 30, r.total_hits
     assert_equal 0, r.size
+  end
+
+  def test_limits_and_offsets_with_ar_conditions
+    more_contents
+
+    r = Content.find_with_ferret 'title', { :limit => 10, :offset => 0 }, 
+                                          { :conditions => "description != '0'", :order => 'title ASC' }
+    assert_equal 29, r.total_hits
+    assert_equal 10, r.size
+    assert_equal "1", r.first.description
+    assert_equal "10", r.last.description
+
+    r = Content.find_with_ferret 'title', { :limit => 10, :offset => 10 }, 
+                                          { :conditions => "description != '0'", :order => 'title ASC' }
+    assert_equal 29, r.total_hits
+    assert_equal 10, r.size
+    assert_equal "11", r.first.description
+    assert_equal "20", r.last.description
+
+    r = Content.find_with_ferret 'title', { }, 
+                                          { :conditions => "description != '0'", :order => 'title ASC', 
+                                            :limit => 10, :offset => 0  }
+    assert_equal 29, r.total_hits
+    assert_equal 10, r.size
+    assert_equal "1", r.first.description
+    assert_equal "10", r.last.description
+
+    r = Content.find_with_ferret 'title', { }, 
+                                          { :conditions => "description != '0'", :order => 'title ASC', 
+                                            :limit => 10, :offset => 10 }
+    assert_equal 29, r.total_hits
+    assert_equal 10, r.size
+    assert_equal "11", r.first.description
+    assert_equal "20", r.last.description
   end
 
   def test_pagination_with_ar_conditions
