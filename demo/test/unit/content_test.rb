@@ -760,6 +760,17 @@ class ContentTest < Test::Unit::TestCase
     assert_equal 0, r.size
   end
 
+  def test_limits_and_offsets
+    more_contents
+    r = Content.find_with_ferret 'title'
+    assert_equal 30, r.total_hits
+    assert_equal 10, r.size
+
+    r = Content.find_with_ferret 'title', :limit => :all
+    assert_equal 30, r.total_hits
+    assert_equal 30, r.size
+  end
+
   def test_limits_and_offsets_with_ar_conditions
     more_contents
 
