@@ -9,7 +9,7 @@ class CreateStats < ActiveRecord::Migration
   end
 
   def self.down
-    remove_index :stats, 'kind'
+ #   remove_index :stats, 'kind'
     drop_table :stats
   end
 end

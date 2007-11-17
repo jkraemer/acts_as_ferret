@@ -9,10 +9,10 @@
 
 module DrbSmokeTest
 
-  RECORDS_PER_PROCESS = 1000
+  RECORDS_PER_PROCESS = 10000
   NUM_PROCESSES       = 10 # should be an even number
-  NUM_RECORDS_PER_LOGENTRY = 10
-  NUM_DOCS = 100
+  NUM_RECORDS_PER_LOGENTRY = 100
+  NUM_DOCS = 50
   NUM_TERMS = 1000
 
   TIME_FACTOR = 1000.to_f / NUM_RECORDS_PER_LOGENTRY
@@ -96,12 +96,14 @@ module DrbSmokeTest
         @time += benchmark do
           Content.create! :title => "record #{@id} / #{i}", :description => DrbSmokeTest::random_document
         end
+        sleep 0.1
         if i % NUM_RECORDS_PER_LOGENTRY == 0
           # write stats
           puts "#{@id}: #{i} records indexed, last #{NUM_RECORDS_PER_LOGENTRY} in #{@time}"
           Stats.create! :process_id => @id, :kind => 'write', :info => i, 
                         :processing_time => @time * TIME_FACTOR,        # average processing time per record in this batch
                         :open_connections => Monitor::count_connections
+          @time = 0
         end
       end
       Stats.create! :process_id => @id, :kind => 'finished'
