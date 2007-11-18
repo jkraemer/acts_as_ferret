@@ -9,11 +9,11 @@
 
 module DrbSmokeTest
 
-  RECORDS_PER_PROCESS = 10000
+  RECORDS_PER_PROCESS = 100000
   NUM_PROCESSES       = 10 # should be an even number
-  NUM_RECORDS_PER_LOGENTRY = 100
+  NUM_RECORDS_PER_LOGENTRY = 10
   NUM_DOCS = 50
-  NUM_TERMS = 1000
+  NUM_TERMS = 600
 
   TIME_FACTOR = 1000.to_f / NUM_RECORDS_PER_LOGENTRY
 
@@ -52,7 +52,7 @@ module DrbSmokeTest
     DOCUMENTS[rand(DOCUMENTS.size)]
   end
 
-  puts "built #{NUM_DOCS} documents with an avg. size of #{DOCUMENTS.join.size / NUM_DOCS} Byte."
+  puts "built #{NUM_DOCS} documents with an avg. size of #{DOCUMENTS.join.size / NUM_DOCS} Bytes."
 
   class Monitor
     class << self
@@ -96,7 +96,7 @@ module DrbSmokeTest
         @time += benchmark do
           Content.create! :title => "record #{@id} / #{i}", :description => DrbSmokeTest::random_document
         end
-        sleep 0.1
+        #sleep 0.1
         if i % NUM_RECORDS_PER_LOGENTRY == 0
           # write stats
           puts "#{@id}: #{i} records indexed, last #{NUM_RECORDS_PER_LOGENTRY} in #{@time}"
@@ -107,21 +107,39 @@ module DrbSmokeTest
         end
       end
       Stats.create! :process_id => @id, :kind => 'finished'
+      puts "#{@i} finished"
     end
   end
 
   class Searcher < TestBase
     def run
       while Monitor::running?
-        result = nil
-        time = benchmark do
-          result = Content.find_with_ferret 'findme', :lazy => true
-        end
-        Stats.create! :process_id => @id, :kind => 'search', :info => "total_hits: #{result.total_hits} ; results: #{result.size}", 
-                      :processing_time => time * 1000,
-                      :open_connections => Monitor::count_connections
-        sleep 1
+        # search with concurrent writes
+          do_search
       end
+      t = Time.now
+      while (Time.now - t) < 5.minutes
+        # the writers have finished, now hammer the server with searches for another 5 minutes
+        do_search
+      end
+      puts "#{@i} finished"
+    end
+
+    # run a search and log it's results.
+    # Search is done with a query consisting of the term 'findme' 
+    # (which is guaranteed to yield 20 results) and a random term from 
+    # the word list, ORed together
+    def do_search
+      hits = 0
+      time = benchmark do
+        NUM_RECORDS_PER_LOGENTRY.times do
+          result = Content.find_id_by_contents "findme OR #{WORDS.random_word}"
+          hits += result.first
+        end
+      end
+      Stats.create! :process_id => @id, :kind => 'search', :info => "avg total_hits: #{hits/NUM_RECORDS_PER_LOGENTRY.to_f}", 
+                    :processing_time => time * TIME_FACTOR,
+                    :open_connections => Monitor::count_connections
     end
 
   end
