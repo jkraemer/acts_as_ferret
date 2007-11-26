@@ -175,7 +175,9 @@ module ActsAsFerret
           options[:offset] ||= find_options.delete(:offset)
         else
           # let the db do the limiting and offsetting for single-table searches
-          find_options[:limit] ||= options.delete(:limit)
+          unless options[:limit] == :all
+            find_options[:limit] ||= options.delete(:limit)
+          end
           find_options[:offset] ||= options.delete(:offset)
           options[:limit] = :all
         end
