@@ -27,6 +27,10 @@ class ContentTest < Test::Unit::TestCase
     Comment.find(:all).each { |c| c.destroy }
   end
 
+  def test_limit_all
+    res = Content.find_by_contents '*', { :limit => :all }, :conditions => ['lower(title) like ?', 'content'], :order => 'contents.description'
+  end
+
   def test_find_with_ferret_on_has_many_assoc
     c = contents(:first)
     comments = c.comments.find_with_ferret 'second'

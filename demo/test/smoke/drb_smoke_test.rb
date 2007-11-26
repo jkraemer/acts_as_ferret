@@ -1,4 +1,5 @@
 require 'rubygems'
+require 'benchmark'
 require 'gruff'
 
 # Simple smoke test for the DRb server
@@ -84,12 +85,6 @@ module DrbSmokeTest
       ((Time.now - START_TIME)*1000).to_i
     end
 
-    def benchmark
-      t = Time.now
-      yield
-      Time.now - t
-    end
-
     def log(data)
       data << get_time
       @logfile << data.join(',') << "\n"
@@ -132,7 +127,7 @@ module DrbSmokeTest
     end
 
     def create_record(i)
-      time = benchmark do
+      time = Benchmark.realtime do
         Content.create! :title => "record #{@id} / #{i}", :description => DrbSmokeTest::random_document
       end
       [ time ]
@@ -160,7 +155,7 @@ module DrbSmokeTest
     def do_search
       result = nil
       query = "findme OR #{WORDS.random_word}"
-      time = benchmark do
+      time = Benchmark.realtime do
         result = Content.find_id_by_contents query
       end
       # time, no of hits
