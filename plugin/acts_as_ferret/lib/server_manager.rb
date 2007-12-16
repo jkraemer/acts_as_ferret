@@ -5,6 +5,7 @@ require 'optparse'
 $ferret_server_options = {
   'environment' => nil,
   'debug'       => nil,
+  'root'        => nil
 }
 
 ################################################################################
@@ -14,6 +15,10 @@ OptionParser.new do |optparser|
   optparser.on('-h', '--help', "This message") do
     puts optparser
     exit
+  end
+  
+  optparser.on('-R', '--root=PATH', 'Set RAILS_ROOT to the given string') do |r|
+    $ferret_server_options['root'] = r
   end
 
   optparser.on('-e', '--environment=NAME', 'Set RAILS_ENV to the given string') do |e|
@@ -36,7 +41,11 @@ begin
   ENV['FERRET_USE_LOCAL_INDEX'] = 'true'
   ENV['RAILS_ENV'] = $ferret_server_options['environment']
   #require(File.join(File.dirname(__FILE__), '../../../../config/environment'))
-  require(File.join(File.dirname(ENV['_']), '../config/environment'))
+  if $ferret_server_options['root']
+    require File.join($ferret_server_options['root'], 'config', 'environment')
+  else
+    require(File.join(File.dirname(ENV['_']), '../config/environment'))
+  end
   require 'acts_as_ferret'
   ActsAsFerret::Remote::Server.new.send($ferret_server_action)
 rescue Exception => e
