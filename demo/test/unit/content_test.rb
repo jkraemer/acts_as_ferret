@@ -494,17 +494,23 @@ class ContentTest < Test::Unit::TestCase
 
     id = Content.find_with_ferret('title').first.id
     r = Content.find_with_ferret('title OR comment', { :multi => Comment, :limit => :all },
-                                                     { :conditions => ["id != ?", id] })
+                                                     { :conditions => { :content => ["id != ?", id] }})
     assert_equal 59, r.size
     assert_equal 59, r.total_hits
 
     r = Content.find_with_ferret('title OR comment', { :multi => Comment, :limit => 20 },
-                                                     { :conditions => ["id != ?", id] })
+                                                     { :conditions => { :content => ["id != ?", id] }})
     assert_equal 20, r.size
     assert_equal 59, r.total_hits
 
+    r = Content.find_with_ferret('title OR comment', { :multi => Comment, :limit => 20 },
+                                                     { :conditions => { :comment => 'content is null',
+                                                                        :content => ["id != ?", id] }})
+    assert_equal 20, r.size
+    assert_equal 29, r.total_hits
+
     r = Content.find_with_ferret('title OR comment', { :multi => Comment },
-                                                     { :conditions => ["id != ?", id], :limit => 20 })
+                                                     { :conditions => { :content => ["id != ?", id] }, :limit => 20 })
     assert_equal 20, r.size
     assert_equal 59, r.total_hits
   end
@@ -835,7 +841,7 @@ class ContentTest < Test::Unit::TestCase
     more_contents(true)
     id = Content.find_with_ferret('title').first.id
     r = Content.find_with_ferret 'title OR comment', { :page => 1, :per_page => 10, :multi => Comment }, 
-                                          { :conditions => ["id != ?", id], :order => 'id ASC' }
+                                          { :conditions => { :content => ["id != ?", id] }, :order => 'id ASC' }
     assert_equal 59, r.total_hits
     assert_equal 10, r.size
     assert_equal "Comment for content 00", r.first.content
@@ -844,7 +850,7 @@ class ContentTest < Test::Unit::TestCase
     assert_equal 6, r.page_count
 
     r = Content.find_with_ferret 'title OR comment', { :page => 6, :per_page => 10, :multi => Comment },
-                                          { :conditions => [ "id != ?", id ], :order => 'id ASC' }
+                                          { :conditions => { :content => [ "id != ?", id ] }, :order => 'id ASC' }
     assert_equal 59, r.total_hits
     assert_equal 9, r.size
     assert_equal "21", r.first.description
