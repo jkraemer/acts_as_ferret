@@ -6,11 +6,11 @@
 # ferret.stop and ferret.start are available, too.
 module FerretCapTasks
   def start
-    run "cd #{current_path}; RAILS_ENV=production script/ferret_start"
+    run "cd #{current_path}; script/ferret_server -e #{rails_env} start"
   end
 
   def stop
-    run "cd #{current_path}; RAILS_ENV=production script/ferret_stop"
+    run "cd #{current_path}; script/ferret_server -e #{rails_env} stop"
   end
 
   def restart
