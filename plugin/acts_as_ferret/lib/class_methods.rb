@@ -94,16 +94,15 @@ module ActsAsFerret
     # Used by the DRb server when switching to a new index version.
     def index_dir=(dir)
       logger.debug "changing index dir to #{dir}"
-      # get a handle to the index before changing the directory (which serves
-      # as the key to retrieve the index instance in aaf_index method below)
-      idx = aaf_index
+      
+      # store index with the new dir as key. This prevents the aaf_index method
+      # from opening another index instance later on.
+      ActsAsFerret::ferret_indexes[dir] = aaf_index
       old_dir = aaf_configuration[:index_dir]
       aaf_configuration[:index_dir] = aaf_configuration[:ferret][:path] = dir
-      # store index reference with new directory
-      ActsAsFerret::ferret_indexes[aaf_configuration[:index_dir]] = idx
       # clean old reference to index
       ActsAsFerret::ferret_indexes.delete old_dir
-      idx.reopen!
+      aaf_index.reopen!
       logger.debug "index dir is now #{dir}"
     end
     
