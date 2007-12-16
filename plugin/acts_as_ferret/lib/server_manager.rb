@@ -10,7 +10,7 @@ $ferret_server_options = {
 
 ################################################################################
 OptionParser.new do |optparser|
-  optparser.banner = "Usage: #{File.basename($0)} [options] {start|stop}"
+  optparser.banner = "Usage: #{File.basename($0)} [options] {start|stop|run}"
 
   optparser.on('-h', '--help', "This message") do
     puts optparser
@@ -33,7 +33,7 @@ OptionParser.new do |optparser|
   (puts optparser; exit(1)) unless $ferret_server_action.size == 1
 
   $ferret_server_action = $ferret_server_action.first
-  (puts optparser; exit(1)) unless %w(start stop).include?($ferret_server_action)
+  (puts optparser; exit(1)) unless %w(start stop run).include?($ferret_server_action)
 end
 
 ################################################################################

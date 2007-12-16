@@ -69,16 +69,24 @@ module ActsAsFerret
       end
 
       ################################################################################
-      # start the server
+      # start the server as a daemon process
       def start
         raise "ferret_server not configured for #{RAILS_ENV}" unless (@cfg.uri rescue nil)
-        $stdout.puts("starting ferret server...")
+        platform_daemon { run_drb_service }
+      end
 
-        platform_daemon do 
-          self.class.running = true
-          DRb.start_service(@cfg.uri, self)
-          DRb.thread.join
-        end
+      ################################################################################
+      # run the server and block until it exits
+      def run
+        raise "ferret_server not configured for #{RAILS_ENV}" unless (@cfg.uri rescue nil)
+        run_drb_service
+      end
+
+      def run_drb_service
+        $stdout.puts("starting ferret server...")
+        self.class.running = true
+        DRb.start_service(@cfg.uri, self)
+        DRb.thread.join
       rescue Exception => e
         @logger.error(e.to_s)
         raise
