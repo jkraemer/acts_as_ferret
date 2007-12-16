@@ -18,6 +18,7 @@ module ActsAsFerret
         'pid_file'  => "#{RAILS_ROOT}/log/ferret_server.pid",
         'log_file'  => "#{RAILS_ROOT}/log/ferret_server.log",
         'log_level' => 'debug',
+        'socket'    => nil,
       }
 
       ################################################################################
@@ -26,7 +27,9 @@ module ActsAsFerret
         @everything = YAML.load(ERB.new(IO.read(file)).result)
         raise "malformed ferret server config" unless @everything.is_a?(Hash)
         @config = DEFAULTS.merge(@everything[RAILS_ENV] || {})
-        @config['uri'] = "druby://#{host}:#{port}" if @everything[RAILS_ENV]
+        if @everything[RAILS_ENV]
+          @config['uri'] = socket.nil? ? "druby://#{host}:#{port}" : "drbunix:#{socket}"
+        end
       end
 
       ################################################################################

@@ -1,6 +1,7 @@
 # configuration for the acts_as_ferret DRb server
 # host: where to reach the DRb server (used by application processes to contact the server)
 # port: which port the server should listen on
+# socket: where the DRb server should create the socket (absolute path), this setting overrides host:port configuration
 # pid_file: location of the server's pid file (relative to RAILS_ROOT)
 # log_file: log file (default: RAILS_ROOT/log/ferret_server.log
 # log_level: log level for the server's logger
