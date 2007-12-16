@@ -368,30 +368,37 @@ module ActsAsFerret
       # get objects for each model
       id_arrays.each do |model, id_array|
         next if id_array.empty?
-        begin
-          model = model.constantize
+        model_class = begin
+          model.constantize
         rescue
           raise "Please use ':store_class_name => true' if you want to use multi_search.\n#{$!}"
         end
 
+        # check for per-model conditions and take these if provided
+        if conditions = find_options[:conditions]
+          key = model.underscore.to_sym
+          conditions = conditions[key] if Hash === conditions
+        end
+
         # merge conditions
-        conditions = combine_conditions([ "#{model.table_name}.#{model.primary_key} in (?)", 
+        conditions = combine_conditions([ "#{model_class.table_name}.#{model_class.primary_key} in (?)", 
                                           id_array.keys ], 
-                                        find_options[:conditions])
+                                        conditions)
+
 
         # check for include association that might only exist on some models in case of multi_search
         filtered_include_options = []
         if include_options = find_options[:include]
           include_options = [ include_options ] unless include_options.respond_to?(:each)
           include_options.each do |include_option|
-            filtered_include_options << include_option if model.reflections.has_key?(include_option.is_a?(Hash) ? include_option.keys[0].to_sym : include_option.to_sym)
+            filtered_include_options << include_option if model_class.reflections.has_key?(include_option.is_a?(Hash) ? include_option.keys[0].to_sym : include_option.to_sym)
           end
         end
         filtered_include_options = nil if filtered_include_options.empty?
 
         # fetch
-        tmp_result = model.find(:all, find_options.merge(:conditions => conditions, 
-                                                         :include => filtered_include_options))
+        tmp_result = model_class.find(:all, find_options.merge(:conditions => conditions, 
+                                                               :include    => filtered_include_options))
 
         # set scores and rank
         tmp_result.each do |record|
