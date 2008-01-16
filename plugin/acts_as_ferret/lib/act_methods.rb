@@ -167,9 +167,10 @@ module ActsAsFerret #:nodoc:
       # field list to be used by the query parser.
       # It will include all content fields *not* marked as :untokenized.
       # This fixes the otherwise failing CommentTest#test_stopwords. Basically
-      # this means that by default only tokenized fields (which is the default)
-      # will be searched. If you want to search inside the contents of an
-      # untokenized field, you'll have to explicitly specify it in your query.
+      # this means that by default only tokenized fields (which all fields are
+      # by default) will be searched. If you want to search inside the contents 
+      # of an untokenized field, you'll have to explicitly specify it in your 
+      # query.
       #
       # Unfortunately this is not very useful with a shared index (see
       # http://projects.jkraemer.net/acts_as_ferret/ticket/85)

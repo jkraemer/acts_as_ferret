@@ -275,7 +275,6 @@ module ActsAsFerret
         end
         result = retrieve_records(id_arrays, find_options)
         total_hits = result.size if find_options[:conditions]
- #       total_hits += offset if offset
         if limit && limit != :all
           result = result[offset..limit+offset-1]
         end

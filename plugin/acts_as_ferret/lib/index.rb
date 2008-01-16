@@ -8,6 +8,7 @@ module ActsAsFerret
     def initialize(aaf_configuration)
       @aaf_configuration = aaf_configuration
       @logger = Logger.new("#{RAILS_ROOT}/log/ferret_index.log")
+      @logger.level = ActiveRecord::Base.logger.level
     end
     
     class << self
