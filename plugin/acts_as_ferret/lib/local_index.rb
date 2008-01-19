@@ -184,7 +184,7 @@ module ActsAsFerret
     def document_number(id, class_name)
       hits = ferret_index.search(query_for_record(id, class_name))
       return hits.hits.first.doc if hits.total_hits == 1
-      raise "cannot determine document number from primary key: #{id}"
+      raise "cannot determine document number for class #{class_name} / primary key: #{id}\nresult was: #{hits.inspect}"
     end
 
     # build a ferret query matching only the record with the given id
