@@ -87,9 +87,9 @@ module ActsAsFerret #:nodoc:
       end
 
       if options[:remote]
-        logger.debug "Will use remote index server which should be available at #{options[:remote]}"
+        logger.info "Will use remote index server which should be available at #{options[:remote]}"
       else
-        logger.debug "Will use local index."
+        logger.info "Will use local index."
       end
 
 

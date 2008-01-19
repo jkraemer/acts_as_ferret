@@ -25,7 +25,7 @@ module ActsAsFerret #:nodoc:
     # ellipsis::         Default: "...". This is the string that is appended
     #                    at the beginning and end of excerpts (unless the
     #                    excerpt hits the start or end of the field. You'll
-    #                    probably want to change this so a Unicode elipsis
+    #                    probably want to change this to a Unicode elipsis
     #                    character.
     def highlight(query, options = {})
       self.class.aaf_index.highlight(id, self.class.name, query, options)
