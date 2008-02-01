@@ -56,6 +56,25 @@ module ActsAsFerret
       end
     end
 
+    # Returns all records modified or created after the specified time.
+    # Used by the rake rebuild task to find models that need to be updated in
+    # the index after the rebuild finished because they changed while the
+    # rebuild was running.
+    # Override if your models don't stick to the created_at/updated_at
+    # convention.
+    def records_modified_since(time)
+      condition = []
+      %w(updated_at created_at).each do |col|
+        condition << "#{col} >= ?" if column_names.include? col
+      end
+      if condition.empty?
+        logger.warn "#{self.name}: Override records_modified_since(time) to keep the index up to date with records changed during rebuild."
+        []
+      else
+        find :all, :conditions => [ condition.join(' AND '), *([time]*condition.size) ]
+      end
+    end
+
     # runs across all records yielding those to be indexed when the index is rebuilt
     def records_for_rebuild(batch_size = 1000)
       transaction do
