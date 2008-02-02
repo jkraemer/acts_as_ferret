@@ -1,5 +1,6 @@
 *.swp
 *.log
+demo/log/*
 demo/tmp/*
 demo/index/*
 demo/db/schema.rb

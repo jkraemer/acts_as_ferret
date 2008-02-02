@@ -10,6 +10,8 @@
 # This will hook aaf's DRb start/stop tasks into the standard
 # deploy:{start|restart|stop} tasks so the server will be restarted along with
 # the rest of your application.
+# Also an index directory in the shared folder will be created and symlinked
+# into current/ when you deploy.
 #
 # In order to use the ferret:rebuild task, declare the models you intend to
 # index in config/deploy.rb:
@@ -53,8 +55,16 @@ namespace :ferret do
       run "cd #{current_path}; RAILS_ENV=#{rails_env} MODEL='#{m}' #{rake} ferret:rebuild"
     end
   end
+
+  desc "symlinks index folder"
+  task :symlink_index, :roles => :app do
+    run "mkdir -p  #{shared_path}/index && rm -f #{current_path}/index && ln -s #{shared_path}/index #{current_path}/index"
+  end
+
 end
 
 after "deploy:stop",    "ferret:stop"
 after "deploy:start",   "ferret:start"
 after "deploy:restart", "ferret:restart"
+after "deploy:symlink", "ferret:symlink_index"
+
