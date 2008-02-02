@@ -259,6 +259,7 @@ class ContentTest < Test::Unit::TestCase
                        :description => c )
     c1.save
     fi = Content.aaf_index.ferret_index
+    assert fi
     hits = fi.search('title:"Content item 1"')
     assert_equal 1, hits.total_hits
     expected_doc_num = hits.hits.first.doc
@@ -333,6 +334,7 @@ class ContentTest < Test::Unit::TestCase
   def test_sorting
     sorting = [ Ferret::Search::SortField.new(:id, :reverse => true) ]
     result = Content.find_with_ferret('comment_count:2', :sort => sorting)
+    assert !result.empty?
     assert result.first.id > result.last.id
 
     sorting = [ Ferret::Search::SortField.new(:id) ]

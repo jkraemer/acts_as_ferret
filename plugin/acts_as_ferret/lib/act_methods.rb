@@ -42,6 +42,13 @@ module ActsAsFerret #:nodoc:
     #                      algorithm if this model uses a non-integer primary key named
     #                      'id' on MySQL.
     #
+    # raise_drb_errors:: Set this to true if you want aaf to raise Exceptions
+    #                    in case the DRb server cannot be reached (in other word - behave like
+    #                    versions up to 0.4.3). Defaults to false so DRb exceptions
+    #                    are logged but not raised. Be sure to set up some
+    #                    monitoring so you still detect when your DRb server died for
+    #                    whatever reason.
+    #
     # ferret:: Hash of Options that directly influence the way the Ferret engine works. You 
     #          can use most of the options the Ferret::I class accepts here, too. Among the 
     #          more useful are:
@@ -117,7 +124,8 @@ module ActsAsFerret #:nodoc:
         :ferret => {},                    # Ferret config Hash
         :ferret_fields => {},             # list of indexed fields that will be filled later
         :enabled => true,                 # used for class-wide disabling of Ferret
-        :mysql_fast_batches => true       # turn off to disable the faster, id based batching mechanism for MySQL
+        :mysql_fast_batches => true,      # turn off to disable the faster, id based batching mechanism for MySQL
+        :raise_drb_errors => false        # handle DRb connection errors by default
       }
 
       # merge aaf options with args

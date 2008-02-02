@@ -11,22 +11,6 @@ module ActsAsFerret
       @logger.level = ActiveRecord::Base.logger.level
     end
     
-    class << self
-      def proxy_method(name, *args)
-        define_method name do |*args|
-          @server.send name, model_class_name, *args
-        end
-      end
-
-      def index_proxy_method(*names)
-        names.each do |name|
-          define_method name do |*args|
-            @server.send :"index_#{name}", model_class_name, *args
-          end
-        end
-      end
-
-    end
   end
 
 end
