@@ -152,7 +152,8 @@ module ActsAsFerret #:nodoc:
     end
 
     def content_for_field_name(field, dynamic_boost = nil)
-      field_data = self[field] || self.instance_variable_get("@#{field.to_s}".to_sym) || self.send(field.to_sym)
+      ar_field = aaf_configuration[:ferret_fields][field][:via]
+      field_data = self.send(ar_field) || self.instance_variable_get("@#{ar_field}")
       if (dynamic_boost && boost_value = self.send(dynamic_boost))
         field_data = Ferret::Field.new(field_data)
         field_data.boost = boost_value.to_i

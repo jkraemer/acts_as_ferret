@@ -22,6 +22,12 @@ class CommentTest < Test::Unit::TestCase
     assert Comment.aaf_configuration[:index_dir] =~ %r{^#{RAILS_ROOT}/index/test/comment}
   end
 
+  def test_aliased_field
+    res = Comment.find_with_ferret 'aliased:regarding'
+    assert_equal 1, res.total_hits
+    assert_equal comments(:comment_for_c2), res.first
+  end
+
   def test_search_for_id
     # don't search the id field by default:
     assert Comment.find_by_contents('3').empty?

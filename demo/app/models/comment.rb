@@ -31,7 +31,8 @@ class Comment < ActiveRecord::Base
                   :fields => {
                     :content => { :store => :yes },
                     :author  => { },
-                    :added   => { :index => :untokenized, :store => :yes, :ignore => true }
+                    :added   => { :index => :untokenized, :store => :yes, :ignore => true },
+                    :aliased => { :via => :content }
                   }, :ferret => { :analyzer => Ferret::Analysis::StandardAnalyzer.new(['fax', 'gsm', 'the', 'or']) } )
                   #}, :ferret => { :analyzer => PlainAsciiAnalyzer.new(['fax', 'gsm', 'the', 'or']) } )
 

@@ -52,9 +52,9 @@ module ActsAsFerret
       models << aaf_configuration[:class_name] unless models.include?(aaf_configuration[:class_name])
       models = models.flatten.uniq.map(&:constantize)
       logger.debug "rebuild index: #{models.inspect}"
-      index = Ferret::Index::Index.new(aaf_configuration[:ferret].dup.update(:auto_flush => false, 
+      index = Ferret::Index::Index.new(aaf_configuration[:ferret].dup.update(:auto_flush  => false, 
                                                                              :field_infos => ActsAsFerret::field_infos(models),
-                                                                             :create => true))
+                                                                             :create      => true))
       index.batch_size = aaf_configuration[:reindex_batch_size]
       index.logger = logger
       index.index_models models
@@ -91,6 +91,14 @@ module ActsAsFerret
       return stored_fields
     end
 
+    # loads data for fields declared as :lazy from the Ferret document
+    def extract_lazy_fields(doc, lazy_fields) 
+      fields = aaf_configuration[:ferret_fields] 
+      data = {} 
+      lazy_fields.each { |field| data[fields[field][:via]] = doc[field] } if lazy_fields 
+      data 
+    end
+
     # Queries the Ferret index to retrieve model class, id, score and the
     # values of any fields stored in the index for each hit.
     # If a block is given, these are yielded and the number of total hits is
@@ -105,8 +113,7 @@ module ActsAsFerret
         doc = index[hit]
         model = aaf_configuration[:store_class_name] ? doc[:class_name] : aaf_configuration[:class_name]
         # fetch stored fields if lazy loading
-        data = {}
-        lazy_fields.each { |field| data[field] = doc[field] } if lazy_fields
+        data = extract_lazy_fields(doc, lazy_fields)
         if block_given?
           yield model, doc[:id], score, data
         else
@@ -128,8 +135,7 @@ module ActsAsFerret
       total_hits = index.search_each(query, options) do |hit, score|
         doc = index[hit]
         # fetch stored fields if lazy loading
-        data = {}
-        lazy_fields.each { |field| data[field] = doc[field] } if lazy_fields
+        data = extract_lazy_fields(doc, lazy_fields)
         raise "':store_class_name => true' required for multi_search to work" if doc[:class_name].blank?
         if block_given?
           yield doc[:class_name], doc[:id], score, doc, data

@@ -222,6 +222,7 @@ module ActsAsFerret #:nodoc:
                               :highlight   => :yes, 
                               :index       => :yes, 
                               :term_vector => :with_positions_offsets,
+                              :via         => field,
                               :boost       => 1.0 )
       options[:term_vector] = :no if options[:index] == :no
       aaf_configuration[:ferret_fields][field] = options

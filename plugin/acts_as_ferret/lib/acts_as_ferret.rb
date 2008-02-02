@@ -124,6 +124,7 @@ module ActsAsFerret
     fields.each_pair do |field, options|
       options = options.dup
       options.delete(:boost) if options[:boost].is_a?(Symbol)
+      options.delete(:via)
       fi.add_field(field, { :store => :no, 
                             :index => :yes }.update(options)) 
     end
