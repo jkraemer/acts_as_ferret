@@ -9,7 +9,7 @@ module ActsAsFerret
     attr_accessor :ferret_rank
   end
 
-  class FerretResult < BlankSlate
+  class FerretResult < ActsAsFerret::BlankSlate
     include ResultAttributes
     attr_accessor :id
     reveal :methods

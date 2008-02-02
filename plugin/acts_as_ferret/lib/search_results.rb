@@ -2,7 +2,7 @@ module ActsAsFerret
 
   # decorator that adds a total_hits accessor and will_paginate compatible 
   # paging support to search result arrays
-  class SearchResults < BlankSlate
+  class SearchResults < ActsAsFerret::BlankSlate
     reveal :methods
     attr_reader :current_page, :per_page, :total_hits
     alias total_entries total_hits  # will_paginate compatibility

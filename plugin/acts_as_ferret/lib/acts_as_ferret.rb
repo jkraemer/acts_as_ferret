@@ -24,6 +24,7 @@ require 'set'
 require 'enumerator'
 require 'ferret'
 
+require 'blank_slate'
 require 'bulk_indexer'
 require 'ferret_extensions'
 require 'act_methods'

@@ -13,7 +13,7 @@
 # Also an index directory in the shared folder will be created and symlinked
 # into current/ when you deploy.
 #
-# In order to use the ferret:rebuild task, declare the models you intend to
+# In order to use the ferret:index:rebuild task, declare the models you intend to
 # index in config/deploy.rb:
 #
 # for a shared index, do:
@@ -25,7 +25,11 @@
 # This will call Model.rebuild_index and AnotherModel.rebuild_index separately.
 #
 # The two methods may be combined if you have a shared index, and some models
-# indexed separately.
+# indexed separately. 
+#
+# Like to submit a patch to aaf? Automatically determining the models that use 
+# acts_as_ferret so the declaration of these variables in deploy.rb isn't 
+# necessary anymore would be really cool ;-)
 
 namespace :ferret do
 
@@ -41,24 +45,35 @@ namespace :ferret do
 
   desc "Restart the Ferret DRb server"
   task :restart, :roles => :app do
-    run "cd #{current_path}; script/ferret_server -e #{rails_env} stop; sleep 1; script/ferret_server -e #{rails_env} start"
+    top.ferret.stop
+    sleep 1
+    top.ferret.start
   end
 
-  desc "Rebuild the Ferret index"
-  task :rebuild, :roles => :app do
-    rake = fetch(:rake, 'rake')
-    single_index_models = fetch(:ferret_single_index_models, nil)
-    if single_index_models
-      run "cd #{current_path}; RAILS_ENV=#{rails_env} MODEL='#{ferret_single_index_models.join(' ')}' #{rake} ferret:rebuild"
-    end
-    fetch(:ferret_models, []).each do |m|
-      run "cd #{current_path}; RAILS_ENV=#{rails_env} MODEL='#{m}' #{rake} ferret:rebuild"
-    end
-  end
+  namespace :index do
 
-  desc "symlinks index folder"
-  task :symlink_index, :roles => :app do
-    run "mkdir -p  #{shared_path}/index && rm -f #{current_path}/index && ln -s #{shared_path}/index #{current_path}/index"
+    desc "Rebuild the Ferret index. See aaf_recipes.rb for instructions."
+    task :rebuild, :roles => :app do
+      rake = fetch(:rake, 'rake')
+      single_index_models = fetch(:ferret_single_index_models, nil)
+      if single_index_models
+        run "cd #{current_path}; RAILS_ENV=#{rails_env} MODEL='#{ferret_single_index_models.join(' ')}' #{rake} ferret:rebuild"
+      end
+      fetch(:ferret_models, []).each do |m|
+        run "cd #{current_path}; RAILS_ENV=#{rails_env} MODEL='#{m}' #{rake} ferret:rebuild"
+      end
+    end
+
+    desc "purges all indexes for the current environment"
+    task :purge, :roles => :app do
+      run "rm -fr #{shared_path}/index/#{rails_env}"
+    end
+
+    desc "symlinks index folder"
+    task :symlink, :roles => :app do
+      run "mkdir -p  #{shared_path}/index && rm -rf #{release_path}/index && ln -s #{shared_path}/index #{release_path}/index"
+    end
+
   end
 
 end
@@ -66,5 +81,5 @@ end
 after "deploy:stop",    "ferret:stop"
 after "deploy:start",   "ferret:start"
 after "deploy:restart", "ferret:restart"
-after "deploy:symlink", "ferret:symlink_index"
+after "deploy:symlink", "ferret:index:symlink"
 
