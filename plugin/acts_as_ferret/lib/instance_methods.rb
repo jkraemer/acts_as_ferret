@@ -50,6 +50,16 @@ module ActsAsFerret #:nodoc:
       @ferret_disabled.nil? && (is_bulk_index || self.class.ferret_enabled?)
     end
 
+    # Returns the analyzer to use when adding this record to the index.
+    #
+    # Override to return a specific analyzer for any record that is to be
+    # indexed, i.e. specify a different analyzer based on language. Returns nil
+    # by default so the global analyzer (specified with the acts_as_ferret
+    # call) is used.
+    def ferret_analyzer
+      nil
+    end
+
     # Disable Ferret for this record for a specified amount of time. ::once will 
     # disable Ferret for the next call to #save (this is the default), ::always 
     # will do so for all subsequent calls. 

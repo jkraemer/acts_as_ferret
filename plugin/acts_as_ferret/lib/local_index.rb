@@ -149,9 +149,12 @@ module ActsAsFerret
 
     # add record to index
     # record may be the full AR object, a Ferret document instance or a Hash
-    def add(record)
-      record = record.to_doc unless Hash === record || Ferret::Document === record
-      ferret_index << record
+    def add(record, analyzer = nil)
+      unless Hash === record || Ferret::Document === record
+        analyzer = record.ferret_analyzer
+        record = record.to_doc 
+      end
+      ferret_index.add_document(record, analyzer)
     end
     alias << add
 
