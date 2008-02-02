@@ -49,6 +49,7 @@ module ActsAsFerret
       #################################################################################
       # create the PID file and install an at_exit handler
       def write_pid_file
+        raise "ferret_server may already be running, a pid file exists: #{@cfg.pid_file}" if read_pid_file
         open(@cfg.pid_file, "w") {|f| f << Process.pid << "\n"}
         at_exit { File.unlink(@cfg.pid_file) if read_pid_file == Process.pid }
       end
