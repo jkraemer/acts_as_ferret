@@ -1,0 +1,7 @@
+*.swp
+*.log
+demo/tmp/*
+demo/index/*
+demo/db/schema.rb
+demo/vendor/plugins/acts_as_ferret
+
