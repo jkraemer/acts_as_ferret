@@ -31,7 +31,7 @@ module ActsAsFerret
     def rebuild_index(*models)
       models << self unless models.include?(self)
       aaf_index.rebuild_index models.map(&:to_s)
-      index_dir = find_last_index_version(aaf_configuration[:index_base_dir]) unless aaf_configuration[:remote]
+      self.index_dir = find_last_index_version(aaf_configuration[:index_base_dir]) unless aaf_configuration[:remote]
     end
 
     # re-index a number records specified by the given ids. Use for large
