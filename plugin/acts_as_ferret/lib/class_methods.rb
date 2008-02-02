@@ -276,14 +276,14 @@ module ActsAsFerret
     def _multi_search(query, additional_models = [], options = {}, find_options = {})
       result = []
 
+      rank = 0
       if options[:lazy]
         logger.warn "find_options #{find_options} are ignored because :lazy => true" unless find_options.empty?
         total_hits = id_multi_search(query, additional_models, options) do |model, id, score, data|
-          result << FerretResult.new(model, id, score, data)
+          result << FerretResult.new(model, id, score, rank += 1, data)
         end
       else
         id_arrays = {}
-        rank = 0
 
         limit = options.delete(:limit)
         offset = options.delete(:offset) || 0
@@ -352,8 +352,9 @@ module ActsAsFerret
 
     def lazy_find_by_contents(q, options = {})
       result = []
+      rank   = 0
       total_hits = find_id_by_contents(q, options) do |model, id, score, data|
-        result << FerretResult.new(model, id, score, data)
+        result << FerretResult.new(model, id, score, rank += 1, data)
       end
       [ total_hits, result ]
     end

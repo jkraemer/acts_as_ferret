@@ -53,11 +53,14 @@ class ContentTest < Test::Unit::TestCase
     results = Content.find_with_ferret 'description', :lazy => true
     assert_equal 1, results.size
     result = results.first
+    class << result
+      attr_accessor :ar_record # so we have a chance to check if it's been loaded...
+    end
     assert ActsAsFerret::FerretResult === result
     assert_equal 'A useless description', result.description
     assert_nil result.instance_variable_get(:@ar_record)
     assert_equal 'My Title', result.title
-    assert_not_nil result.instance_variable_get(:@ar_record)
+    assert_not_nil result.ar_record
   end
 
   def test_ticket_69

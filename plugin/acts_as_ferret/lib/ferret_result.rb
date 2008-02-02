@@ -9,28 +9,38 @@ module ActsAsFerret
     attr_accessor :ferret_rank
   end
 
-  class FerretResult
+  class FerretResult < BlankSlate
     include ResultAttributes
     attr_accessor :id
+    reveal :methods
 
-    def initialize(model, id, score, data = {})
+    def initialize(model, id, score, rank, data = {})
       @model = model.constantize
       @id = id
       @ferret_score = score
+      @ferret_rank  = rank
       @data = data
     end
     
-    def method_missing(method, *args)
-      if @ar_record || @data[method].nil?
-        ferret_load_record unless @ar_record
-        @ar_record.send method, *args
+    def method_missing(method, *args, &block)
+      if @ar_record || !@data.has_key?(method)
+        to_record.send method, *args, &block
       else
         @data[method]
       end
     end
 
-    def ferret_load_record
-      @ar_record = @model.find(id)
+    def respond_to?(name)
+      methods.include?(name.to_s) || @data.has_key?(name.to_sym) || to_record.respond_to?(name)
+    end
+
+    def to_record
+      unless @ar_record
+        @ar_record = @model.find(id)
+        @ar_record.ferret_rank  = ferret_rank
+        @ar_record.ferret_score = ferret_score
+      end
+      @ar_record
     end
   end
 end

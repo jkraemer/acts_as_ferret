@@ -2,8 +2,10 @@ module ActsAsFerret
 
   # decorator that adds a total_hits accessor and will_paginate compatible 
   # paging support to search result arrays
-  class SearchResults
+  class SearchResults < BlankSlate
+    reveal :methods
     attr_reader :current_page, :per_page, :total_hits
+    alias total_entries total_hits  # will_paginate compatibility
 
     def initialize(results, total_hits, current_page = 1, per_page = nil)
       @results = results
@@ -18,7 +20,7 @@ module ActsAsFerret
     end
 
     def respond_to?(name)
-      self.methods.include?(name) || @results.respond_to?(name)
+      methods.include?(name.to_s) || @results.respond_to?(name)
     end
 
 
