@@ -13,7 +13,7 @@
 
   <p><%= will_paginate @results %></p>
   <ul>
-    <%= render :partial => @results -%>
+    <%= render :partial => 'content', :collection => @results -%>
   </ul>
   <p><%= will_paginate @results %></p>
 
