@@ -13,9 +13,7 @@
 
   <p><%= will_paginate @results %></p>
   <ul>
-    <% for result in @results -%>
-      <li><%= link_to result.title, content_path(result.id) %></li>
-    <% end -%>
+    <%= render :partial => @results -%>
   </ul>
   <p><%= will_paginate @results %></p>
 

@@ -16,4 +16,9 @@ class FerretResultTest < Test::Unit::TestCase
     assert_equal 'My Title', fr.title # triggers auto-load of the record
     assert_equal 'A useless description', fr.description # description now comes from DB
   end
+
+  def test_to_param
+    fr = ActsAsFerret::FerretResult.new 'Content', '1', 0.5, 1, :description => 'description from ferret index'
+    assert_equal '1', fr.to_param
+  end
 end
