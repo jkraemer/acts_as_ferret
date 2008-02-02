@@ -40,12 +40,15 @@ end
 begin
   ENV['FERRET_USE_LOCAL_INDEX'] = 'true'
   ENV['RAILS_ENV'] = $ferret_server_options['environment']
-  #require(File.join(File.dirname(__FILE__), '../../../../config/environment'))
-  if $ferret_server_options['root']
-    require File.join($ferret_server_options['root'], 'config', 'environment')
-  else
-    require(File.join(File.dirname(ENV['_']), '../config/environment'))
-  end
+  
+  # determine RAILS_ROOT unless already set
+  RAILS_ROOT = $ferret_server_options['root'] || File.join(File.dirname(__FILE__), *(['..']*4)) unless defined? RAILS_ROOT
+  # check if environment.rb is present
+  rails_env_file = File.join(RAILS_ROOT, 'config', 'environment')
+  raise "Unable to find Rails environment.rb at \n#{rails_env_file}.rb\nPlease use the --root option of ferret_server to point it to your RAILS_ROOT." unless File.exists?(rails_env_file+'.rb')
+  # load it
+  require rails_env_file
+
   require 'acts_as_ferret'
   ActsAsFerret::Remote::Server.new.send($ferret_server_action)
 rescue Exception => e
