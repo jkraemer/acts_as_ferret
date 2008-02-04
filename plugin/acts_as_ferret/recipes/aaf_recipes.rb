@@ -71,7 +71,7 @@ namespace :ferret do
 
     desc "symlinks index folder"
     task :symlink, :roles => :app do
-      run "mkdir -p  #{shared_path}/index && rm -rf #{release_path}/index && ln -s #{shared_path}/index #{release_path}/index"
+      run "mkdir -p  #{shared_path}/index && rm -rf #{release_path}/index && ln -nfs #{shared_path}/index #{release_path}/index"
     end
 
   end
