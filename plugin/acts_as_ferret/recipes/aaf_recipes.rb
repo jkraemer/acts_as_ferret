@@ -30,6 +30,20 @@
 # Like to submit a patch to aaf? Automatically determining the models that use 
 # acts_as_ferret so the declaration of these variables in deploy.rb isn't 
 # necessary anymore would be really cool ;-)
+#
+#
+# HINT: To be very sure that your DRb server and application are always using
+# the same model and schema versions, and you never lose any index updates because
+# of the DRb server being restarted in that moment, use the following sequence
+# to update your application:
+#
+# cap deploy:stop deploy:update deploy:migrate deploy:start
+#
+# That will stop the DRb server after stopping your application, and bring it
+# up before starting the application again. Plus they'll never use different
+# versions of model classes (which might happen otherwise)
+# Downside: Your downtime is a bit longer than with the usual deploy, so be sure to
+# put up some maintenance page for the meantime.
 
 namespace :ferret do
 
@@ -78,8 +92,10 @@ namespace :ferret do
 
 end
 
-after "deploy:stop",    "ferret:stop"
-after "deploy:start",   "ferret:start"
-after "deploy:restart", "ferret:restart"
+after  "deploy:stop",    "ferret:stop"
+before "deploy:start",   "ferret:start"
+
+before "deploy:restart", "ferret:stop"
+after  "deploy:restart", "ferret:start"
 after "deploy:symlink", "ferret:index:symlink"
 
