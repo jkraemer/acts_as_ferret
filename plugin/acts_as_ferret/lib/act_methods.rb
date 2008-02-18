@@ -22,6 +22,9 @@ module ActsAsFerret #:nodoc:
     #                     be ignored when the fields option is given, in that 
     #                     case additional fields get specified there.
     #
+    # if:: Can be set to a block that will be called with the record in question
+    #      to determine if it should be indexed or not.
+    #
     # index_dir:: declares the directory where to put the index for this class.
     #             The default is RAILS_ROOT/index/RAILS_ENV/CLASSNAME. 
     #             The index directory will be created if it doesn't exist.
