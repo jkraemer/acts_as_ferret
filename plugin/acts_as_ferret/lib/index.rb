@@ -9,6 +9,7 @@ module ActsAsFerret
       @aaf_configuration = aaf_configuration
       @logger = Logger.new("#{RAILS_ROOT}/log/ferret_index.log")
       @logger.level = ActiveRecord::Base.logger.level
+      @index_name = aaf_configuration[:name]
     end
     
   end

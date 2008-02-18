@@ -4,7 +4,7 @@ class SharedIndex2Test < Test::Unit::TestCase
   fixtures :shared_index2s, :shared_index1s
 
   def setup
-    SharedIndex1.rebuild_index(SharedIndex2)
+    SharedIndex1.rebuild_index
   end
 
   def test_query_for_record

@@ -45,23 +45,25 @@ module ActsAsFerret
       @ferret_index = nil
     end
 
-    # rebuilds the index from all records of the model class this index belongs
-    # to. Arguments can be given in shared index scenarios to name multiple
-    # model classes to include in the index
-    def rebuild_index(*models)
-      models << aaf_configuration[:class_name] unless models.include?(aaf_configuration[:class_name])
-      models = models.flatten.uniq.map(&:constantize)
+    # rebuilds the index from all records of the model classes associated with this index
+    def rebuild_index
+      definition = ActsAsFerret::index_definition(@index_name)
+      models = definition[:registered_models]
       logger.debug "rebuild index: #{models.inspect}"
-      index = Ferret::Index::Index.new(aaf_configuration[:ferret].dup.update(:auto_flush  => false, 
-                                                                             :field_infos => ActsAsFerret::field_infos(models),
-                                                                             :create      => true))
-      index.batch_size = aaf_configuration[:reindex_batch_size]
+      self.close
+      index = Ferret::Index::Index.new(definition[:ferret].dup.update(:auto_flush  => false, 
+                                                                      # TODO fieldinfos sollten jetzt
+                                                                      # auch aus neuer config kommen!
+                                                                      :field_infos => ActsAsFerret::field_infos(models),
+                                                                      :create      => true))
+      index.batch_size = definition[:reindex_batch_size]
       index.logger = logger
       index.index_models models
+      ActsAsFerret::change_index_dir @index_name, definition[:ferret][:path]
     end
 
-    def bulk_index(ids, options)
-      ferret_index.bulk_index(aaf_configuration[:class_name].constantize, ids, options)
+    def bulk_index(class_name, ids, options)
+      ferret_index.bulk_index(class_name.constantize, ids, options)
     end
 
     # Parses the given query string into a Ferret Query object.
@@ -108,6 +110,7 @@ module ActsAsFerret
       index = ferret_index
       logger.debug "query: #{ferret_index.process_query query}" if logger.debug?
       lazy_fields = determine_lazy_fields options
+      logger.debug "lazy_fields: #{lazy_fields}"
 
       total_hits = index.search_each(query, options) do |hit, score|
         doc = index[hit]

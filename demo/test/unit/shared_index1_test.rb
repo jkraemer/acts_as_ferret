@@ -4,7 +4,7 @@ class SharedIndex1Test < Test::Unit::TestCase
   fixtures :shared_index1s, :shared_index2s
 
   def setup
-    SharedIndex1.rebuild_index(SharedIndex2)
+    SharedIndex1.rebuild_index
   end
 
   def test_lazy_loading_shared_index
@@ -73,7 +73,7 @@ class SharedIndex1Test < Test::Unit::TestCase
   end
 
   def test_ferret_destroy
-    SharedIndex1.rebuild_index(SharedIndex2)
+    SharedIndex1.rebuild_index
     result = SharedIndex1.find_id_by_contents("first OR another", :models => :all)
     assert_equal 4, result.first
     shared_index1s(:first).ferret_destroy
@@ -82,7 +82,7 @@ class SharedIndex1Test < Test::Unit::TestCase
   end
 
   def test_ferret_destroy_ticket_88
-    SharedIndex1.rebuild_index(SharedIndex2)
+    SharedIndex1.rebuild_index
     result = SharedIndex1.find_id_by_contents("first OR another", :models => :all)
     assert_equal 4, result.first
     result = SharedIndex2.find_id_by_contents("first OR another", :models => :all)

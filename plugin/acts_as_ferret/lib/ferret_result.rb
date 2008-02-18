@@ -20,10 +20,17 @@ module ActsAsFerret
       @ferret_score = score
       @ferret_rank  = rank
       @data = data
+      @use_record = false
     end
-    
+
+    def inspect
+      "#<FerretResult wrapper for #{@model} with id #{@id}"
+    end
+
     def method_missing(method, *args, &block)
-      if @ar_record || !@data.has_key?(method)
+      # don't try to fetch attributes from RDig based records
+      if (@ar_record && @use_record) || !@data.has_key?(method)
+        RAILS_DEFAULT_LOGGER.debug "miss for key: #{method.inspect} in #{@data.keys.inspect}"
         to_record.send method, *args, &block
       else
         @data[method]
@@ -39,6 +46,7 @@ module ActsAsFerret
         @ar_record = @model.find(id)
         @ar_record.ferret_rank  = ferret_rank
         @ar_record.ferret_score = ferret_score
+        @use_record = !@ar_record.class.included_modules.include?(ActsAsFerret::RdigAdapter)
       end
       @ar_record
     end

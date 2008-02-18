@@ -20,18 +20,14 @@ module ActsAsFerret
       aaf_configuration[:enabled]
     end
 
-    # rebuild the index from all data stored for this model.
+    # rebuild the index from all data stored for this model, and any other
+    # model classes associated with the same index.
     # This is called automatically when no index exists yet.
     #
-    # When calling this method manually, you can give any additional 
-    # model classes that should also go into this index as parameters. 
-    # Useful when using the :single_index option.
-    # Note that attributes named the same in different models will share
-    # the same field options in the shared index.
-    def rebuild_index(*models)
-      models << self unless models.include?(self)
-      aaf_index.rebuild_index models.map(&:to_s)
-      self.index_dir = find_last_index_version(aaf_configuration[:index_base_dir]) unless aaf_configuration[:remote]
+    # TODO: move into index class and add a method taking an index name to
+    # ActsAsFerret module.
+    def rebuild_index
+      ActsAsFerret::rebuild_index(aaf_configuration[:name])
     end
 
     # re-index a number records specified by the given ids. Use for large
@@ -43,7 +39,7 @@ module ActsAsFerret
     def bulk_index(*ids)
       options = Hash === ids.last ? ids.pop : {}
       ids = ids.first if ids.size == 1 && ids.first.is_a?(Enumerable)
-      aaf_index.bulk_index(ids, options)
+      aaf_index.bulk_index(self.name, ids, options)
     end
 
     # true if our db and table appear to be suitable for the mysql fast batch
@@ -99,9 +95,7 @@ module ActsAsFerret
       transaction do
         offset = 0
         ids.each_slice(batch_size) do |id_slice|
-          logger.debug "########## slice: #{id_slice.join(',')}"
           records = find( :all, :conditions => ["id in (?)", id_slice] )
-          logger.debug "########## slice records: #{records.inspect}"
           #yield records, offset
           yield find( :all, :conditions => ["id in (?)", id_slice] ), offset
           offset += batch_size
@@ -109,20 +103,11 @@ module ActsAsFerret
       end
     end
 
-    # Switches this class to a new index located in dir.
-    # Used by the DRb server when switching to a new index version.
+    # TODO change any references to this method to use
+    # ActsAsFerret::change_index_dir
     def index_dir=(dir)
-      logger.debug "changing index dir to #{dir}"
-      
-      # store index with the new dir as key. This prevents the aaf_index method
-      # from opening another index instance later on.
-      ActsAsFerret::ferret_indexes[dir] = aaf_index
-      old_dir = aaf_configuration[:index_dir]
-      aaf_configuration[:index_dir] = aaf_configuration[:ferret][:path] = dir
-      # clean old reference to index
-      ActsAsFerret::ferret_indexes.delete old_dir
-      aaf_index.reopen!
-      logger.debug "index dir is now #{dir}"
+      logger.warn "DEPRECATED, use ActsAsFerret::change_index_dir instead if index_dir="
+      ActsAsFerret::change_index_dir(aaf_configuration[:name], dir)
     end
     
     # Retrieve the index instance for this model class. This can either be a
@@ -132,7 +117,7 @@ module ActsAsFerret
     # as the key. So model classes sharing a single index will share their
     # Index object, too.
     def aaf_index
-      ActsAsFerret::ferret_indexes[aaf_configuration[:index_dir]] ||= create_index_instance
+      ActsAsFerret::get_index(aaf_configuration[:name])
     end 
     
     # Finds instances by searching the Ferret index. Terms are ANDed by default, use 
@@ -351,9 +336,11 @@ module ActsAsFerret
     end
 
     def lazy_find_by_contents(q, options = {})
+      logger.debug "lazy_find_by_contents: #{q}"
       result = []
       rank   = 0
       total_hits = find_id_by_contents(q, options) do |model, id, score, data|
+        logger.debug "model: #{model}, id: #{id}, data: #{data}"
         result << FerretResult.new(model, id, score, rank += 1, data)
       end
       [ total_hits, result ]
@@ -464,17 +451,6 @@ module ActsAsFerret
         logger.warn ":first_doc is deprecated, use :offset instead!"
         options[:offset] ||= options[:first_doc]
       end
-    end
-
-    # creates a new Index instance.
-    def create_index_instance
-      if aaf_configuration[:remote]
-       RemoteIndex
-      elsif aaf_configuration[:single_index]
-        SharedIndex
-      else
-        LocalIndex
-      end.new(aaf_configuration)
     end
 
     # combine our conditions with those given by user, if any

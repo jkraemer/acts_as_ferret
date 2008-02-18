@@ -151,9 +151,8 @@ module ActsAsFerret #:nodoc:
       self.class.aaf_index.query_for_record(id, self.class.name)
     end
 
-    def content_for_field_name(field, dynamic_boost = nil)
-      ar_field = aaf_configuration[:ferret_fields][field][:via]
-      field_data = self.send(ar_field) || self.instance_variable_get("@#{ar_field}")
+    def content_for_field_name(field, via = field, dynamic_boost = nil)
+      field_data = self.send(via) || self.instance_variable_get("@#{via}")
       if (dynamic_boost && boost_value = self.send(dynamic_boost))
         field_data = Ferret::Field.new(field_data)
         field_data.boost = boost_value.to_i

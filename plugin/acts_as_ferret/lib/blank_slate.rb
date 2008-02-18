@@ -1,5 +1,5 @@
 if defined?(BlankSlate)
-  # Rails 2.x has 
+  # Rails 2.x has it already
   module ActsAsFerret
     class BlankSlate < ::BlankSlate
     end

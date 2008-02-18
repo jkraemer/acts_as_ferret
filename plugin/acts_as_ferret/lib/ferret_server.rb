@@ -144,16 +144,16 @@ module ActsAsFerret
       end
 
       # hides LocalIndex#rebuild_index to implement index versioning
-      def rebuild_index(clazz, *models)
+      def rebuild_index(clazz)
+        definition = ActsAsFerret::index_definition_for_class(clazz)
+        models = definition[:registered_models]
         with_class clazz do |clazz|
-          models = models.flatten.uniq.map(&:constantize)
-          models << clazz unless models.include?(clazz)
           index = new_index_for(clazz, models)
           reconnect_when_needed(clazz) do
             @logger.debug "DRb server: rebuild index for class(es) #{models.inspect} in #{index.options[:path]}"
             index.index_models models
           end
-          new_version = File.join clazz.aaf_configuration[:index_base_dir], Time.now.utc.strftime('%Y%m%d%H%M%S')
+          new_version = File.join definition[:index_base_dir], Time.now.utc.strftime('%Y%m%d%H%M%S')
           # create a unique directory name (needed for unit tests where 
           # multiple rebuilds per second may occur)
           if File.exists?(new_version)
@@ -163,7 +163,7 @@ module ActsAsFerret
           end
           
           File.rename index.options[:path], new_version
-          clazz.index_dir = new_version 
+          ActsAsFerret::change_index_dir definition[:name], new_version 
         end
       end
 

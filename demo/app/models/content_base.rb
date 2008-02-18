@@ -10,7 +10,7 @@ class ContentBase < ActiveRecord::Base
   # the contents of the description field are stored in the index for running
   # 'more like this' queries to find other content instances with similar
   # descriptions
-  acts_as_ferret( :fields => { :comment_count => {},
+  acts_as_ferret( :fields => { :comment_count => { :index => :untokenized },
                                :title         => { :boost => :title_boost }, 
                                :description   => { :boost => 1, :store => :yes },
                                :special       => {} },
