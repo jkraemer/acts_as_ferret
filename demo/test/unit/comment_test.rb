@@ -12,6 +12,12 @@ class CommentTest < Test::Unit::TestCase
     assert_kind_of Comment, comments(:first)
   end
 
+  def test_if_option
+    c = Comment.new :content => 'do not index'
+    c.save
+    assert_equal 0, Comment.find_with_ferret('do not index').total_hits
+  end
+
   def test_analyzer
     c = Comment.create! :content => 'a fax modem'
     assert_equal 0, Comment.find_with_ferret('fax').size

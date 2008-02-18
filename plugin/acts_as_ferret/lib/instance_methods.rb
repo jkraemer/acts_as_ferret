@@ -47,7 +47,7 @@ module ActsAsFerret #:nodoc:
     # take place, so if you override this method to forbid indexing of certain 
     # records you're still safe).
     def ferret_enabled?(is_bulk_index = false)
-      @ferret_disabled.nil? && (is_bulk_index || self.class.ferret_enabled?)
+      @ferret_disabled.nil? && (is_bulk_index || self.class.ferret_enabled?) && (aaf_configuration[:if].nil? || aaf_configuration[:if].call(self))
     end
 
     # Returns the analyzer to use when adding this record to the index.

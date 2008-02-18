@@ -73,6 +73,21 @@ require 'rdig_adapter'
 # Kasper Weibel Nielsen-Refs (original author)
 # Jens Kraemer <jk@jkraemer.net> (active maintainer)
 #
+#
+# == Global properties
+#
+# raise_drb_errors:: Set this to true if you want aaf to raise Exceptions
+#                    in case the DRb server cannot be reached (in other word - behave like
+#                    versions up to 0.4.3). Defaults to false so DRb exceptions
+#                    are logged but not raised. Be sure to set up some
+#                    monitoring so you still detect when your DRb server died for
+#                    whatever reason.
+#
+# remote:: Set this to false to force acts_as_ferret into local (non-DRb) mode even if
+#          config/ferret_server.yml contains a section for the current RAILS_ENV
+#          Usually you won't need to touch this option - just configure DRb for
+#          production mode in ferret_server.yml.
+#
 module ActsAsFerret
 
   class ActsAsFerretError < StandardError; end

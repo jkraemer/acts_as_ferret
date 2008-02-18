@@ -26,7 +26,7 @@ class Comment < ActiveRecord::Base
   # autodiscovered by acts_as_ferret)
   # the :ignore flag tells aaf to not try to set this field's value itself (we
   # do this in our custom to_doc method)
-  acts_as_ferret( :store_class_name => true, 
+  acts_as_ferret( :if => Proc.new { |comment| comment.do_index? },
                   :fields => {
                     :content => { :store => :yes },
                     :author  => { },
@@ -35,8 +35,9 @@ class Comment < ActiveRecord::Base
                   }, :ferret => { :analyzer => Ferret::Analysis::StandardAnalyzer.new(['fax', 'gsm', 'the', 'or']) } )
                   #}, :ferret => { :analyzer => PlainAsciiAnalyzer.new(['fax', 'gsm', 'the', 'or']) } )
 
-  # only index the named fields:
-  #acts_as_ferret :fields => [:author, :content ]
+  def do_index?
+    self.content !~ /do not index/
+  end
 
   # you can override the default to_doc method 
   # to customize what gets into your index. 
