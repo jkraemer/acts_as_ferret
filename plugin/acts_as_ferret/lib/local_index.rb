@@ -104,10 +104,12 @@ module ActsAsFerret
 
     # highlight search terms for the record with the given id.
     def highlight(id, class_name, query, options = {})
+      logger.debug("highlight: #{class_name} / #{id} query: #{query}")
       options.reverse_merge! :num_excerpts => 2, :pre_tag => '<em>', :post_tag => '</em>'
       highlights = []
       ferret_index.synchronize do
         doc_num = document_number(id, class_name)
+
         if options[:field]
           highlights << ferret_index.highlight(query, doc_num, options)
         else
@@ -160,15 +162,12 @@ module ActsAsFerret
       data = {} 
       logger.debug "extracting stored fields #{stored_fields.inspect} from document #{doc[:class_name]} / #{doc[:id]}"
       stored_fields.each do |field|
-        logger.debug field
         if field_cfg = fields[field]
           data[field_cfg[:via]] = doc[field]
-          logger.debug field_cfg.inspect
-          logger.debug "#{field} =>>>>> #{doc[field]}"
         end
       end if stored_fields 
-      logger.debug "done."
-      data 
+      logger.debug "done: #{data.inspect}"
+      return data 
     end
 
     protected

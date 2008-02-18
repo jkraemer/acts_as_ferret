@@ -45,7 +45,7 @@ module ActsAsFerret
 
         protected
         def process_batch
-          RAILS_DEFAULT_LOGGER.info "RdigAdapter::Indexer#process_batch: #{@documents.size} docs in queue, offset #{@offset}"
+          ActsAsFerret::logger.info "RdigAdapter::Indexer#process_batch: #{@documents.size} docs in queue, offset #{@offset}"
           @block.call @documents, @offset
           @offset += @documents.size
           @documents = []
@@ -55,12 +55,17 @@ module ActsAsFerret
       module ClassMethods
         # overriding aaf to return the documents fetched via RDig
         def records_for_rebuild(batch_size = 1000, &block)
-          crawler = RDig::Crawler.new rdig_config, logger
           indexer = Indexer.new(batch_size, self, &block)
-          crawler.instance_variable_set '@indexer', indexer
-          crawler.crawl
+          configure_rdig do
+            crawler = RDig::Crawler.new RDig.configuration, logger
+            crawler.instance_variable_set '@indexer', indexer
+            crawler.crawl
+          end
+        rescue => e
+          ActsAsFerret::logger.error e
+          ActsAsFerret::logger.debug e.backtrace.join("\n")
         ensure
-          indexer.close
+          indexer.close if indexer
         end
 
         # overriding aaf to skip reindexing records changed during the rebuild
@@ -69,14 +74,20 @@ module ActsAsFerret
           []
         end
 
-        def rdig_config
-          cfg = RDig.configuration.dup
-          cfg.index = nil
-          aaf_configuration[:rdig][:crawler].each { |k,v| cfg.crawler.send :"#{k}=", v } if aaf_configuration[:rdig][:crawler]
-          if aaf_configuration[:rdig][:content_extraction]
-            cfg.content_extraction = OpenStruct.new( :hpricot => OpenStruct.new( aaf_configuration[:rdig][:content_extraction] ) )
+        # unfortunately need to modify global RDig.configuration because it's
+        # used everywhere in RDig
+        def configure_rdig
+          # back up original config
+          old_cfg = RDig.configuration.dup
+          rdig_configuration[:crawler].each { |k,v| RDig.configuration.crawler.send :"#{k}=", v } if rdig_configuration[:crawler]
+          if ce_config = rdig_configuration[:content_extraction]
+            RDig.configuration.content_extraction = OpenStruct.new( :hpricot => OpenStruct.new( ce_config ) )
           end
-          cfg
+          yield
+        ensure
+          # restore original config
+          RDig.configuration.crawler = old_cfg.crawler
+          RDig.configuration.content_extraction = old_cfg.content_extraction
         end
 
         # overriding aaf to enforce loading page title and content from the

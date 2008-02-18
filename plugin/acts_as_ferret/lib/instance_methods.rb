@@ -28,7 +28,7 @@ module ActsAsFerret #:nodoc:
     #                    probably want to change this to a Unicode elipsis
     #                    character.
     def highlight(query, options = {})
-      self.class.aaf_index.highlight(id, self.class.name, query, options)
+      self.class.aaf_index.highlight(self.send(self.class.primary_key), self.class.name, query, options)
     end
     
     # re-eneable ferret indexing for this instance after a call to #disable_ferret
@@ -127,7 +127,7 @@ module ActsAsFerret #:nodoc:
         doc[:class_name] = self.class.name
       
         # iterate through the fields and add them to the document
-        aaf_configuration[:ferret_fields].each_pair do |field, config|
+        aaf_configuration[:defined_fields].each_pair do |field, config|
           doc[field] = self.send("#{field}_to_ferret") unless config[:ignore]
         end
         if aaf_configuration[:boost]

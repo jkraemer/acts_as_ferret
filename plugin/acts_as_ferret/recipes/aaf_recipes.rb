@@ -13,24 +13,10 @@
 # Also an index directory in the shared folder will be created and symlinked
 # into current/ when you deploy.
 #
-# In order to use the ferret:index:rebuild task, declare the models you intend to
-# index in config/deploy.rb:
+# In order to use the ferret:index:rebuild task, declare the indexes you intend to
+# rebuild remotely in config/deploy.rb:
 #
-# for a shared index, do:
-# set :ferret_single_index_models, [ Model, AnotherModel, YetAnotherModel ]
-# This will call Model.rebuild_index( AnotherModel, YetAnotherModel )
-#
-# for models indexed separately, specify:
-# set :ferret_models, [ Model, AnotherModel ]
-# This will call Model.rebuild_index and AnotherModel.rebuild_index separately.
-#
-# The two methods may be combined if you have a shared index, and some models
-# indexed separately. 
-#
-# Like to submit a patch to aaf? Automatically determining the models that use 
-# acts_as_ferret so the declaration of these variables in deploy.rb isn't 
-# necessary anymore would be really cool ;-)
-#
+# set :ferret_indexes, %w( model another_model shared )
 #
 # HINT: To be very sure that your DRb server and application are always using
 # the same model and schema versions, and you never lose any index updates because
@@ -43,7 +29,17 @@
 # up before starting the application again. Plus they'll never use different
 # versions of model classes (which might happen otherwise)
 # Downside: Your downtime is a bit longer than with the usual deploy, so be sure to
-# put up some maintenance page for the meantime.
+# put up some maintenance page for the meantime. Obviously this won't work if
+# your migrations need acts_as_ferret (i.e. if you update model instances which
+# would lead to index updates). In this case bring up the DRb server before
+# running your migrations:
+#
+# cap deploy:stop deploy:update ferret:start deploy:migrate ferret:stop deploy:start
+#
+# Chances are that you're still not safe if your migrations not only modify the index, 
+# but also change the structure of your models. So just don't do both things in
+# one go - I can't think of an easy way to handle this case automatically.
+# Suggestions and patches are of course very welcome :-)
 
 namespace :ferret do
 
@@ -69,12 +65,9 @@ namespace :ferret do
     desc "Rebuild the Ferret index. See aaf_recipes.rb for instructions."
     task :rebuild, :roles => :app do
       rake = fetch(:rake, 'rake')
-      single_index_models = fetch(:ferret_single_index_models, nil)
-      if single_index_models
-        run "cd #{current_path}; RAILS_ENV=#{rails_env} MODEL='#{ferret_single_index_models.join(' ')}' #{rake} ferret:rebuild"
-      end
-      fetch(:ferret_models, []).each do |m|
-        run "cd #{current_path}; RAILS_ENV=#{rails_env} MODEL='#{m}' #{rake} ferret:rebuild"
+      indexes = fetch(:ferret_indexes, nil)
+      if indexes and indexes.any?
+        run "cd #{current_path}; RAILS_ENV=#{rails_env} INDEXES='#{indexes.join(' ')}' #{rake} ferret:rebuild"
       end
     end
 

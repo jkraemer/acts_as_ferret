@@ -65,6 +65,8 @@ module ActsAsFerret #:nodoc:
       include MoreLikeThis::InstanceMethods
 
       if options[:rdig]
+        cattr_accessor :rdig_configuration
+        self.rdig_configuration = options[:rdig]
         require 'rdig_adapter'
         include ActsAsFerret::RdigAdapter
       end
@@ -88,7 +90,7 @@ module ActsAsFerret #:nodoc:
       index_name = options.delete(:index) || self.name.underscore
 
       index = ActsAsFerret::register_class_with_index(self, index_name, options)
-      self.aaf_configuration = index.index_definition
+      self.aaf_configuration = index.index_definition.dup
       logger.debug "configured index for class #{self.name}:\n#{aaf_configuration.inspect}"
 
       # update our copy of the global index config with options local to this class
@@ -116,6 +118,8 @@ module ActsAsFerret #:nodoc:
     def define_to_field_method(field, options = {})
       method_name = "#{field}_to_ferret"
       return if instance_methods.include?(method_name) # already defined
+      aaf_configuration[:defined_fields] ||= {}
+      aaf_configuration[:defined_fields][field] = options
       dynamic_boost = options[:boost] if options[:boost].is_a?(Symbol)
       via = options[:via] || field
       define_method(method_name.to_sym) do

@@ -17,7 +17,7 @@ module ActsAsFerret
       result = []
       rank   = 0
       total_hits = find_ids(q, options) do |model, id, score, data|
-        #logger.debug "model: #{model}, id: #{id}, data: #{data}"
+        logger.debug "model: #{model}, id: #{id}, data: #{data}"
         result << FerretResult.new(model, id, score, rank += 1, data)
       end
       [ total_hits, result ]

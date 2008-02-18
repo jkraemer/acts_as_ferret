@@ -8,7 +8,7 @@ module ActsAsFerret
   module WithoutAR
     def self.included(target)
       target.extend ClassMethods
-      target.extend ActMethods
+      target.extend ActsAsFerret::ActMethods
       target.send :include, InstanceMethods
     end
 
@@ -32,7 +32,7 @@ module ActsAsFerret
         end
       end
       def find_for_id(id)
-        raise NotImplementedError.new("implement this method in your model class")
+        raise NotImplementedError.new("implement find_for_id in class #{self.name}")
       end
       def count
         0
