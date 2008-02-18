@@ -24,10 +24,8 @@ module ActsAsFerret
     # model classes associated with the same index.
     # This is called automatically when no index exists yet.
     #
-    # TODO: move into index class and add a method taking an index name to
-    # ActsAsFerret module.
     def rebuild_index
-      ActsAsFerret::rebuild_index(aaf_configuration[:name])
+      aaf_index.rebuild_index
     end
 
     # re-index a number records specified by the given ids. Use for large
@@ -117,7 +115,7 @@ module ActsAsFerret
     # as the key. So model classes sharing a single index will share their
     # Index object, too.
     def aaf_index
-      ActsAsFerret::get_index(aaf_configuration[:name])
+      @index ||= ActsAsFerret::get_index(aaf_configuration[:name])
     end 
     
     # Finds instances by searching the Ferret index. Terms are ANDed by default, use 
@@ -207,11 +205,10 @@ module ActsAsFerret
    
 
     # Returns the total number of hits for the given query 
-    # To count the results of a query across multiple models, specify an array of 
-    # class names with the :multi option.
     #
     # Note that since we don't query the database here, this method won't deliver 
     # the expected results when used on an AR association.
+    #
     def total_hits(q, options={})
       if options[:models]
         # backwards compatibility

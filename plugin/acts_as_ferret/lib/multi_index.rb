@@ -3,22 +3,47 @@ module ActsAsFerret #:nodoc:
       # this class is not threadsafe
       class MultiIndex
         
-        def initialize(model_classes, options = {})
-          @model_classes = model_classes
+        def initialize(indexes, options = {})
           # ensure all models indexes exist
-          @model_classes.each { |m| m.aaf_index.ensure_index_exists }
-          default_fields = @model_classes.inject([]) do |fields, c| 
-            fields + [ c.aaf_configuration[:ferret][:default_field] ].flatten
-          end
-          @options = { 
+          @indexes = indexes
+          indexes.each { |i| i.ensure_index_exists }
+          default_fields = indexes.inject([]) do |fields, idx| 
+            fields + [ idx.index_definition[:ferret][:default_field] ]
+          end.flatten.uniq
+          @options = {
             :default_field => default_fields
           }.update(options)
+          @logger = IndexLogger.new(ActsAsFerret::logger, "multi: #{indexes.map(&:index_name).join(',')}")
+        end
+        
+        # Queries multiple Ferret indexes to retrieve model class, id and score for 
+        # each hit. Use the models parameter to give the list of models to search.
+        # If a block is given, model, id and score are yielded and the number of 
+        # total hits is returned. Otherwise [total_hits, result_array] is returned.
+        def find_ids(query, options = {})
+          result = []
+          lazy_fields = determine_stored_fields options
+          total_hits = search_each(query, options) do |hit, score|
+            doc = index[hit]
+            # fetch stored fields if lazy loading
+            data = extract_lazy_fields(doc, lazy_fields)
+            raise "':store_class_name => true' required for multi_search to work" if doc[:class_name].blank?
+            if block_given?
+              yield doc[:class_name], doc[:id], score, doc, data
+            else
+              result << { :model => doc[:class_name], :id => doc[:id], :score => score, :data => data }
+            end
+          end
+          return block_given? ? total_hits : [ total_hits, result ]
+        end
+
+        def total_hits(q, options = {})
+          search(q, options).total_hits
         end
         
         def search(query, options={})
-          #puts "querystring: #{query.to_s}"
           query = process_query(query)
-          #puts "parsed query: #{query.to_s}"
+          @logger.debug "parsed query: #{query.to_s}"
           searcher.search(query, options)
         end
 
@@ -29,12 +54,13 @@ module ActsAsFerret #:nodoc:
 
         # checks if all our sub-searchers still are up to date
         def latest?
-          return false unless @reader
+          #return false unless @reader
           # segfaults with 0.10.4 --> TODO report as bug @reader.latest?
-          @sub_readers.each do |r| 
-            return false unless r.latest? 
-          end
-          true
+          @reader and @reader.latest?
+          #@sub_readers.each do |r| 
+          #  return false unless r.latest? 
+          #end
+          #true
         end
          
         def searcher
@@ -65,9 +91,11 @@ module ActsAsFerret #:nodoc:
 
           def ensure_searcher
             unless latest?
-              @sub_readers = @model_classes.map { |clazz| 
+              @sub_readers = @indexes.map { |idx| 
                 begin
-                  reader = Ferret::Index::IndexReader.new(ActsAsFerret::index_definition(clazz)[:index_dir])
+                  reader = Ferret::Index::IndexReader.new(idx.index_definition[:index_dir])
+                  @logger.debug "sub-reader opened: #{reader}"
+                  reader
                 rescue Exception
                   raise "error opening reader on index for class #{clazz.inspect}: #{$!}"
                 end

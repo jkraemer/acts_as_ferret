@@ -76,15 +76,6 @@ module ActsAsFerret
   class IndexNotDefined < ActsAsFerretError; end
   class IndexAlreadyDefined < ActsAsFerretError; end
 
-  # default field list for use with a shared index. Set it globally to
-  # avoid having to specify the same :default_field value in every class using
-  # the shared index.
-  @@shared_index_default_fields = nil
-  mattr_accessor :shared_index_default_fields
-
-  @@logger = nil
-  mattr_accessor :logger
-
   # global Hash containing all multi indexes created by all classes using the plugin
   # key is the concatenation of alphabetically sorted names of the classes the
   # searcher searches.
@@ -92,16 +83,19 @@ module ActsAsFerret
   def self.multi_indexes; @@multi_indexes end
 
   # global Hash containing the ferret indexes of all classes using the plugin
-  # key is the index directory.
+  # key is the index name.
   @@ferret_indexes = Hash.new
   def self.ferret_indexes; @@ferret_indexes end
 
-  # holds per-index configuration, key is the index name
-  @@index_definitions = {}
   # mapping from class name to index name
   @@index_using_classes = {}
-  def self.index_definitions; @@index_definitions end
 
+  @@logger = Logger.new "#{RAILS_ROOT}/log/acts_as_ferret.log"
+  @@logger.level = ActiveRecord::Base.logger.level rescue Logger::DEBUG
+  mattr_accessor :logger
+
+    
+  # Default ferret configuration for index fields
   DEFAULT_FIELD_OPTIONS = {
     :store       => :no, 
     :highlight   => :yes, 
@@ -110,26 +104,6 @@ module ActsAsFerret
     :boost       => 1.0
   }
 
-  def self.field_config_for(fieldname, options = {})
-    config = DEFAULT_FIELD_OPTIONS.merge options
-    config[:term_vector] = :no if config[:index] == :no
-    config.delete :via
-    config.delete :boost if config[:boost].is_a?(Symbol) # dynamic boosts aren't handled here
-    return config
-  end
-
-  def self.build_field_config(fields)
-    field_config = {}
-    case fields
-    when Array
-      fields.each { |name| field_config[name] = field_config_for name }
-    when Hash
-      fields.each { |name, options| field_config[name] = field_config_for name, options }
-    else raise InvalidArgumentError.new(":fields option must be Hash or Array")
-    end if fields
-    return field_config
-  end
-
   # Globally declares an index.
   #
   # Use the index in your model classes with
@@ -137,9 +111,10 @@ module ActsAsFerret
   #
   # This method is also used to implicitly declare an index when you use the
   # acts_as_ferret call without the :index option as usual.
+  # Returns the created index instance
   def self.define_index(name, options = {})
     name = name.to_sym
-    raise IndexAlreadyDefined.new(name) if index_definitions.has_key?(name)
+    raise IndexAlreadyDefined.new(name) if ferret_indexes.has_key?(name)
     index_definition = {
       :index_dir => "#{ActsAsFerret::index_dir}/#{name}",
       :store_class_name => false,
@@ -188,117 +163,76 @@ module ActsAsFerret
     index_definition[:ferret_fields] = build_field_config( options[:fields] )
     index_definition[:ferret_fields].update build_field_config( options[:additional_fields] )
 
-    index_definitions[name] = index_definition
-    return index_definition
+    ferret_indexes[name] = create_index_instance index_definition
   end
  
   # called internally by the acts_as_ferret method
   #
-  # TODO part of the given options which might influence the indexing of
-  # records of a special class (such as analyzer, field configuration(i.e.
-  # dynamic boosts) need to be copied to the returned per-class config so they
-  # are taken into account properly even when multiple classes use conflicting
-  # settings)
+  # returns the index
   def self.register_class_with_index(clazz, index_name, options = {})
     index_name = index_name.to_sym
     @@index_using_classes[clazz.name] = index_name
-    if definition = index_definitions[index_name]
-      definition[:shared_index] = true
-      # TODO: add class-declared options to the index definition? which?
-      # merge fields from this acts_as_ferret call with predefined fields
-      already_defined_fields = definition[:ferret_fields]
-      field_config = build_field_config options[:fields]
-      field_config.update build_field_config( options[:additional_fields] )
-      field_config.each do |field, config|
-        if already_defined_fields.has_key?(field)
-          logger.info "ignoring redefinition of ferret field #{field}"
-        else
-          already_defined_fields[field] = config
-          logger.info "adding new field #{field} from class #{clazz.name} to index #{index_name}"
-        end
-      end
-    else
+    unless index = ferret_indexes[index_name]
       # index definition on the fly
       # default to all attributes of this class
       options[:fields] ||= clazz.new.attributes.keys.map { |k| k.to_sym }
-      define_index index_name, options
+      index = define_index index_name, options
     end
-
-    # update default field list to be used by the query parser, unless it 
-    # was explicitly given by user.
-    #
-    # It will include all content fields *not* marked as :untokenized.
-    # This fixes the otherwise failing CommentTest#test_stopwords. Basically
-    # this means that by default only tokenized fields (which all fields are
-    # by default) will be searched. If you want to search inside the contents 
-    # of an untokenized field, you'll have to explicitly specify it in your 
-    # query.
-    definition = index_definitions[index_name]
-    unless definition[:user_default_field]
-      # grab all tokenized fields
-      definition[:ferret][:default_field] = definition[:ferret_fields].keys.select do |field|
-        definition[:ferret_fields][field][:index] != :untokenized
+    index.register_class(clazz, options)
+    if index.shared?
+      # make sure all models using this index get proper class methods
+      index.index_definition[:registered_models].each do |clazz|
+        clazz.extend SharedIndexClassMethods unless clazz.extended_by.include?(ActsAsFerret::SharedIndexClassMethods)
       end
-      logger.info "default field list for index #{index_name}: #{definition[:ferret][:default_field].inspect}"
     end
-
-    # TODO: duped definition more or less worthless...
-    definition[:registered_models] << clazz
-    return definition.dup
+    return index
   end
 
   # returns the index with the given name.
   def self.get_index(name)
-    definition = index_definitions[name]
-    path = definition[:index_dir]
-    ferret_indexes[path] ||= create_index_instance(definition)
+    raise IndexNotDefined.new(name) unless ferret_indexes.has_key?(name)
+    ferret_indexes[name]
   end
+
+  # count hits for a query across multiple models
+  def self.total_hits(query, models, options = {})
+    models = [models] unless Array === models
+    get_index_for(*models).total_hits query, options.merge( :models => models )
+  end
+
+  # returns the index used by the given class.
+  #
+  # If multiple classes are given, either the single index shared by these
+  # classes, or a multi index (to be used for search only) across the indexes
+  # of all models, is returned.
+  def self.get_index_for(*classes)
+    raise ArgumentError.new("no class specified") unless classes.any?
+    classes.map!(&:constantize) unless Class === classes.first
+    logger.debug "index_for #{classes.inspect}"
+    index = if classes.size > 1
+      indexes = classes.map { |c| get_index_for c }.uniq
+      indexes.size > 1 ? multi_index(indexes) : indexes.first
+    else
+      clazz = classes.first
+      clazz = clazz.superclass while clazz && !@@index_using_classes.has_key?(clazz.name)
+      get_index @@index_using_classes[clazz.name]
+    end
+    raise IndexNotDefined.new("no index found for class: #{classes.map(&:name).join(',')}") if index.nil?
+    return index
+  end
+
 
   # creates a new Index instance.
   def self.create_index_instance(definition)
-    if definition[:remote]
-      RemoteIndex
-    elsif definition[:shared_index]
-      SharedIndex
-    else
-      LocalIndex
-    end.new(definition)
+    (definition[:remote] ? RemoteIndex : LocalIndex).new(definition)
   end
 
   def self.rebuild_index(name)
-    idx = get_index(name)
-    idx.rebuild_index
+    get_index(name).rebuild_index
   end
 
-  # Switches the named index to a new index directory.
-  # Used by the DRb server when switching to a new index version.
   def self.change_index_dir(name, new_dir)
-    logger.debug "[#{name}] changing index dir to #{new_dir}"
-    definition = @@index_definitions[name]
-    idx = get_index(name)
-
-    # store index with the new dir as key. This prevents the aaf_index method
-    # from opening another index instance later on.
-    ferret_indexes[new_dir] = idx
-
-    old_dir = definition[:index_dir]
-    definition[:index_dir] = definition[:ferret][:path] = new_dir
-
-    # clean old reference to index
-    ActsAsFerret::ferret_indexes.delete old_dir
-    idx.reopen!
-    logger.debug "[#{name}] index dir is now #{new_dir}"
-  end
-
-  # returns the index definition for the index used by the given class or
-  # index_name
-  def self.index_definition(clazz_or_index_name)
-    logger.debug "index_definition for #{clazz_or_index_name}"
-    # TODO: inheritance hochhangeln (Content, ContentBase)
-    index_name = clazz_or_index_name.is_a?(Class) ? 
-      @@index_using_classes[clazz_or_index_name.name] : clazz_or_index_name
-    logger.debug "index_definition for #{index_name}"
-    index_definitions[index_name]
+    get_index(name).change_index_dir new_dir
   end
 
   # find the most recent version of an index
@@ -317,10 +251,27 @@ module ActsAsFerret
     end
   end
 
+  # returns a MultiIndex instance operating on a MultiReader
+  def self.multi_index(indexes)
+    key = indexes.map{ |i| i.index_name.to_s }.sort.join(",")
+    ActsAsFerret::multi_indexes[key] ||= MultiIndex.new(indexes)
+  end
+
+  def self.build_field_config(fields)
+    field_config = {}
+    case fields
+    when Array
+      fields.each { |name| field_config[name] = field_config_for name }
+    when Hash
+      fields.each { |name, options| field_config[name] = field_config_for name, options }
+    else raise InvalidArgumentError.new(":fields option must be Hash or Array")
+    end if fields
+    return field_config
+  end
+
   def self.ensure_directory(dir)
     FileUtils.mkdir_p dir unless (File.directory?(dir) || File.symlink?(dir))
   end
-
 
   
   # make sure the default index base dir exists. by default, all indexes are created
@@ -338,9 +289,8 @@ module ActsAsFerret
     base.extend(ClassMethods)
   end
   
-  # builds a FieldInfos instance for creation of an index containing fields
-  # for the given model classes.
-  def self.field_infos(models)
+  # builds a FieldInfos instance for creation of an index
+  def self.field_infos(index_definition)
     # default attributes for fields
     fi = Ferret::Index::FieldInfos.new(:store => :no, 
                                         :index => :yes, 
@@ -348,22 +298,12 @@ module ActsAsFerret
                                         :boost => 1.0)
     # primary key
     fi.add_field(:id, :store => :yes, :index => :untokenized) 
-    fields = {}
-    have_class_name = false
-    models.each do |model|
-      fields.update(model.aaf_configuration[:ferret_fields])
-      # class_name
-      if !have_class_name && model.aaf_configuration[:store_class_name]
-        fi.add_field(:class_name, :store => :yes, :index => :untokenized) 
-        have_class_name = true
-      end
-    end
-    fields.each_pair do |field, options|
-      options = options.dup
-      options.delete(:boost) if options[:boost].is_a?(Symbol)
-      options.delete(:via)
-      fi.add_field(field, { :store => :no, 
-                            :index => :yes }.update(options)) 
+    # class_name
+    fi.add_field(:class_name, :store => :yes, :index => :untokenized) if index_definition[:store_class_name]
+
+    # other fields
+    index_definition[:ferret_fields].each_pair do |field, options|
+      fi.add_field(field, options)
     end
     return fi
   end
@@ -379,6 +319,16 @@ module ActsAsFerret
       index.close #if key =~ /#{self.name}/
     end
     multi_indexes.clear
+  end
+
+  protected
+
+  def self.field_config_for(fieldname, options = {})
+    config = DEFAULT_FIELD_OPTIONS.merge options
+    config[:term_vector] = :no if config[:index] == :no
+    config.delete :via
+    config.delete :boost if config[:boost].is_a?(Symbol) # dynamic boosts aren't handled here
+    return config
   end
 
 end

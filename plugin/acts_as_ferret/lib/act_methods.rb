@@ -100,7 +100,6 @@ module ActsAsFerret #:nodoc:
       end
 
       extend ClassMethods
-      extend SharedIndexClassMethods if options[:single_index]
 
       include InstanceMethods
       include MoreLikeThis::InstanceMethods
@@ -119,12 +118,6 @@ module ActsAsFerret #:nodoc:
 
       cattr_accessor :aaf_configuration
 
-      # shared index defaults
-      if options.delete(:single_index)
-        options[:store_class_name] = true 
-        options[:index] = 'shared'
-      end
-
       # apply default config for rdig based models
       if options[:rdig]
         options[:fields] ||= { :title   => { :boost => 3, :store => :yes },
@@ -134,7 +127,8 @@ module ActsAsFerret #:nodoc:
       # name of this index
       index_name = options.delete(:index) || self.name.underscore
 
-      self.aaf_configuration = ActsAsFerret::register_class_with_index(self, index_name, options)
+      index = ActsAsFerret::register_class_with_index(self, index_name, options)
+      self.aaf_configuration = index.index_definition
       logger.debug "configured index for class #{self.name}:\n#{aaf_configuration.inspect}"
 
       # update our copy of the global index config with options local to this class

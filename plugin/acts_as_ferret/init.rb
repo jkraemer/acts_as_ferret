@@ -20,4 +20,3 @@
 
 require 'acts_as_ferret'
 
-ActsAsFerret::logger = RAILS_DEFAULT_LOGGER

@@ -48,7 +48,7 @@ module ActsAsFerret
     rescue DRb::DRbConnError => e
       logger.error "DRb connection error: #{e}"
       logger.warn e.backtrace.join("\n")
-      raise e if aaf_configuration[:raise_drb_errors]
+      raise e if index_definition[:raise_drb_errors]
       return_value_in_case_of_error
     end
 
@@ -60,7 +60,7 @@ module ActsAsFerret
     end
 
     def model_class_name
-      aaf_configuration[:class_name]
+      index_definition[:class_name]
     end
 
   end

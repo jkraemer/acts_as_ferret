@@ -354,8 +354,10 @@ class ContentTest < Test::Unit::TestCase
   end
   
   def test_total_hits_multi
-    result = Content.total_hits('*:title OR *:comment', :multi => Comment)
-    assert_equal 5, result
+    q = '*:title OR *:comment'
+    assert_equal 3, Comment.total_hits(q)
+    assert_equal 2, Content.total_hits(q)
+    assert_equal 5, ActsAsFerret::total_hits(q, [ Comment, Content ])
   end
 
   def test_multi_search_sorting
@@ -473,7 +475,7 @@ class ContentTest < Test::Unit::TestCase
     def test_multi_index_rebuilds_index
       remove_index Content
       i =  ActsAsFerret::MultiIndex.new([Content])
-      assert File.exists?("#{Content.aaf_configuration[:index_dir]}/segments")
+      assert File.exists?("#{ActsAsFerret::index_definition(Content)[:index_dir]}/segments")
       hits = i.search("description:title")
       assert_equal 1, hits.total_hits, hits.inspect
     end

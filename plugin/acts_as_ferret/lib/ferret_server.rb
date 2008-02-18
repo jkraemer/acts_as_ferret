@@ -104,20 +104,25 @@ module ActsAsFerret
       def method_missing(name, *args)
         @logger.debug "\#method_missing(#{name.inspect}, #{args.inspect})"
         retried = false
-        with_class args.shift do |clazz|
-          reconnect_when_needed(clazz) do
-            # using respond_to? here so we not have to catch NoMethodError
-            # which would silently catch those from deep inside the indexing
-            # code, too...
-            if clazz.aaf_index.respond_to?(name)
-              clazz.aaf_index.send name, *args
-            elsif clazz.respond_to?(name)
-              @logger.debug "no luck, trying to call class method instead"
-              clazz.send name, *args
-            else
-              raise NoMethodError.new("method #{name} not supported by DRb server")
-            end
-          end
+        index_name = args.shift
+        index = ActsAsFerret::get_index(index_name)
+
+        # TODO find another way to implement the reconnection logic (maybe in
+        # local_index or class_methods)
+        #  reconnect_when_needed(clazz) do
+        
+        # using respond_to? here so we not have to catch NoMethodError
+        # which would silently catch those from deep inside the indexing
+        # code, too...
+
+        if index.respond_to?(name)
+          index.send name, *args
+        # TODO check where we need this:
+        #elsif clazz.respond_to?(name)
+        #      @logger.debug "no luck, trying to call class method instead"
+        #      clazz.send name, *args
+        else
+          raise NoMethodError.new("method #{name} not supported by DRb server")
         end
       rescue => e
         @logger.error "ferret server error #{$!}\n#{$!.backtrace.join "\n"}"
@@ -125,13 +130,12 @@ module ActsAsFerret
       end
 
       # make sure we have a versioned index in place, building one if necessary
-      def ensure_index_exists(class_name)
-        @logger.debug "DRb server: ensure_index_exists for class #{class_name}"
-        with_class class_name do |clazz|
-          dir = clazz.aaf_configuration[:index_dir]
-          unless File.directory?(dir) && File.file?(File.join(dir, 'segments')) && dir =~ %r{/\d+(_\d+)?$}
-            rebuild_index(clazz)
-          end
+      def ensure_index_exists(index_name)
+        @logger.debug "DRb server: ensure_index_exists for index #{index_name}"
+        definition = ActsAsFerret::index_definition(index_name)
+        dir = definition[:index_dir]
+        unless File.directory?(dir) && File.file?(File.join(dir, 'segments')) && dir =~ %r{/\d+(_\d+)?$}
+          rebuild_index(index_name)
         end
       end
 
@@ -144,36 +148,30 @@ module ActsAsFerret
       end
 
       # hides LocalIndex#rebuild_index to implement index versioning
-      def rebuild_index(clazz)
-        definition = ActsAsFerret::index_definition_for_class(clazz)
+      def rebuild_index(index_name)
+        definition = ActsAsFerret::get_index(index_name).index_definition.dup
         models = definition[:registered_models]
-        with_class clazz do |clazz|
-          index = new_index_for(clazz, models)
-          reconnect_when_needed(clazz) do
-            @logger.debug "DRb server: rebuild index for class(es) #{models.inspect} in #{index.options[:path]}"
-            index.index_models models
-          end
-          new_version = File.join definition[:index_base_dir], Time.now.utc.strftime('%Y%m%d%H%M%S')
-          # create a unique directory name (needed for unit tests where 
-          # multiple rebuilds per second may occur)
-          if File.exists?(new_version)
-            i = 0
-            i+=1 while File.exists?("#{new_version}_#{i}")
-            new_version << "_#{i}"
-          end
-          
-          File.rename index.options[:path], new_version
-          ActsAsFerret::change_index_dir definition[:name], new_version 
+        index = new_index_for(definition)
+        # TODO fix reconnection stuff
+        #  reconnect_when_needed(clazz) do
+        #    @logger.debug "DRb server: rebuild index for class(es) #{models.inspect} in #{index.options[:path]}"
+        index.index_models models
+        #  end
+        new_version = File.join definition[:index_base_dir], Time.now.utc.strftime('%Y%m%d%H%M%S')
+        # create a unique directory name (needed for unit tests where 
+        # multiple rebuilds per second may occur)
+        if File.exists?(new_version)
+          i = 0
+          i+=1 while File.exists?("#{new_version}_#{i}")
+          new_version << "_#{i}"
         end
+          
+        File.rename index.options[:path], new_version
+        ActsAsFerret::change_index_dir index_name, new_version 
       end
 
 
       protected
-
-        def with_class(clazz, *args)
-          clazz = clazz.constantize if String === clazz
-          yield clazz, *args
-        end
 
         def reconnect_when_needed(clazz)
           retried = false
@@ -196,15 +194,14 @@ module ActsAsFerret
           end
         end
 
-        def new_index_for(clazz, models)
-          aaf_configuration = clazz.aaf_configuration
-          ferret_cfg = aaf_configuration[:ferret].dup
+        def new_index_for(index_definition)
+          ferret_cfg = index_definition[:ferret].dup
           ferret_cfg.update :auto_flush  => false, 
                             :create      => true,
-                            :field_infos => ActsAsFerret::field_infos(models),
-                            :path        => File.join(aaf_configuration[:index_base_dir], 'rebuild')
+                            :field_infos => ActsAsFerret::field_infos(index_definition),
+                            :path        => File.join(index_definition[:index_base_dir], 'rebuild')
           returning Ferret::Index::Index.new(ferret_cfg) do |i|
-            i.batch_size = aaf_configuration[:reindex_batch_size]
+            i.batch_size = index_definition[:reindex_batch_size]
             i.logger = @logger
           end
         end

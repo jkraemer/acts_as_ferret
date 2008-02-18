@@ -53,3 +53,14 @@ end
 # end
 
 # Include your application configuration below
+
+# define the index shared by the SharedIndex1 and SharedIndex2 classes
+ActsAsFerret::define_index 'shared', :remote           => ENV['AAF_REMOTE'] == 'true',
+                                     :raise_drb_errors => ENV['RAISE_DRB_ERRORS'] == 'true',
+                                     :fields           => {
+                                       :name => { :store => :yes }
+                                     }, 
+                                     :ferret           => {
+                                       :default_field => [ :name ]
+                                     }
+

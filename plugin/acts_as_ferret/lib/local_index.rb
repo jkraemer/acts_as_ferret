@@ -2,25 +2,22 @@ module ActsAsFerret
   class LocalIndex < AbstractIndex
     include MoreLikeThis::IndexMethods
 
-    def initialize(aaf_configuration)
+    def initialize(index_name)
       super
       ensure_index_exists
     end
 
     def reopen!
-      if @ferret_index
-        @ferret_index.close
-        @ferret_index = nil
-      end
-      logger.debug "reopening index at #{aaf_configuration[:ferret][:path]}"
+      logger.debug "reopening index at #{index_definition[:ferret][:path]}"
+      close
       ferret_index
     end
 
     # The 'real' Ferret Index instance
     def ferret_index
       ensure_index_exists
-      returning @ferret_index ||= Ferret::Index::Index.new(aaf_configuration[:ferret]) do
-        @ferret_index.batch_size = aaf_configuration[:reindex_batch_size]
+      returning @ferret_index ||= Ferret::Index::Index.new(index_definition[:ferret]) do
+        @ferret_index.batch_size = index_definition[:reindex_batch_size]
         @ferret_index.logger = logger
       end
     end
@@ -28,10 +25,9 @@ module ActsAsFerret
     # Checks for the presence of a segments file in the index directory
     # Rebuilds the index if none exists.
     def ensure_index_exists
-      logger.debug "LocalIndex: ensure_index_exists at #{aaf_configuration[:index_dir]}"
-      unless File.file? "#{aaf_configuration[:index_dir]}/segments"
-        ActsAsFerret::ensure_directory(aaf_configuration[:index_dir])
-        close
+      #logger.debug "LocalIndex: ensure_index_exists at #{index_definition[:index_dir]}"
+      unless File.file? "#{index_definition[:index_dir]}/segments"
+        ActsAsFerret::ensure_directory(index_definition[:index_dir])
         rebuild_index 
       end
     end
@@ -47,19 +43,16 @@ module ActsAsFerret
 
     # rebuilds the index from all records of the model classes associated with this index
     def rebuild_index
-      definition = ActsAsFerret::index_definition(@index_name)
-      models = definition[:registered_models]
-      logger.debug "rebuild index: #{models.inspect}"
-      self.close
-      index = Ferret::Index::Index.new(definition[:ferret].dup.update(:auto_flush  => false, 
-                                                                      # TODO fieldinfos sollten jetzt
-                                                                      # auch aus neuer config kommen!
-                                                                      :field_infos => ActsAsFerret::field_infos(models),
-                                                                      :create      => true))
-      index.batch_size = definition[:reindex_batch_size]
+      models = index_definition[:registered_models]
+      logger.debug "rebuild index with models: #{models.inspect}"
+      close
+      index = Ferret::Index::Index.new(index_definition[:ferret].dup.update(:auto_flush  => false, 
+                                                                            :field_infos => ActsAsFerret::field_infos(index_definition),
+                                                                            :create      => true))
+      index.batch_size = index_definition[:reindex_batch_size]
       index.logger = logger
       index.index_models models
-      ActsAsFerret::change_index_dir @index_name, definition[:ferret][:path]
+      reopen!
     end
 
     def bulk_index(class_name, ids, options)
@@ -77,28 +70,8 @@ module ActsAsFerret
     end
 
     # Total number of hits for the given query. 
-    # To count the results of a multi_search query, specify an array of 
-    # class names with the :multi option.
     def total_hits(query, options = {})
-      index = (models = options.delete(:multi)) ? multi_index(models) : ferret_index
-      index.search(query, options).total_hits
-    end
-
-    def determine_lazy_fields(options = {})
-      stored_fields = options[:lazy]
-      if stored_fields && !(Array === stored_fields)
-        stored_fields = aaf_configuration[:ferret_fields].select { |field, config| config[:store] == :yes }.map(&:first)
-      end
-      logger.debug "stored_fields: #{stored_fields}"
-      return stored_fields
-    end
-
-    # loads data for fields declared as :lazy from the Ferret document
-    def extract_lazy_fields(doc, lazy_fields) 
-      fields = aaf_configuration[:ferret_fields] 
-      data = {} 
-      lazy_fields.each { |field| data[fields[field][:via]] = doc[field] } if lazy_fields 
-      data 
+      ferret_index.search(query, options).total_hits
     end
 
     # Queries the Ferret index to retrieve model class, id, score and the
@@ -109,12 +82,12 @@ module ActsAsFerret
       result = []
       index = ferret_index
       logger.debug "query: #{ferret_index.process_query query}" if logger.debug?
-      lazy_fields = determine_lazy_fields options
+      lazy_fields = determine_stored_fields options
       logger.debug "lazy_fields: #{lazy_fields}"
 
       total_hits = index.search_each(query, options) do |hit, score|
         doc = index[hit]
-        model = aaf_configuration[:store_class_name] ? doc[:class_name] : aaf_configuration[:class_name]
+        model = index_definition[:store_class_name] ? doc[:class_name] : index_definition[:class_name]
         # fetch stored fields if lazy loading
         data = extract_lazy_fields(doc, lazy_fields)
         if block_given?
@@ -127,27 +100,6 @@ module ActsAsFerret
       return block_given? ? total_hits : [total_hits, result]
     end
 
-    # Queries multiple Ferret indexes to retrieve model class, id and score for 
-    # each hit. Use the models parameter to give the list of models to search.
-    # If a block is given, model, id and score are yielded and the number of 
-    # total hits is returned. Otherwise [total_hits, result_array] is returned.
-    def id_multi_search(query, models, options = {})
-      index = multi_index(models)
-      result = []
-      lazy_fields = determine_lazy_fields options
-      total_hits = index.search_each(query, options) do |hit, score|
-        doc = index[hit]
-        # fetch stored fields if lazy loading
-        data = extract_lazy_fields(doc, lazy_fields)
-        raise "':store_class_name => true' required for multi_search to work" if doc[:class_name].blank?
-        if block_given?
-          yield doc[:class_name], doc[:id], score, doc, data
-        else
-          result << { :model => doc[:class_name], :id => doc[:id], :score => score, :data => data }
-        end
-      end
-      return block_given? ? total_hits : [ total_hits, result ]
-    end
 
     ######################################
     # methods working on a single record
@@ -182,7 +134,7 @@ module ActsAsFerret
           highlights << ferret_index.highlight(query, doc_num, options)
         else
           query = process_query(query) # process only once
-          aaf_configuration[:ferret_fields].each_pair do |field, config|
+          index_definition[:ferret_fields].each_pair do |field, config|
             next if config[:store] == :no || config[:highlight] == :no
             options[:field] = field
             highlights << ferret_index.highlight(query, doc_num, options)
@@ -202,21 +154,46 @@ module ActsAsFerret
     # build a ferret query matching only the record with the given id
     # the class name only needs to be given in case of a shared index configuration
     def query_for_record(id, class_name = nil)
-      Ferret::Search::TermQuery.new(:id, id.to_s)
+      if shared?
+        raise InvalidArgumentError.new("shared index needs class_name argument") if class_name.nil?
+        returning bq = Ferret::Search::BooleanQuery.new do
+          bq.add_query(Ferret::Search::TermQuery.new(:id,         id.to_s),    :must)
+          bq.add_query(Ferret::Search::TermQuery.new(:class_name, class_name), :must)
+        end
+      else
+        Ferret::Search::TermQuery.new(:id, id.to_s)
+      end
     end
 
 
     protected
 
-    # returns a MultiIndex instance operating on a MultiReader
-    def multi_index(model_classes)
-      model_classes.map!(&:constantize) if String === model_classes.first
-      model_classes.sort! { |a, b| a.name <=> b.name }
-      key = model_classes.inject("") { |s, clazz| s + clazz.name }
-      multi_config = aaf_configuration[:ferret].dup
-      multi_config.delete :default_field  # we don't want the default field list of *this* class for multi_searching
-      ActsAsFerret::multi_indexes[key] ||= MultiIndex.new(model_classes, multi_config)
+    def determine_stored_fields(options = {})
+      stored_fields = options[:lazy]
+      if stored_fields && !(Array === stored_fields)
+        stored_fields = index_definition[:ferret_fields].select { |field, config| config[:store] == :yes }.map(&:first)
+      end
+      logger.debug "stored_fields: #{stored_fields}"
+      return stored_fields
     end
+
+    # loads data for fields declared as :lazy from the Ferret document
+    def extract_lazy_fields(doc, lazy_fields) 
+      fields = index_definition[:ferret_fields] 
+      data = {} 
+      lazy_fields.each { |field| data[fields[field][:via]] = doc[field] } if lazy_fields 
+      data 
+    end
+
+    # returns a MultiIndex instance operating on a MultiReader
+    #def multi_index(model_classes)
+    #  model_classes.map!(&:constantize) if String === model_classes.first
+    #  model_classes.sort! { |a, b| a.name <=> b.name }
+    #  key = model_classes.inject("") { |s, clazz| s + clazz.name }
+    #  multi_config = index_definition[:ferret].dup
+    #  multi_config.delete :default_field  # we don't want the default field list of *this* class for multi_searching
+    #  ActsAsFerret::multi_indexes[key] ||= MultiIndex.new(model_classes, multi_config)
+    #end
  
   end
 
