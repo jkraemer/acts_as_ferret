@@ -2,6 +2,7 @@
 *.log
 demo/log/*
 demo/tmp/*
+plugin/acts_as_ferret/index/*
 demo/index/*
 demo/db/schema.rb
 demo/vendor/plugins/acts_as_ferret
