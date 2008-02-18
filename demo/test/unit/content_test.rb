@@ -512,11 +512,6 @@ class ContentTest < Test::Unit::TestCase
     assert_equal 1, contents_from_ferret.size
     assert_equal @another_content.id, contents_from_ferret.first.id 
 
-    # deprecated options, still supported
-    contents_from_ferret = Content.find_with_ferret('title', :num_docs => 1, :first_doc => 1)
-    assert_equal 1, contents_from_ferret.size
-    assert_equal @another_content.id, contents_from_ferret.first.id 
-     
   end
 
   def test_pagination

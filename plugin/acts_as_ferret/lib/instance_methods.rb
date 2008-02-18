@@ -122,11 +122,9 @@ module ActsAsFerret #:nodoc:
     def to_doc
       logger.debug "creating doc for class: #{self.class.name}, id: #{self.id}"
       returning Ferret::Document.new do |doc|
-        # store the id of each item
+        # store the id and class name of each item
         doc[:id] = self.id
-
-        # store the class name if configured to do so
-        doc[:class_name] = self.class.name if aaf_configuration[:store_class_name]
+        doc[:class_name] = self.class.name
       
         # iterate through the fields and add them to the document
         aaf_configuration[:ferret_fields].each_pair do |field, config|

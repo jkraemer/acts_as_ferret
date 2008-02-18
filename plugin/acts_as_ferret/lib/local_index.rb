@@ -1,6 +1,6 @@
 module ActsAsFerret
   class LocalIndex < AbstractIndex
-    include MoreLikeThis::IndexMethods
+    include FerretFindMethods, MoreLikeThis::IndexMethods
 
     def initialize(index_name)
       super
@@ -74,29 +74,8 @@ module ActsAsFerret
       ferret_index.search(query, options).total_hits
     end
 
-    # Queries the Ferret index to retrieve model class, id, score and the
-    # values of any fields stored in the index for each hit.
-    # If a block is given, these are yielded and the number of total hits is
-    # returned. Otherwise [total_hits, result_array] is returned.
-    def find_ids(query, options = {})
-      result = []
-      index = ferret_index
-      logger.debug "query: #{ferret_index.process_query query}" if logger.debug?
-      stored_fields = determine_stored_fields options
-
-      total_hits = index.search_each(query, options) do |hit, score|
-        doc = index[hit]
-        model = index_definition[:store_class_name] ? doc[:class_name] : index_definition[:class_name]
-        # fetch stored fields if lazy loading
-        data = extract_stored_fields(doc, stored_fields)
-        if block_given?
-          yield model, doc[:id], score, data
-        else
-          result << { :model => model, :id => doc[:id], :score => score, :data => data }
-        end
-      end
-      #logger.debug "id_score_model array: #{result.inspect}"
-      return block_given? ? total_hits : [total_hits, result]
+    def searcher
+      ferret_index
     end
 
 

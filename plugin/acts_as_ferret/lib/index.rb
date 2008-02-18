@@ -36,7 +36,6 @@ module ActsAsFerret
     def register_class(clazz, options = {})
       logger.info "register class #{clazz} with index #{index_name}"
       index_definition[:registered_models] << clazz
-      index_definition[:store_class_name] = true if shared?
 
       # merge fields from this acts_as_ferret call with predefined fields
       already_defined_fields = index_definition[:ferret_fields]

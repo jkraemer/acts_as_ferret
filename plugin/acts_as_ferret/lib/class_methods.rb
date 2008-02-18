@@ -176,7 +176,7 @@ module ActsAsFerret
         options[:limit] = :all
       end
 
-      total_hits, result = find_records_lazy_or_not q, options, find_options
+      total_hits, result = aaf_index.find_records q, options.merge(:models => [self]), find_options
       logger.debug "Query: #{q}\ntotal hits: #{total_hits}, results delivered: #{result.size}"
       SearchResults.new(result, total_hits, options[:page], options[:per_page])
     end 
@@ -298,17 +298,13 @@ module ActsAsFerret
       count = 0
       id_arrays.each do |model, id_array|
         next if id_array.empty?
-        begin
-          model = model.constantize
-          # merge conditions
-          conditions = ActsAsFerret::combine_conditions([ "#{model.table_name}.#{model.primary_key} in (?)", id_array.keys ], 
-                                          find_options[:conditions])
-          opts = find_options.merge :conditions => conditions
-          opts.delete :limit; opts.delete :offset
-          count += model.count opts
-        rescue TypeError
-          raise "#{model} must use :store_class_name option if you want to use multi_search against it.\n#{$!}\n#{$!.backtrace.join("\n")}"
-        end
+        model = model.constantize
+        # merge conditions
+        conditions = ActsAsFerret::combine_conditions([ "#{model.table_name}.#{model.primary_key} in (?)", id_array.keys ], 
+                                        find_options[:conditions])
+        opts = find_options.merge :conditions => conditions
+        opts.delete :limit; opts.delete :offset
+        count += model.count opts
       end
       count
     end

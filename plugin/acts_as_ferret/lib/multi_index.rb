@@ -2,6 +2,7 @@ module ActsAsFerret #:nodoc:
   
       # This class can be used to search multiple physical indexes at once.
       class MultiIndex
+        include FerretFindMethods
         attr_accessor :logger
         
         def initialize(indexes, options = {})
@@ -17,55 +18,18 @@ module ActsAsFerret #:nodoc:
           @logger = IndexLogger.new(ActsAsFerret::logger, "multi: #{indexes.map(&:index_name).join(',')}")
         end
 
-        def find_records(query, options, ar_options)
-          result = []
-
-          rank = 0
-          if options[:lazy]
-            logger.warn "ar_options #{ar_options} are ignored because :lazy => true" unless ar_options.empty?
-            total_hits = find_ids(query, options) do |model, id, score, data|
-              result << FerretResult.new(model, id, score, rank += 1, data)
-            end
-          else
-            id_arrays = {}
-
-            limit = options.delete(:limit)
-            offset = options.delete(:offset) || 0
-            options[:limit] = :all
-            total_hits = find_ids(query, options) do |model, id, score, data|
-              id_arrays[model] ||= {}
-              id_arrays[model][id] = [ rank += 1, score ]
-            end
-            result = ActsAsFerret::retrieve_records(id_arrays, ar_options)
-            total_hits = result.size if ar_options[:conditions]
-            if limit && limit != :all
-              result = result[offset..limit+offset-1]
-            end
+        def ar_find(query, options = {}, ar_options = {})
+          limit = options.delete(:limit)
+          offset = options.delete(:offset) || 0
+          options[:limit] = :all
+          total_hits, result = super query, options, ar_options  
+          total_hits = result.size if ar_options[:conditions]
+          if limit && limit != :all
+            result = result[offset..limit+offset-1]
           end
           [total_hits, result]
         end
         
-        # Queries multiple Ferret indexes to retrieve model class, id and score for 
-        # each hit. Use the models parameter to give the list of models to search.
-        # If a block is given, model, id and score are yielded and the number of 
-        # total hits is returned. Otherwise [total_hits, result_array] is returned.
-        def find_ids(query, options = {})
-          result = []
-          stored_fields = determine_stored_fields options
-          total_hits = search_each(query, options) do |hit, score|
-            doc = searcher[hit]
-            raise "':store_class_name => true' is required to make searching across multiple models work!" if doc[:class_name].blank?
-            # fetch stored fields if lazy loading
-            data = extract_stored_fields(doc, stored_fields)
-            if block_given?
-              yield doc[:class_name], doc[:id], score, doc, data
-            else
-              result << { :model => doc[:class_name], :id => doc[:id], :score => score, :data => data }
-            end
-          end
-          return block_given? ? total_hits : [ total_hits, result ]
-        end
-
         def determine_stored_fields(options)
           return nil unless options.has_key?(:lazy)
           stored_fields = []
@@ -103,6 +67,10 @@ module ActsAsFerret #:nodoc:
           #  return false unless r.latest? 
           #end
           #true
+        end
+
+        def shared?
+          false
         end
          
         def searcher

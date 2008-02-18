@@ -7,8 +7,8 @@ class SharedIndex1Test < Test::Unit::TestCase
     SharedIndex1.rebuild_index
   end
 
-  def test_lazy_loading_shared_index
-    results = SharedIndex1.find_with_ferret 'first', :lazy => [ :name ], :models => :all
+  def test_lazy_loading
+    results = ActsAsFerret::find 'first', 'shared', :lazy => [ :name ]
     assert_equal 2, results.size
     found_lazy_result = false
     results.each { |r|
@@ -32,10 +32,6 @@ class SharedIndex1Test < Test::Unit::TestCase
     result = SharedIndex1.find_with_ferret("first")
     assert_equal 1, result.size, result.inspect
     assert_equal shared_index1s(:first), result.first
-
-    result = SharedIndex1.find_with_ferret("name:first", :models => [SharedIndex1])
-    assert_equal 1, result.size
-    assert_equal shared_index1s(:first), result.first
   end
 
   def test_custom_query
@@ -44,17 +40,18 @@ class SharedIndex1Test < Test::Unit::TestCase
     assert_equal shared_index1s(:first), result.first
   end
 
-  def test_find_with_ferret_all_classes
-    result = SharedIndex1.find_with_ferret("first", :models => :all)
+  def test_find_with_index_name
+    result = ActsAsFerret::find("first", 'shared')
     assert_equal 2, result.size
     assert result.include?(shared_index1s(:first))
     assert result.include?(shared_index2s(:first))
+  end
 
-    result = SharedIndex1.find_with_ferret("name:first", :models => [SharedIndex2])
+  def test_find_with_class_list
+    result = ActsAsFerret::find("name:first", [SharedIndex1, SharedIndex2])
     assert_equal 2, result.size
     assert result.include?(shared_index1s(:first))
     assert result.include?(shared_index2s(:first))
-
   end
 
   def test_query_for_record
@@ -62,13 +59,13 @@ class SharedIndex1Test < Test::Unit::TestCase
   end
 
   def test_destroy
-    result = SharedIndex1.find_with_ferret("first OR another", :models => :all)
+    result = ActsAsFerret::find("first OR another", 'shared')
     assert_equal 4, result.size
     SharedIndex1.destroy(shared_index1s(:first))
-    result = SharedIndex1.find_with_ferret("first OR another", :models => :all)
+    result = ActsAsFerret::find("first OR another", 'shared')
     assert_equal 3, result.size
     shared_index2s(:first).destroy
-    result = SharedIndex1.find_with_ferret("first OR another", :models => :all)
+    result = ActsAsFerret::find("first OR another", 'shared')
     assert_equal 2, result.size
   end
 

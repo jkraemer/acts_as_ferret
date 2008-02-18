@@ -26,17 +26,6 @@ module ActsAsFerret #:nodoc:
     #             The default is RAILS_ROOT/index/RAILS_ENV/CLASSNAME. 
     #             The index directory will be created if it doesn't exist.
     #
-    # single_index:: set this to true to let this class use a Ferret
-    #                index that is shared by all classes having :single_index set to true.
-    #                :store_class_name is set to true implicitly, as well as index_dir, so 
-    #                don't bother setting these when using this option. the shared index
-    #                will be located in index/<RAILS_ENV>/shared .
-    #
-    # store_class_name:: to make search across multiple models (with either
-    #                    single_index or the multi_search method) useful, set
-    #                    this to true. the model class name will be stored in a keyword field 
-    #                    named class_name
-    #
     # reindex_batch_size:: reindexing is done in batches of this size, default is 1000
     # mysql_fast_batches:: set this to false to disable the faster mysql batching
     #                      algorithm if this model uses a non-integer primary key named

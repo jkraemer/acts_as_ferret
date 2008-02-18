@@ -24,6 +24,7 @@ require 'set'
 require 'enumerator'
 require 'ferret'
 
+require 'ferret_find_methods'
 require 'blank_slate'
 require 'bulk_indexer'
 require 'ferret_extensions'
@@ -117,7 +118,6 @@ module ActsAsFerret
     raise IndexAlreadyDefined.new(name) if ferret_indexes.has_key?(name)
     index_definition = {
       :index_dir => "#{ActsAsFerret::index_dir}/#{name}",
-      :store_class_name => false,
       :name => name,
       :single_index => false,
       :reindex_batch_size => 1000,
@@ -145,7 +145,7 @@ module ActsAsFerret
     # these properties are somewhat vital to the plugin and shouldn't
     # be overwritten by the user:
     index_definition[:ferret].update(
-      :key               => (index_definition[:store_class_name] ? [:id, :class_name] : :id),
+      :key               => [:id, :class_name],
       :path              => index_definition[:index_dir],
       :auto_flush        => true, # slower but more secure in terms of locking problems TODO disable when running in drb mode?
       :create_if_missing => true
@@ -179,12 +179,6 @@ module ActsAsFerret
       index = define_index index_name, options
     end
     index.register_class(clazz, options)
-    if index.shared?
-      # make sure all models using this index get proper class methods
-      index.index_definition[:registered_models].each do |clazz|
-        clazz.extend SharedIndexClassMethods unless clazz.extended_by.include?(ActsAsFerret::SharedIndexClassMethods)
-      end
-    end
     return index
   end
 
@@ -196,21 +190,38 @@ module ActsAsFerret
 
   # count hits for a query with multiple models
   def self.total_hits(query, models, options = {})
-    get_index_for(*models).total_hits query, options.merge( :models => models )
+    find_index(models).total_hits query, options.merge( :models => models )
   end
 
   # find ids of records with multiple models
-  def self.find_ids(query, models, options = {})
-    get_index_for(*models).find_ids query, options.merge( :models => models )
+  # TODO pagination logic?
+  def self.find_ids(query, models, options = {}, &block)
+    find_index(models).find_ids query, options.merge( :models => models ), &block
   end
 
-  def self.find(query, models, options = {}, ar_options = {})
+  def self.find_index(models_or_index_name)
+    case models_or_index_name
+    when Symbol
+      get_index models_or_index_name
+    when String
+      get_index models_or_index_name.to_sym
+    #when Array
+    #  get_index_for models_or_index_name
+    else
+      get_index_for models_or_index_name
+    end
+  end
+
+  def self.find(query, models_or_index_name, options = {}, ar_options = {})
     # TODO generalize local/remote index so we can remove the workaround below
     # (replace logic in class_methods#find_with_ferret)
-    if Class === models or models.size == 1
-      return (Class === models ? models : models.shift).find_with_ferret query, options, ar_options
+    # maybe put pagination stuff in a module to be included by all index
+    # implementations
+    models = [ models_or_index_name ] if Class === models_or_index_name
+    if models && models.size == 1
+      return models.shift.find_with_ferret query, options, ar_options
     end
-    index = get_index_for(*models)
+    index = find_index(models_or_index_name)
     multi = (MultiIndex === index or index.shared?)
     if options[:per_page]
       options[:page] = options[:page] ? options[:page].to_i : 1
@@ -253,6 +264,7 @@ module ActsAsFerret
   # classes, or a multi index (to be used for search only) across the indexes
   # of all models, is returned.
   def self.get_index_for(*classes)
+    classes.flatten!
     raise ArgumentError.new("no class specified") unless classes.any?
     classes.map!(&:constantize) unless Class === classes.first
     logger.debug "index_for #{classes.inspect}"
@@ -304,6 +316,15 @@ module ActsAsFerret
     ActsAsFerret::multi_indexes[key] ||= MultiIndex.new(indexes)
   end
 
+  # check for per-model conditions and return these if provided
+  def self.conditions_for_model(model, conditions = {})
+    if Hash === conditions
+      key = model.name.underscore.to_sym
+      conditions = conditions[key]
+    end
+    return conditions
+  end
+
   # retrieves search result records from a data structure like this:
   # { 'Model1' => { '1' => [ rank, score ], '2' => [ rank, score ] }
   #
@@ -327,23 +348,13 @@ module ActsAsFerret
     # get objects for each model
     id_arrays.each do |model, id_array|
       next if id_array.empty?
-      model_class = begin
-        model.constantize
-      rescue
-        raise "Please use ':store_class_name => true' if you want to use multi_search.\n#{$!}"
-      end
-
-      # check for per-model conditions and take these if provided
-      if conditions = find_options[:conditions]
-        key = model.underscore.to_sym
-        conditions = conditions[key] if Hash === conditions
-      end
+      model_class = model.constantize
 
       # merge conditions
+      conditions = conditions_for_model model_class, find_options[:conditions]
       conditions = combine_conditions([ "#{model_class.table_name}.#{model_class.primary_key} in (?)", 
                                         id_array.keys ], 
                                       conditions)
-
 
       # check for include association that might only exist on some models in case of multi_search
       filtered_include_options = []
@@ -357,14 +368,14 @@ module ActsAsFerret
 
       # fetch
       tmp_result = model_class.find(:all, find_options.merge(:conditions => conditions, 
-                                                              :include    => filtered_include_options))
+                                                             :include    => filtered_include_options))
 
       # set scores and rank
       tmp_result.each do |record|
         record.ferret_rank, record.ferret_score = id_array[record.id.to_s]
       end
       # merge with result array
-      result.concat tmp_result
+      result += tmp_result
     end
     
     # order results as they were found by ferret, unless an AR :order
@@ -427,7 +438,7 @@ module ActsAsFerret
     # primary key
     fi.add_field(:id, :store => :yes, :index => :untokenized) 
     # class_name
-    fi.add_field(:class_name, :store => :yes, :index => :untokenized) if index_definition[:store_class_name]
+    fi.add_field(:class_name, :store => :yes, :index => :untokenized)
 
     # other fields
     index_definition[:ferret_fields].each_pair do |field, options|
