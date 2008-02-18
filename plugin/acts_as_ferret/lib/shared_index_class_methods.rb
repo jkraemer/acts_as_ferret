@@ -3,7 +3,7 @@ module ActsAsFerret
   # class methods for classes using acts_as_ferret :single_index => true
   module SharedIndexClassMethods
 
-    def find_id_by_contents(q, options = {}, &block)
+    def find_ids_with_ferret(q, options = {}, &block)
       # add class name scoping to query if necessary
       unless options[:models] == :all # search needs to be restricted by one or more class names
         options[:models] ||= [] 
@@ -49,7 +49,7 @@ module ActsAsFerret
 
     def ar_find_by_contents(q, options = {}, find_options = {})
       total_hits, id_arrays = collect_results(q, options)
-      result = retrieve_records(id_arrays, find_options)
+      result = ActsAsFerret::retrieve_records(id_arrays, find_options)
       result.sort! { |a, b| id_arrays[a.class.name][a.id.to_s].first <=> id_arrays[b.class.name][b.id.to_s].first }
       [ total_hits, result ]
     end
@@ -58,7 +58,7 @@ module ActsAsFerret
       id_arrays = {}
       # get object ids for index hits
       rank = 0
-      total_hits = find_id_by_contents(q, options) do |model, id, score, data|
+      total_hits = find_ids_with_ferret(q, options) do |model, id, score, data|
         id_arrays[model] ||= {}
         # store result rank and score
         id_arrays[model][id] = [ rank += 1, score ]
@@ -66,25 +66,6 @@ module ActsAsFerret
       [ total_hits, id_arrays ]
     end
 
-    
-    # determine all field names in the shared index
-    # TODO unused
-#    def single_index_field_names(models)
-#      @single_index_field_names ||= (
-#          searcher = Ferret::Search::Searcher.new(class_index_dir)
-#          if searcher.reader.respond_to?(:get_field_names)
-#            (searcher.reader.send(:get_field_names) - ['id', 'class_name']).to_a
-#          else
-#            puts <<-END
-#unable to retrieve field names for class #{self.name}, please 
-#consider naming all indexed fields in your call to acts_as_ferret!
-#            END
-#            models.map { |m| m.content_columns.map { |col| col.name } }.flatten
-#          end
-#      )
-#
-#    end
- 
   end
 end
 

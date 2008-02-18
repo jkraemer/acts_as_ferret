@@ -31,6 +31,8 @@ module ActsAsFerret
     #  @index_definition ||= ActsAsFerret::index_definition(@index_name)
     #end
 
+    # TODO allow for per-class field configuration (i.e. different via, boosts
+    # for the same field among different models)
     def register_class(clazz, options = {})
       logger.info "register class #{clazz} with index #{index_name}"
       index_definition[:registered_models] << clazz

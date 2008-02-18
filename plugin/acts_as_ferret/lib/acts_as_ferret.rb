@@ -194,10 +194,57 @@ module ActsAsFerret
     ferret_indexes[name]
   end
 
-  # count hits for a query across multiple models
+  # count hits for a query with multiple models
   def self.total_hits(query, models, options = {})
-    models = [models] unless Array === models
     get_index_for(*models).total_hits query, options.merge( :models => models )
+  end
+
+  # find ids of records with multiple models
+  def self.find_ids(query, models, options = {})
+    get_index_for(*models).find_ids query, options.merge( :models => models )
+  end
+
+  def self.find(query, models, options = {}, ar_options = {})
+    # TODO generalize local/remote index so we can remove the workaround below
+    # (replace logic in class_methods#find_with_ferret)
+    if Class === models or models.size == 1
+      return (Class === models ? models : models.shift).find_with_ferret query, options, ar_options
+    end
+    index = get_index_for(*models)
+    multi = (MultiIndex === index or index.shared?)
+    if options[:per_page]
+      options[:page] = options[:page] ? options[:page].to_i : 1
+      limit = options[:per_page]
+      offset = (options[:page] - 1) * limit
+      if ar_options[:conditions] && !multi
+        ar_options[:limit] = limit
+        ar_options[:offset] = offset
+        options[:limit] = :all
+        options.delete :offset
+      else
+        # do pagination with ferret (or after everything is done in the case
+        # of multi_search)
+        options[:limit] = limit
+        options[:offset] = offset
+      end
+    elsif ar_options[:conditions]
+      if multi
+        # multisearch ignores find_options limit and offset
+        options[:limit] ||= ar_options.delete(:limit)
+        options[:offset] ||= ar_options.delete(:offset)
+      else
+        # let the db do the limiting and offsetting for single-table searches
+        unless options[:limit] == :all
+          ar_options[:limit] ||= options.delete(:limit)
+        end
+        ar_options[:offset] ||= options.delete(:offset)
+        options[:limit] = :all
+      end
+    end
+
+    total_hits, result = index.find_records query, options.merge(:models => models), ar_options
+    logger.debug "Query: #{query}\ntotal hits: #{total_hits}, results delivered: #{result.size}"
+    SearchResults.new(result, total_hits, options[:page], options[:per_page])
   end
 
   # returns the index used by the given class.
@@ -257,6 +304,87 @@ module ActsAsFerret
     ActsAsFerret::multi_indexes[key] ||= MultiIndex.new(indexes)
   end
 
+  # retrieves search result records from a data structure like this:
+  # { 'Model1' => { '1' => [ rank, score ], '2' => [ rank, score ] }
+  #
+  # TODO: in case of STI AR will filter out hits from other 
+  # classes for us, but this
+  # will lead to less results retrieved --> scoping of ferret query
+  # to self.class is still needed.
+  # from the ferret ML (thanks Curtis Hatter)
+  # > I created a method in my base STI class so I can scope my query. For scoping
+  # > I used something like the following line:
+  # > 
+  # > query << " role:#{self.class.eql?(Contents) '*' : self.class}"
+  # > 
+  # > Though you could make it more generic by simply asking
+  # > "self.descends_from_active_record?" which is how rails decides if it should
+  # > scope your "find" query for STI models. You can check out "base.rb" in
+  # > activerecord to see that.
+  # but maybe better do the scoping in find_ids_with_ferret...
+  def self.retrieve_records(id_arrays, find_options = {})
+    result = []
+    # get objects for each model
+    id_arrays.each do |model, id_array|
+      next if id_array.empty?
+      model_class = begin
+        model.constantize
+      rescue
+        raise "Please use ':store_class_name => true' if you want to use multi_search.\n#{$!}"
+      end
+
+      # check for per-model conditions and take these if provided
+      if conditions = find_options[:conditions]
+        key = model.underscore.to_sym
+        conditions = conditions[key] if Hash === conditions
+      end
+
+      # merge conditions
+      conditions = combine_conditions([ "#{model_class.table_name}.#{model_class.primary_key} in (?)", 
+                                        id_array.keys ], 
+                                      conditions)
+
+
+      # check for include association that might only exist on some models in case of multi_search
+      filtered_include_options = []
+      if include_options = find_options[:include]
+        include_options = [ include_options ] unless include_options.respond_to?(:each)
+        include_options.each do |include_option|
+          filtered_include_options << include_option if model_class.reflections.has_key?(include_option.is_a?(Hash) ? include_option.keys[0].to_sym : include_option.to_sym)
+        end
+      end
+      filtered_include_options = nil if filtered_include_options.empty?
+
+      # fetch
+      tmp_result = model_class.find(:all, find_options.merge(:conditions => conditions, 
+                                                              :include    => filtered_include_options))
+
+      # set scores and rank
+      tmp_result.each do |record|
+        record.ferret_rank, record.ferret_score = id_array[record.id.to_s]
+      end
+      # merge with result array
+      result.concat tmp_result
+    end
+    
+    # order results as they were found by ferret, unless an AR :order
+    # option was given
+    result.sort! { |a, b| a.ferret_rank <=> b.ferret_rank } unless find_options[:order]
+    return result
+  end
+  
+  # combine our conditions with those given by user, if any
+  def self.combine_conditions(conditions, additional_conditions = [])
+    returning conditions do
+      if additional_conditions && additional_conditions.any?
+        cust_opts = (Array === additional_conditions) ? additional_conditions.dup : [ additional_conditions ]
+        logger.debug "cust_opts: #{cust_opts.inspect}"
+        conditions.first << " and " << cust_opts.shift
+        conditions.concat(cust_opts)
+      end
+    end
+  end
+
   def self.build_field_config(fields)
     field_config = {}
     case fields
@@ -303,6 +431,9 @@ module ActsAsFerret
 
     # other fields
     index_definition[:ferret_fields].each_pair do |field, options|
+      options = options.dup
+      options.delete :via
+      options.delete :boost if options[:boost].is_a?(Symbol) # dynamic boost
       fi.add_field(field, options)
     end
     return fi
@@ -325,9 +456,8 @@ module ActsAsFerret
 
   def self.field_config_for(fieldname, options = {})
     config = DEFAULT_FIELD_OPTIONS.merge options
+    config[:via] ||= fieldname
     config[:term_vector] = :no if config[:index] == :no
-    config.delete :via
-    config.delete :boost if config[:boost].is_a?(Symbol) # dynamic boosts aren't handled here
     return config
   end
 

@@ -140,12 +140,6 @@ module ActsAsFerret
     #               stored fields. Note that if you have a shared index, you have 
     #               to explicitly state the fields you want to fetch, true won't
     #               work here)
-    # models::      only for single_index scenarios: an Array of other Model classes to 
-    #               include in this search. Use :all to query all models.
-    # multi::       Specify additional model classes to search through. Each of
-    #               these, as well as this class, has to have the
-    #               :store_class_name option set to true. This option replaces the
-    #               multi_search method.
     #
     # +find_options+ is a hash passed on to active_record's find when
     # retrieving the data from db, useful to i.e. prefetch relationships with
@@ -166,41 +160,26 @@ module ActsAsFerret
         options[:page] = options[:page] ? options[:page].to_i : 1
         limit = options[:per_page]
         offset = (options[:page] - 1) * limit
-        if find_options[:conditions] && !options[:multi]
+        if find_options[:conditions]
           find_options[:limit] = limit
           find_options[:offset] = offset
           options[:limit] = :all
           options.delete :offset
         else
-          # do pagination with ferret (or after everything is done in the case
-          # of multi_search)
+          # do pagination with ferret
           options[:limit] = limit
           options[:offset] = offset
         end
       elsif find_options[:conditions]
-        if options[:multi]
-          # multisearch ignores find_options limit and offset
-          options[:limit] ||= find_options.delete(:limit)
-          options[:offset] ||= find_options.delete(:offset)
-        else
-          # let the db do the limiting and offsetting for single-table searches
-          unless options[:limit] == :all
-            find_options[:limit] ||= options.delete(:limit)
-          end
-          find_options[:offset] ||= options.delete(:offset)
-          options[:limit] = :all
-        end
+        find_options[:limit] ||= options.delete(:limit) unless options[:limit] == :all
+        find_options[:offset] ||= options.delete(:offset)
+        options[:limit] = :all
       end
 
-      total_hits, result = if options[:multi].blank?
-        find_records_lazy_or_not q, options, find_options
-      else
-        _multi_search q, options.delete(:multi), options, find_options
-      end
+      total_hits, result = find_records_lazy_or_not q, options, find_options
       logger.debug "Query: #{q}\ntotal hits: #{total_hits}, results delivered: #{result.size}"
       SearchResults.new(result, total_hits, options[:page], options[:per_page])
     end 
-    alias find_by_contents find_with_ferret
 
    
 
@@ -210,14 +189,6 @@ module ActsAsFerret
     # the expected results when used on an AR association.
     #
     def total_hits(q, options={})
-      if options[:models]
-        # backwards compatibility
-        logger.warn "the :models option of total_hits is deprecated, please use :multi instead"
-        options[:multi] = options[:models] 
-      end
-      if models = options[:multi]
-        options[:multi] = add_self_to_model_list_if_necessary(models).map(&:to_s)
-      end
       aaf_index.total_hits(q, options)
     end
 
@@ -228,16 +199,15 @@ module ActsAsFerret
     # Options are the same as for find_by_contents
     #
     # A block can be given too, it will be executed with every result:
-    # find_id_by_contents(q, options) do |model, id, score|
+    # find_ids_with_ferret(q, options) do |model, id, score|
     #    id_array << id
     #    scores_by_id[id] = score 
     # end
     # NOTE: in case a block is given, only the total_hits value will be returned
     # instead of the [total_hits, results] array!
     # 
-    def find_id_by_contents(q, options = {}, &block)
-      deprecated_options_support(options)
-      aaf_index.find_id_by_contents(q, options, &block)
+    def find_ids_with_ferret(q, options = {}, &block)
+      aaf_index.find_ids(q, options, &block)
     end
 
     
@@ -247,41 +217,13 @@ module ActsAsFerret
     # if a block is given, class_name, id and score of each hit will 
     # be yielded, and the total number of hits is returned.
     def id_multi_search(query, additional_models = [], options = {}, &proc)
-      deprecated_options_support(options)
+      logger.warn "Model.id_multi_search is deprecated, use ActsAsFerret::find_ids instead!"
       models = add_self_to_model_list_if_necessary(additional_models)
-      aaf_index.id_multi_search(query, models.map(&:to_s), options, &proc)
+      ActsAsFerret::find_ids(query, models, options, &proc)
     end
     
 
     protected
-
-    def _multi_search(query, additional_models = [], options = {}, find_options = {})
-      result = []
-
-      rank = 0
-      if options[:lazy]
-        logger.warn "find_options #{find_options} are ignored because :lazy => true" unless find_options.empty?
-        total_hits = id_multi_search(query, additional_models, options) do |model, id, score, data|
-          result << FerretResult.new(model, id, score, rank += 1, data)
-        end
-      else
-        id_arrays = {}
-
-        limit = options.delete(:limit)
-        offset = options.delete(:offset) || 0
-        options[:limit] = :all
-        total_hits = id_multi_search(query, additional_models, options) do |model, id, score, data|
-          id_arrays[model] ||= {}
-          id_arrays[model][id] = [ rank += 1, score ]
-        end
-        result = retrieve_records(id_arrays, find_options)
-        total_hits = result.size if find_options[:conditions]
-        if limit && limit != :all
-          result = result[offset..limit+offset-1]
-        end
-      end
-      [total_hits, result]
-    end
 
     def add_self_to_model_list_if_necessary(models)
       models = [ models ] unless models.is_a? Array
@@ -300,13 +242,13 @@ module ActsAsFerret
 
     def ar_find_by_contents(q, options = {}, find_options = {})
       result_ids = {}
-      total_hits = find_id_by_contents(q, options) do |model, id, score, data|
+      total_hits = find_ids_with_ferret(q, options) do |model, id, score, data|
         # stores ids, index and score of each hit for later ordering of
         # results
         result_ids[id] = [ result_ids.size + 1, score ]
       end
 
-      result = retrieve_records( { self.name => result_ids }, find_options )
+      result = ActsAsFerret::retrieve_records( { self.name => result_ids }, find_options )
       
       # count total_hits via sql when using conditions or when we're called
       # from an ActiveRecord association.
@@ -317,7 +259,7 @@ module ActsAsFerret
           # our ferret result has been limited, so we need to re-run that
           # search to get the full result set from ferret.
           result_ids = {}
-          find_id_by_contents(q, options.update(:limit => :all, :offset => 0)) do |model, id, score, data|
+          find_ids_with_ferret(q, options.update(:limit => :all, :offset => 0)) do |model, id, score, data|
             result_ids[id] = [ result_ids.size + 1, score ]
           end
           # Now ask the database for the total size of the final result set.
@@ -336,7 +278,7 @@ module ActsAsFerret
       logger.debug "lazy_find_by_contents: #{q}"
       result = []
       rank   = 0
-      total_hits = find_id_by_contents(q, options) do |model, id, score, data|
+      total_hits = find_ids_with_ferret(q, options) do |model, id, score, data|
         logger.debug "model: #{model}, id: #{id}, data: #{data}"
         result << FerretResult.new(model, id, score, rank += 1, data)
       end
@@ -348,74 +290,6 @@ module ActsAsFerret
       model.constantize.find(id, find_options)
     end
 
-    # retrieves search result records from a data structure like this:
-    # { 'Model1' => { '1' => [ rank, score ], '2' => [ rank, score ] }
-    #
-    # TODO: in case of STI AR will filter out hits from other 
-    # classes for us, but this
-    # will lead to less results retrieved --> scoping of ferret query
-    # to self.class is still needed.
-    # from the ferret ML (thanks Curtis Hatter)
-    # > I created a method in my base STI class so I can scope my query. For scoping
-    # > I used something like the following line:
-    # > 
-    # > query << " role:#{self.class.eql?(Contents) '*' : self.class}"
-    # > 
-    # > Though you could make it more generic by simply asking
-    # > "self.descends_from_active_record?" which is how rails decides if it should
-    # > scope your "find" query for STI models. You can check out "base.rb" in
-    # > activerecord to see that.
-    # but maybe better do the scoping in find_id_by_contents...
-    def retrieve_records(id_arrays, find_options = {})
-      result = []
-      # get objects for each model
-      id_arrays.each do |model, id_array|
-        next if id_array.empty?
-        model_class = begin
-          model.constantize
-        rescue
-          raise "Please use ':store_class_name => true' if you want to use multi_search.\n#{$!}"
-        end
-
-        # check for per-model conditions and take these if provided
-        if conditions = find_options[:conditions]
-          key = model.underscore.to_sym
-          conditions = conditions[key] if Hash === conditions
-        end
-
-        # merge conditions
-        conditions = combine_conditions([ "#{model_class.table_name}.#{model_class.primary_key} in (?)", 
-                                          id_array.keys ], 
-                                        conditions)
-
-
-        # check for include association that might only exist on some models in case of multi_search
-        filtered_include_options = []
-        if include_options = find_options[:include]
-          include_options = [ include_options ] unless include_options.respond_to?(:each)
-          include_options.each do |include_option|
-            filtered_include_options << include_option if model_class.reflections.has_key?(include_option.is_a?(Hash) ? include_option.keys[0].to_sym : include_option.to_sym)
-          end
-        end
-        filtered_include_options = nil if filtered_include_options.empty?
-
-        # fetch
-        tmp_result = model_class.find(:all, find_options.merge(:conditions => conditions, 
-                                                               :include    => filtered_include_options))
-
-        # set scores and rank
-        tmp_result.each do |record|
-          record.ferret_rank, record.ferret_score = id_array[record.id.to_s]
-        end
-        # merge with result array
-        result.concat tmp_result
-      end
-      
-      # order results as they were found by ferret, unless an AR :order
-      # option was given
-      result.sort! { |a, b| a.ferret_rank <=> b.ferret_rank } unless find_options[:order]
-      return result
-    end
 
     def count_records(id_arrays, find_options = {})
       count_options = find_options.dup
@@ -427,38 +301,16 @@ module ActsAsFerret
         begin
           model = model.constantize
           # merge conditions
-          conditions = combine_conditions([ "#{model.table_name}.#{model.primary_key} in (?)", id_array.keys ], 
+          conditions = ActsAsFerret::combine_conditions([ "#{model.table_name}.#{model.primary_key} in (?)", id_array.keys ], 
                                           find_options[:conditions])
           opts = find_options.merge :conditions => conditions
           opts.delete :limit; opts.delete :offset
           count += model.count opts
         rescue TypeError
-          raise "#{model} must use :store_class_name option if you want to use multi_search against it.\n#{$!}"
+          raise "#{model} must use :store_class_name option if you want to use multi_search against it.\n#{$!}\n#{$!.backtrace.join("\n")}"
         end
       end
       count
-    end
-
-    def deprecated_options_support(options)
-      if options[:num_docs]
-        logger.warn ":num_docs is deprecated, use :limit instead!"
-        options[:limit] ||= options[:num_docs]
-      end
-      if options[:first_doc]
-        logger.warn ":first_doc is deprecated, use :offset instead!"
-        options[:offset] ||= options[:first_doc]
-      end
-    end
-
-    # combine our conditions with those given by user, if any
-    def combine_conditions(conditions, additional_conditions = [])
-      returning conditions do
-        if additional_conditions && additional_conditions.any?
-          cust_opts = additional_conditions.respond_to?(:shift) ? additional_conditions.dup : [ additional_conditions ]
-          conditions.first << " and " << cust_opts.shift
-          conditions.concat(cust_opts)
-        end
-      end
     end
 
   end

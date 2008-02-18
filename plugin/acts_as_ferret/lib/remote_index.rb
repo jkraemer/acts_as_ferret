@@ -25,8 +25,8 @@ module ActsAsFerret
       end
     end
 
-    def find_id_by_contents(q, options = {}, &proc)
-      total_hits, results = handle_drb_error([0, []]) { @server.find_id_by_contents(model_class_name, q, options) }
+    def find_ids(q, options = {}, &proc)
+      total_hits, results = handle_drb_error([0, []]) { @server.find_ids(model_class_name, q, options) }
       block_given? ? yield_results(total_hits, results, &proc) : [ total_hits, results ]
     end
 

@@ -78,18 +78,17 @@ module ActsAsFerret
     # values of any fields stored in the index for each hit.
     # If a block is given, these are yielded and the number of total hits is
     # returned. Otherwise [total_hits, result_array] is returned.
-    def find_id_by_contents(query, options = {})
+    def find_ids(query, options = {})
       result = []
       index = ferret_index
       logger.debug "query: #{ferret_index.process_query query}" if logger.debug?
-      lazy_fields = determine_stored_fields options
-      logger.debug "lazy_fields: #{lazy_fields}"
+      stored_fields = determine_stored_fields options
 
       total_hits = index.search_each(query, options) do |hit, score|
         doc = index[hit]
         model = index_definition[:store_class_name] ? doc[:class_name] : index_definition[:class_name]
         # fetch stored fields if lazy loading
-        data = extract_lazy_fields(doc, lazy_fields)
+        data = extract_stored_fields(doc, stored_fields)
         if block_given?
           yield model, doc[:id], score, data
         else
@@ -166,24 +165,34 @@ module ActsAsFerret
     end
 
 
-    protected
 
     def determine_stored_fields(options = {})
       stored_fields = options[:lazy]
       if stored_fields && !(Array === stored_fields)
         stored_fields = index_definition[:ferret_fields].select { |field, config| config[:store] == :yes }.map(&:first)
       end
-      logger.debug "stored_fields: #{stored_fields}"
+      logger.debug "stored_fields: #{stored_fields.inspect}"
       return stored_fields
     end
 
     # loads data for fields declared as :lazy from the Ferret document
-    def extract_lazy_fields(doc, lazy_fields) 
+    def extract_stored_fields(doc, stored_fields) 
       fields = index_definition[:ferret_fields] 
       data = {} 
-      lazy_fields.each { |field| data[fields[field][:via]] = doc[field] } if lazy_fields 
+      logger.debug "extracting stored fields #{stored_fields.inspect} from document #{doc[:class_name]} / #{doc[:id]}"
+      stored_fields.each do |field|
+        logger.debug field
+        if field_cfg = fields[field]
+          data[field_cfg[:via]] = doc[field]
+          logger.debug field_cfg.inspect
+          logger.debug "#{field} =>>>>> #{doc[field]}"
+        end
+      end if stored_fields 
+      logger.debug "done."
       data 
     end
+
+    protected
 
     # returns a MultiIndex instance operating on a MultiReader
     #def multi_index(model_classes)

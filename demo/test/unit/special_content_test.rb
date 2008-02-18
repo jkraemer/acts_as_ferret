@@ -14,11 +14,11 @@ class SpecialContentTest < Test::Unit::TestCase
     assert SpecialContent.aaf_configuration[:index_dir] =~ %r{^#{RAILS_ROOT}/index/test/content_base}
   end
 
-  def test_find_by_contents
-    contents_from_ferret = SpecialContent.find_by_contents('single table')
+  def test_find_with_ferret
+    contents_from_ferret = SpecialContent.find_with_ferret('single table')
     assert_equal 1, contents_from_ferret.size
     assert_equal ContentBase.find(3), contents_from_ferret.first
-    contents_from_ferret = SpecialContent.find_by_contents('title')
+    contents_from_ferret = SpecialContent.find_with_ferret('title')
     assert contents_from_ferret.empty?
     
   end

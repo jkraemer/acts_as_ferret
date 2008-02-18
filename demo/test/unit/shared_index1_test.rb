@@ -8,7 +8,7 @@ class SharedIndex1Test < Test::Unit::TestCase
   end
 
   def test_lazy_loading_shared_index
-    results = SharedIndex1.find_by_contents 'first', :lazy => [ :name ], :models => :all
+    results = SharedIndex1.find_with_ferret 'first', :lazy => [ :name ], :models => :all
     assert_equal 2, results.size
     found_lazy_result = false
     results.each { |r|
@@ -23,34 +23,34 @@ class SharedIndex1Test < Test::Unit::TestCase
     assert_equal shared_index2s(:first), SharedIndex2.find(1)
   end
 
-  def test_find_id_by_contents
-    result = SharedIndex1.find_id_by_contents("first")
+  def test_find_ids_with_ferret
+    result = SharedIndex1.find_ids_with_ferret("first")
     assert_equal 2, result.size
   end
 
-  def test_find_by_contents_one_class
-    result = SharedIndex1.find_by_contents("first")
+  def test_find_with_ferret_one_class
+    result = SharedIndex1.find_with_ferret("first")
     assert_equal 1, result.size, result.inspect
     assert_equal shared_index1s(:first), result.first
 
-    result = SharedIndex1.find_by_contents("name:first", :models => [SharedIndex1])
+    result = SharedIndex1.find_with_ferret("name:first", :models => [SharedIndex1])
     assert_equal 1, result.size
     assert_equal shared_index1s(:first), result.first
   end
 
   def test_custom_query
-    result = SharedIndex1.find_by_contents("name:first class_name:SharedIndex1")
+    result = SharedIndex1.find_with_ferret("name:first class_name:SharedIndex1")
     assert_equal 1, result.size
     assert_equal shared_index1s(:first), result.first
   end
 
-  def test_find_by_contents_all_classes
-    result = SharedIndex1.find_by_contents("first", :models => :all)
+  def test_find_with_ferret_all_classes
+    result = SharedIndex1.find_with_ferret("first", :models => :all)
     assert_equal 2, result.size
     assert result.include?(shared_index1s(:first))
     assert result.include?(shared_index2s(:first))
 
-    result = SharedIndex1.find_by_contents("name:first", :models => [SharedIndex2])
+    result = SharedIndex1.find_with_ferret("name:first", :models => [SharedIndex2])
     assert_equal 2, result.size
     assert result.include?(shared_index1s(:first))
     assert result.include?(shared_index2s(:first))
@@ -62,50 +62,50 @@ class SharedIndex1Test < Test::Unit::TestCase
   end
 
   def test_destroy
-    result = SharedIndex1.find_by_contents("first OR another", :models => :all)
+    result = SharedIndex1.find_with_ferret("first OR another", :models => :all)
     assert_equal 4, result.size
     SharedIndex1.destroy(shared_index1s(:first))
-    result = SharedIndex1.find_by_contents("first OR another", :models => :all)
+    result = SharedIndex1.find_with_ferret("first OR another", :models => :all)
     assert_equal 3, result.size
     shared_index2s(:first).destroy
-    result = SharedIndex1.find_by_contents("first OR another", :models => :all)
+    result = SharedIndex1.find_with_ferret("first OR another", :models => :all)
     assert_equal 2, result.size
   end
 
   def test_ferret_destroy
     SharedIndex1.rebuild_index
-    result = SharedIndex1.find_id_by_contents("first OR another", :models => :all)
+    result = SharedIndex1.find_ids_with_ferret("first OR another", :models => :all)
     assert_equal 4, result.first
     shared_index1s(:first).ferret_destroy
-    result = SharedIndex1.find_id_by_contents("first OR another", :models => :all)
+    result = SharedIndex1.find_ids_with_ferret("first OR another", :models => :all)
     assert_equal 3, result.first
   end
 
   def test_ferret_destroy_ticket_88
     SharedIndex1.rebuild_index
-    result = SharedIndex1.find_id_by_contents("first OR another", :models => :all)
+    result = SharedIndex1.find_ids_with_ferret("first OR another", :models => :all)
     assert_equal 4, result.first
-    result = SharedIndex2.find_id_by_contents("first OR another", :models => :all)
+    result = SharedIndex2.find_ids_with_ferret("first OR another", :models => :all)
     assert_equal 4, result.first
     SharedIndex1.destroy(shared_index1s(:first))
-    result = SharedIndex1.find_id_by_contents("first OR another", :models => :all)
+    result = SharedIndex1.find_ids_with_ferret("first OR another", :models => :all)
     assert_equal 3, result.first
-    result = SharedIndex2.find_id_by_contents("first OR another", :models => :all)
+    result = SharedIndex2.find_ids_with_ferret("first OR another", :models => :all)
     assert_equal 3, result.first
     shared_index2s(:first).destroy
-    result = SharedIndex1.find_id_by_contents("first OR another", :models => :all)
+    result = SharedIndex1.find_ids_with_ferret("first OR another", :models => :all)
     assert_equal 2, result.first
-    result = SharedIndex2.find_id_by_contents("first OR another", :models => :all)
+    result = SharedIndex2.find_ids_with_ferret("first OR another", :models => :all)
     assert_equal 2, result.first
   end
 
   def test_update
-    assert SharedIndex1.find_by_contents("new").empty?
+    assert SharedIndex1.find_with_ferret("new").empty?
     shared_index1s(:first).name = "new name"
     shared_index1s(:first).save
-    assert_equal 1, SharedIndex1.find_by_contents("new").size
-    assert_equal 1, SharedIndex1.find_by_contents("new").size
-    assert_equal 1, SharedIndex1.find_by_contents("new", :models => [SharedIndex2]).size
-    assert_equal 0, SharedIndex2.find_by_contents("new").size
+    assert_equal 1, SharedIndex1.find_with_ferret("new").size
+    assert_equal 1, SharedIndex1.find_with_ferret("new").size
+    assert_equal 1, SharedIndex1.find_with_ferret("new", :models => [SharedIndex2]).size
+    assert_equal 0, SharedIndex2.find_with_ferret("new").size
   end
 end

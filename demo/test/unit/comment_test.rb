@@ -30,9 +30,9 @@ class CommentTest < Test::Unit::TestCase
 
   def test_search_for_id
     # don't search the id field by default:
-    assert Comment.find_by_contents('3').empty?
+    assert Comment.find_with_ferret('3').empty?
     # explicit query for id field works:
-    assert_equal 3, Comment.find_by_contents('id:3').first.id
+    assert_equal 3, Comment.find_with_ferret('id:3').first.id
   end
 
   #def test_reloadable
@@ -44,8 +44,8 @@ class CommentTest < Test::Unit::TestCase
   def test_automatic_index_build
     # TODO: check why this fails, but querying for 'comment fixture' works.
     # maybe different analyzers at index creation and searching time ?
-    #comments_from_ferret = Comment.find_by_contents('"comment from fixture"')
-    comments_from_ferret = Comment.find_by_contents('comment fixture')
+    #comments_from_ferret = Comment.find_with_ferret('"comment from fixture"')
+    comments_from_ferret = Comment.find_with_ferret('comment fixture')
     assert_equal 2, comments_from_ferret.size
     assert comments_from_ferret.include?(comments(:first))
     assert comments_from_ferret.include?(comments(:another))
@@ -53,25 +53,25 @@ class CommentTest < Test::Unit::TestCase
 
   def test_rebuild_index
     Comment.aaf_index.ferret_index.query_delete('comment')
-    comments_from_ferret = Comment.find_by_contents('comment AND fixture')
+    comments_from_ferret = Comment.find_with_ferret('comment AND fixture')
     assert comments_from_ferret.empty?
     Comment.rebuild_index
-    comments_from_ferret = Comment.find_by_contents('comment AND fixture')
+    comments_from_ferret = Comment.find_with_ferret('comment AND fixture')
     assert_equal 2, comments_from_ferret.size
   end
 
   def test_total_hits
-    comments_from_ferret = Comment.find_by_contents('comment AND fixture', :limit => 1)
+    comments_from_ferret = Comment.find_with_ferret('comment AND fixture', :limit => 1)
     assert_equal 1, comments_from_ferret.size
     assert_equal 2, comments_from_ferret.total_hits
 
-    comments_from_ferret = Comment.find_by_contents('comment AND fixture', {}, :conditions => 'id != 1')
+    comments_from_ferret = Comment.find_with_ferret('comment AND fixture', {}, :conditions => 'id != 1')
     assert_equal 1, comments_from_ferret.size
     assert_equal 1, comments_from_ferret.total_hits
   end
 
   def test_score
-    comments_from_ferret = Comment.find_by_contents('comment AND fixture', :limit => 1)
+    comments_from_ferret = Comment.find_with_ferret('comment AND fixture', :limit => 1)
     assert comments_from_ferret.first
     assert comments_from_ferret.first.ferret_score > 0
   end
@@ -80,11 +80,11 @@ class CommentTest < Test::Unit::TestCase
     20.times do |i|
       Comment.create( :author => 'multi-commenter', :content => "This is multicomment no #{i}" )
     end
-    assert_equal 10, (res = Comment.find_by_contents('multicomment')).size
+    assert_equal 10, (res = Comment.find_with_ferret('multicomment')).size
     assert_equal 20, res.total_hits
-    assert_equal 15, (res = Comment.find_by_contents('multicomment', :limit => 15)).size
+    assert_equal 15, (res = Comment.find_with_ferret('multicomment', :limit => 15)).size
     assert_equal 20, res.total_hits
-    assert_equal 20, (res = Comment.find_by_contents('multicomment', :limit => :all)).size
+    assert_equal 20, (res = Comment.find_with_ferret('multicomment', :limit => :all)).size
     assert_equal 20, res.total_hits
   end
 
@@ -100,44 +100,44 @@ class CommentTest < Test::Unit::TestCase
     assert doc[:added].to_i > 0
   end
 
-  def test_find_by_contents
+  def test_find_with_ferret
     comment = Comment.create( :author => 'john doe', :content => 'This is a useless comment' )
     comment2 = Comment.create( :author => 'another', :content => 'content' )
 
-    comments_from_ferret = Comment.find_by_contents('anoth* OR jo*')
+    comments_from_ferret = Comment.find_with_ferret('anoth* OR jo*')
     assert_equal 2, comments_from_ferret.size
     assert comments_from_ferret.include?(comment)
     assert comments_from_ferret.include?(comment2)
     
     # find options
-    comments_from_ferret = Comment.find_by_contents('anoth* OR jo*', {}, :conditions => ["id=?",comment2.id])
+    comments_from_ferret = Comment.find_with_ferret('anoth* OR jo*', {}, :conditions => ["id=?",comment2.id])
     assert_equal 1, comments_from_ferret.size
     assert comments_from_ferret.include?(comment2)
     
-    comments_from_ferret = Comment.find_by_contents('lorem ipsum not here')
+    comments_from_ferret = Comment.find_with_ferret('lorem ipsum not here')
     assert comments_from_ferret.empty?
 
-    comments_from_ferret = Comment.find_by_contents('another')
+    comments_from_ferret = Comment.find_with_ferret('another')
     assert_equal 1, comments_from_ferret.size
     assert_equal comment2.id, comments_from_ferret.first.id
     
-    comments_from_ferret = Comment.find_by_contents('doe')
+    comments_from_ferret = Comment.find_with_ferret('doe')
     assert_equal 1, comments_from_ferret.size
     assert_equal comment.id, comments_from_ferret.first.id
     
-    comments_from_ferret = Comment.find_by_contents('useless')
+    comments_from_ferret = Comment.find_with_ferret('useless')
     assert_equal 1, comments_from_ferret.size
     assert_equal comment.id, comments_from_ferret.first.id
   
     # no monkeys here
-    comments_from_ferret = Comment.find_by_contents('monkey')
+    comments_from_ferret = Comment.find_with_ferret('monkey')
     assert comments_from_ferret.empty?
     
     # multiple terms are ANDed by default...
-    comments_from_ferret = Comment.find_by_contents('monkey comment')
+    comments_from_ferret = Comment.find_with_ferret('monkey comment')
     assert comments_from_ferret.empty?
     # ...unless you connect them by OR
-    comments_from_ferret = Comment.find_by_contents('monkey OR comment')
+    comments_from_ferret = Comment.find_with_ferret('monkey OR comment')
     assert_equal 3, comments_from_ferret.size
     assert comments_from_ferret.include?(comment)
     assert comments_from_ferret.include?(comments(:first))
@@ -145,15 +145,15 @@ class CommentTest < Test::Unit::TestCase
 
     # multiple terms, each term has to occur in a document to be found, 
     # but they may occur in different fields
-    comments_from_ferret = Comment.find_by_contents('useless john')
+    comments_from_ferret = Comment.find_with_ferret('useless john')
     assert_equal 1, comments_from_ferret.size
     assert_equal comment.id, comments_from_ferret.first.id
     
 
     # search for an exact string by enclosing it in "
-    comments_from_ferret = Comment.find_by_contents('"useless john"')
+    comments_from_ferret = Comment.find_with_ferret('"useless john"')
     assert comments_from_ferret.empty?
-    comments_from_ferret = Comment.find_by_contents('"useless comment"')
+    comments_from_ferret = Comment.find_with_ferret('"useless comment"')
     assert_equal 1, comments_from_ferret.size
     assert_equal comment.id, comments_from_ferret.first.id
 
@@ -186,14 +186,14 @@ class CommentTest < Test::Unit::TestCase
   def test_stopwords
     comment = Comment.create( :author => 'john doe', :content => 'Move or shake' )
     ['move shake', 'Move shake', 'move Shake', 'move or shake', 'move the shake'].each do |q|
-      comments_from_ferret = Comment.find_by_contents(q)
+      comments_from_ferret = Comment.find_with_ferret(q)
       assert_equal comment, comments_from_ferret.first, "query #{q} failed"
     end
     comment.destroy
   end
 
   def test_array_conditions_combining 
-    comments_from_ferret = Comment.find_by_contents('comment AND fixture', {}, :conditions => [ 'id IN (?)', [ 2, 3 ] ]) 
+    comments_from_ferret = Comment.find_with_ferret('comment AND fixture', {}, :conditions => [ 'id IN (?)', [ 2, 3 ] ]) 
     assert_equal 1, comments_from_ferret.size 
     assert_equal 1, comments_from_ferret.total_hits 
   end

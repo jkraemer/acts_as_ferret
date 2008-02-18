@@ -53,7 +53,7 @@ module ActsAsFerret #:nodoc:
           options[:base_class] = clazz.name
           query = clazz.aaf_index.build_more_like_this_query(self.id, self.class.name, options)
           options[:append_to_query].call(query) if options[:append_to_query]
-          clazz.find_by_contents(query, ferret_options, ar_options)
+          clazz.find_with_ferret(query, ferret_options, ar_options)
         end
 
       end
