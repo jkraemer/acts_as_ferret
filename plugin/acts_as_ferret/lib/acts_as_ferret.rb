@@ -216,7 +216,7 @@ module ActsAsFerret
 
     # re-register early loaded classes
     if pending_classes
-      pending_classes.each { |clazz| idx.register_class clazz, pending_classes_configs[clazz] }
+      pending_classes.each { |clazz| idx.register_class clazz, { :force_re_registration => true }.merge(pending_classes_configs[clazz]) }
     end
 
     return idx

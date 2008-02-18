@@ -32,41 +32,50 @@ module ActsAsFerret
     # for the same field among different models)
     def register_class(clazz, options = {})
       logger.info "register class #{clazz} with index #{index_name}"
-      index_definition[:registered_models] << clazz
-      @registered_models_config[clazz] = options
 
-      # merge fields from this acts_as_ferret call with predefined fields
-      already_defined_fields = index_definition[:ferret_fields]
-      field_config = ActsAsFerret::build_field_config options[:fields]
-      field_config.update ActsAsFerret::build_field_config( options[:additional_fields] )
-      field_config.each do |field, config|
-        if already_defined_fields.has_key?(field)
-          logger.info "ignoring redefinition of ferret field #{field}" if shared? 
-        else
-          already_defined_fields[field] = config
-          logger.info "adding new field #{field} from class #{clazz.name} to index #{index_name}"
-        end
-      end
-      
-      # update default field list to be used by the query parser, unless it 
-      # was explicitly given by user.
-      #
-      # It will include all content fields *not* marked as :untokenized.
-      # This fixes the otherwise failing CommentTest#test_stopwords. Basically
-      # this means that by default only tokenized fields (which all fields are
-      # by default) will be searched. If you want to search inside the contents 
-      # of an untokenized field, you'll have to explicitly specify it in your 
-      # query.
-      unless index_definition[:user_default_field]
-        # grab all tokenized fields
-        ferret_fields = index_definition[:ferret_fields]
-        index_definition[:ferret][:default_field] = ferret_fields.keys.select do |field|
-          ferret_fields[field][:index] != :untokenized
-        end
-        logger.info "default field list for index #{index_name}: #{index_definition[:ferret][:default_field].inspect}"
+      if force = options.delete(:force_re_registration)
+        index_definition[:registered_models].delete(clazz)
       end
 
-      index_definition
+      if index_definition[:registered_models].include?(clazz)
+        logger.info("refusing re-registration of class #{clazz}")
+      else
+        index_definition[:registered_models] << clazz
+        @registered_models_config[clazz] = options
+
+        # merge fields from this acts_as_ferret call with predefined fields
+        already_defined_fields = index_definition[:ferret_fields]
+        field_config = ActsAsFerret::build_field_config options[:fields]
+        field_config.update ActsAsFerret::build_field_config( options[:additional_fields] )
+        field_config.each do |field, config|
+          if already_defined_fields.has_key?(field)
+            logger.info "ignoring redefinition of ferret field #{field}" if shared? 
+          else
+            already_defined_fields[field] = config
+            logger.info "adding new field #{field} from class #{clazz.name} to index #{index_name}"
+          end
+        end
+
+        # update default field list to be used by the query parser, unless it 
+        # was explicitly given by user.
+        #
+        # It will include all content fields *not* marked as :untokenized.
+        # This fixes the otherwise failing CommentTest#test_stopwords. Basically
+        # this means that by default only tokenized fields (which all fields are
+        # by default) will be searched. If you want to search inside the contents 
+        # of an untokenized field, you'll have to explicitly specify it in your 
+        # query.
+        unless index_definition[:user_default_field]
+          # grab all tokenized fields
+          ferret_fields = index_definition[:ferret_fields]
+          index_definition[:ferret][:default_field] = ferret_fields.keys.select do |field|
+            ferret_fields[field][:index] != :untokenized
+          end
+          logger.info "default field list for index #{index_name}: #{index_definition[:ferret][:default_field].inspect}"
+        end
+      end
+
+      return index_definition
     end
 
     # true if this index is used by more than one model class
