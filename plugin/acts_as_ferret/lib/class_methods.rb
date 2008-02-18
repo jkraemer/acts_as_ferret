@@ -101,19 +101,9 @@ module ActsAsFerret
       end
     end
 
-    # TODO change any references to this method to use
-    # ActsAsFerret::change_index_dir
-    def index_dir=(dir)
-      logger.warn "DEPRECATED, use ActsAsFerret::change_index_dir instead if index_dir="
-      ActsAsFerret::change_index_dir(aaf_configuration[:name], dir)
-    end
-    
     # Retrieve the index instance for this model class. This can either be a
     # LocalIndex, or a RemoteIndex instance.
     # 
-    # Index instances are stored in a hash, using the index directory
-    # as the key. So model classes sharing a single index will share their
-    # Index object, too.
     def aaf_index
       @index ||= ActsAsFerret::get_index(aaf_configuration[:name])
     end 
@@ -181,7 +171,6 @@ module ActsAsFerret
       SearchResults.new(result, total_hits, options[:page], options[:per_page])
     end 
 
-   
 
     # Returns the total number of hits for the given query 
     #
@@ -211,79 +200,61 @@ module ActsAsFerret
     end
 
     
-    # returns an array of hashes, each containing :class_name,
-    # :id and :score for a hit.
-    #
-    # if a block is given, class_name, id and score of each hit will 
-    # be yielded, and the total number of hits is returned.
-    def id_multi_search(query, additional_models = [], options = {}, &proc)
-      logger.warn "Model.id_multi_search is deprecated, use ActsAsFerret::find_ids instead!"
-      models = add_self_to_model_list_if_necessary(additional_models)
-      ActsAsFerret::find_ids(query, models, options, &proc)
-    end
-    
-
     protected
 
-    def add_self_to_model_list_if_necessary(models)
-      models = [ models ] unless models.is_a? Array
-      models << self unless models.include?(self)
-      models
-    end
-
-    def find_records_lazy_or_not(q, options = {}, find_options = {})
-      if options[:lazy]
-        logger.warn "find_options #{find_options} are ignored because :lazy => true" unless find_options.empty?
-        lazy_find_by_contents q, options
-      else
-        ar_find_by_contents q, options, find_options
-      end
-    end
-
-    def ar_find_by_contents(q, options = {}, find_options = {})
-      result_ids = {}
-      total_hits = find_ids_with_ferret(q, options) do |model, id, score, data|
-        # stores ids, index and score of each hit for later ordering of
-        # results
-        result_ids[id] = [ result_ids.size + 1, score ]
-      end
-
-      result = ActsAsFerret::retrieve_records( { self.name => result_ids }, find_options )
-      
-      # count total_hits via sql when using conditions or when we're called
-      # from an ActiveRecord association.
-      if find_options[:conditions] or caller.find{ |call| call =~ %r{active_record/associations} }
-        # chances are the ferret result count is not our total_hits value, so
-        # we correct this here.
-        if options[:limit] != :all || options[:page] || options[:offset] || find_options[:limit] || find_options[:offset]
-          # our ferret result has been limited, so we need to re-run that
-          # search to get the full result set from ferret.
-          result_ids = {}
-          find_ids_with_ferret(q, options.update(:limit => :all, :offset => 0)) do |model, id, score, data|
-            result_ids[id] = [ result_ids.size + 1, score ]
-          end
-          # Now ask the database for the total size of the final result set.
-          total_hits = count_records( { self.name => result_ids }, find_options )
-        else
-          # what we got from the database is our full result set, so take
-          # it's size
-          total_hits = result.length
-        end
-      end
-
-      [ total_hits, result ]
-    end
-
-    def lazy_find_by_contents(q, options = {})
-      logger.debug "lazy_find_by_contents: #{q}"
-      result = []
-      rank   = 0
-      total_hits = find_ids_with_ferret(q, options) do |model, id, score, data|
-        logger.debug "model: #{model}, id: #{id}, data: #{data}"
-        result << FerretResult.new(model, id, score, rank += 1, data)
-      end
-      [ total_hits, result ]
-    end
+#    def find_records_lazy_or_not(q, options = {}, find_options = {})
+#      if options[:lazy]
+#        logger.warn "find_options #{find_options} are ignored because :lazy => true" unless find_options.empty?
+#        lazy_find_by_contents q, options
+#      else
+#        ar_find_by_contents q, options, find_options
+#      end
+#    end
+#
+#    def ar_find_by_contents(q, options = {}, find_options = {})
+#      result_ids = {}
+#      total_hits = find_ids_with_ferret(q, options) do |model, id, score, data|
+#        # stores ids, index and score of each hit for later ordering of
+#        # results
+#        result_ids[id] = [ result_ids.size + 1, score ]
+#      end
+#
+#      result = ActsAsFerret::retrieve_records( { self.name => result_ids }, find_options )
+#      
+#      # count total_hits via sql when using conditions or when we're called
+#      # from an ActiveRecord association.
+#      if find_options[:conditions] or caller.find{ |call| call =~ %r{active_record/associations} }
+#        # chances are the ferret result count is not our total_hits value, so
+#        # we correct this here.
+#        if options[:limit] != :all || options[:page] || options[:offset] || find_options[:limit] || find_options[:offset]
+#          # our ferret result has been limited, so we need to re-run that
+#          # search to get the full result set from ferret.
+#          result_ids = {}
+#          find_ids_with_ferret(q, options.update(:limit => :all, :offset => 0)) do |model, id, score, data|
+#            result_ids[id] = [ result_ids.size + 1, score ]
+#          end
+#          # Now ask the database for the total size of the final result set.
+#          total_hits = count_records( { self.name => result_ids }, find_options )
+#        else
+#          # what we got from the database is our full result set, so take
+#          # it's size
+#          total_hits = result.length
+#        end
+#      end
+#
+#      [ total_hits, result ]
+#    end
+#
+#    def lazy_find_by_contents(q, options = {})
+#      logger.debug "lazy_find_by_contents: #{q}"
+#      result = []
+#      rank   = 0
+#      total_hits = find_ids_with_ferret(q, options) do |model, id, score, data|
+#        logger.debug "model: #{model}, id: #{id}, data: #{data}"
+#        result << FerretResult.new(model, id, score, rank += 1, data)
+#      end
+#      [ total_hits, result ]
+#    end
 
 
     def model_find(model, id, find_options = {})
@@ -291,23 +262,23 @@ module ActsAsFerret
     end
 
 
-    def count_records(id_arrays, find_options = {})
-      count_options = find_options.dup
-      count_options.delete :limit
-      count_options.delete :offset
-      count = 0
-      id_arrays.each do |model, id_array|
-        next if id_array.empty?
-        model = model.constantize
-        # merge conditions
-        conditions = ActsAsFerret::combine_conditions([ "#{model.table_name}.#{model.primary_key} in (?)", id_array.keys ], 
-                                        find_options[:conditions])
-        opts = find_options.merge :conditions => conditions
-        opts.delete :limit; opts.delete :offset
-        count += model.count opts
-      end
-      count
-    end
+#    def count_records(id_arrays, find_options = {})
+#      count_options = find_options.dup
+#      count_options.delete :limit
+#      count_options.delete :offset
+#      count = 0
+#      id_arrays.each do |model, id_array|
+#        next if id_array.empty?
+#        model = model.constantize
+#        # merge conditions
+#        conditions = ActsAsFerret::combine_conditions([ "#{model.table_name}.#{model.primary_key} in (?)", id_array.keys ], 
+#                                        find_options[:conditions])
+#        opts = find_options.merge :conditions => conditions
+#        opts.delete :limit; opts.delete :offset
+#        count += model.count opts
+#      end
+#      count
+#    end
 
   end
   

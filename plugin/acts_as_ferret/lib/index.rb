@@ -18,18 +18,14 @@ module ActsAsFerret
 
   # base class for local and remote indexes
   class AbstractIndex
+    include FerretFindMethods
 
-    attr_reader :aaf_configuration
     attr_accessor :logger, :index_name, :index_definition
     def initialize(index_definition)
       @index_definition = index_definition
       @index_name = index_definition[:name]
       @logger = IndexLogger.new(ActsAsFerret::logger, @index_name)
     end
-
-    #def index_definition
-    #  @index_definition ||= ActsAsFerret::index_definition(@index_name)
-    #end
 
     # TODO allow for per-class field configuration (i.e. different via, boosts
     # for the same field among different models)

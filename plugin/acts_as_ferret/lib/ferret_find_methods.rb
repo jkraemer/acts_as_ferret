@@ -1,4 +1,6 @@
 module ActsAsFerret
+  # Ferret search logic common to single-class indexes, shared indexes and
+  # multi indexes.
   module FerretFindMethods
 
     def find_records(q, options = {}, ar_options = {})

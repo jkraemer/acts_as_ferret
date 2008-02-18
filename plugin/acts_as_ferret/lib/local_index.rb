@@ -1,6 +1,6 @@
 module ActsAsFerret
   class LocalIndex < AbstractIndex
-    include FerretFindMethods, MoreLikeThis::IndexMethods
+    include MoreLikeThis::IndexMethods
 
     def initialize(index_name)
       super
