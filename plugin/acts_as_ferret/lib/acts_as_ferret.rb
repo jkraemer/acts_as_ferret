@@ -156,7 +156,17 @@ module ActsAsFerret
   # Returns the created index instance
   def self.define_index(name, options = {})
     name = name.to_sym
-    raise IndexAlreadyDefined.new(name) if ferret_indexes.has_key?(name)
+    pending_classes = nil
+    if ferret_indexes.has_key?(name)
+      # seems models have been already loaded. remove that index for now,
+      # re-register any already loaded classes later on.
+      idx = get_index(name)
+      pending_classes = idx.index_definition[:registered_models]
+      pending_classes_configs = idx.registered_models_config
+      idx.close
+      ferret_indexes.delete(name)
+    end
+
     index_definition = {
       :index_dir => "#{ActsAsFerret::index_dir}/#{name}",
       :name => name,
@@ -204,7 +214,14 @@ module ActsAsFerret
     index_definition[:ferret_fields] = build_field_config( options[:fields] )
     index_definition[:ferret_fields].update build_field_config( options[:additional_fields] )
 
-    ferret_indexes[name] = create_index_instance index_definition
+    idx = ferret_indexes[name] = create_index_instance( index_definition )
+
+    # re-register early loaded classes
+    if pending_classes
+      pending_classes.each { |clazz| idx.register_class clazz, pending_classes_configs[clazz] }
+    end
+
+    return idx
   end
  
   # called internally by the acts_as_ferret method

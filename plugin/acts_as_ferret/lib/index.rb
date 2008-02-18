@@ -20,9 +20,10 @@ module ActsAsFerret
   class AbstractIndex
     include FerretFindMethods
 
-    attr_accessor :logger, :index_name, :index_definition
+    attr_reader :logger, :index_name, :index_definition, :registered_models_config
     def initialize(index_definition)
       @index_definition = index_definition
+      @registered_models_config = {}
       @index_name = index_definition[:name]
       @logger = IndexLogger.new(ActsAsFerret::logger, @index_name)
     end
@@ -32,6 +33,7 @@ module ActsAsFerret
     def register_class(clazz, options = {})
       logger.info "register class #{clazz} with index #{index_name}"
       index_definition[:registered_models] << clazz
+      @registered_models_config[clazz] = options
 
       # merge fields from this acts_as_ferret call with predefined fields
       already_defined_fields = index_definition[:ferret_fields]
