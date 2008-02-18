@@ -1,5 +1,6 @@
 module ActsAsFerret #:nodoc:
 
+  # Base class for remote and local multi-indexes
   class MultiIndexBase
     include FerretFindMethods
     attr_accessor :logger

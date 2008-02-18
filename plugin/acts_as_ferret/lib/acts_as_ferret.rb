@@ -210,7 +210,7 @@ module ActsAsFerret
 
   # returns the index with the given name.
   def self.get_index(name)
-    name = name.to_sym
+    name = name.to_sym rescue nil
     raise IndexNotDefined.new(name) unless ferret_indexes.has_key?(name)
     ferret_indexes[name]
   end
