@@ -96,16 +96,22 @@ module ActsAsFerret
       end
 
       #################################################################################
-      # handles all incoming method calls, and sends them on to the LocalIndex
-      # instance of the correct model class.
+      # handles all incoming method calls, and sends them on to the correct local index
+      # instance.
       #
-      # Calls are not queued atm, so this will block until the call returned.
+      # Calls are not queued, so this will block until the call returned.
       #
       def method_missing(name, *args)
         @logger.debug "\#method_missing(#{name.inspect}, #{args.inspect})"
-        retried = false
-        index_name = args.shift
-        index = ActsAsFerret::get_index(index_name)
+
+        index = if name.to_s =~ /^multi_(.+)/
+          name = $1
+          index_names = args.shift
+          ActsAsFerret::multi_index(index_names)
+        else
+          index_name = args.shift
+          ActsAsFerret::get_index(index_name)
+        end
 
         # TODO find another way to implement the reconnection logic (maybe in
         # local_index or class_methods)
@@ -129,10 +135,17 @@ module ActsAsFerret
         raise e
       end
 
+      def register_class(class_name)
+        @logger.debug "############ registerclass #{class_name}"
+        class_name.constantize
+        @logger.debug "index for class #{class_name}: #{ActsAsFerret::ferret_indexes[class_name.underscore.to_sym]}"
+
+      end
+
       # make sure we have a versioned index in place, building one if necessary
       def ensure_index_exists(index_name)
         @logger.debug "DRb server: ensure_index_exists for index #{index_name}"
-        definition = ActsAsFerret::index_definition(index_name)
+        definition = ActsAsFerret::get_index(index_name).index_definition
         dir = definition[:index_dir]
         unless File.directory?(dir) && File.file?(File.join(dir, 'segments')) && dir =~ %r{/\d+(_\d+)?$}
           rebuild_index(index_name)

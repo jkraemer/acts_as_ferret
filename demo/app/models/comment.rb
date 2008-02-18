@@ -27,8 +27,6 @@ class Comment < ActiveRecord::Base
   # the :ignore flag tells aaf to not try to set this field's value itself (we
   # do this in our custom to_doc method)
   acts_as_ferret( :store_class_name => true, 
-                  :remote           => ENV['AAF_REMOTE'] == 'true',  # for testing drb remote indexing
-                  :raise_drb_errors => ENV['RAISE_DRB_ERRORS'] == 'true',
                   :fields => {
                     :content => { :store => :yes },
                     :author  => { },

@@ -25,6 +25,7 @@ require 'enumerator'
 require 'ferret'
 
 require 'ferret_find_methods'
+require 'remote_functions'
 require 'blank_slate'
 require 'bulk_indexer'
 require 'ferret_extensions'
@@ -37,6 +38,7 @@ require 'instance_methods'
 require 'without_ar'
 
 require 'multi_index'
+require 'remote_multi_index'
 require 'more_like_this'
 
 require 'index'
@@ -105,6 +107,30 @@ module ActsAsFerret
     :boost       => 1.0
   }
 
+  @@raise_drb_errors = false
+  mattr_writer :raise_drb_errors
+  def self.raise_drb_errors?; @@raise_drb_errors end
+  
+  @@remote = nil
+  mattr_accessor :remote
+  def self.remote?
+    if @@remote.nil?
+      if ENV["FERRET_USE_LOCAL_INDEX"] || ActsAsFerret::Remote::Server.running
+        @@remote = false
+      else
+        @@remote = ActsAsFerret::Remote::Config.new.uri rescue false
+      end
+      if @@remote
+        logger.info "Will use remote index server which should be available at #{@@remote}"
+      else
+        logger.info "Will use local index."
+      end
+    end
+    @@remote
+  end
+  remote?
+
+
   # Globally declares an index.
   #
   # Use the index in your model classes with
@@ -152,7 +178,7 @@ module ActsAsFerret
     )
 
 
-    unless index_definition[:remote]
+    unless remote?
       ActsAsFerret::ensure_directory index_definition[:index_dir] 
       index_definition[:index_base_dir] = index_definition[:index_dir]
       index_definition[:index_dir] = find_last_index_version(index_definition[:index_dir])
@@ -184,6 +210,7 @@ module ActsAsFerret
 
   # returns the index with the given name.
   def self.get_index(name)
+    name = name.to_sym
     raise IndexNotDefined.new(name) unless ferret_indexes.has_key?(name)
     ferret_indexes[name]
   end
@@ -283,7 +310,7 @@ module ActsAsFerret
 
   # creates a new Index instance.
   def self.create_index_instance(definition)
-    (definition[:remote] ? RemoteIndex : LocalIndex).new(definition)
+    (remote? ? RemoteIndex : LocalIndex).new(definition)
   end
 
   def self.rebuild_index(name)
@@ -312,8 +339,15 @@ module ActsAsFerret
 
   # returns a MultiIndex instance operating on a MultiReader
   def self.multi_index(indexes)
-    key = indexes.map{ |i| i.index_name.to_s }.sort.join(",")
-    ActsAsFerret::multi_indexes[key] ||= MultiIndex.new(indexes)
+    index_names = indexes.dup
+    index_names = index_names.map(&:to_s) if Symbol === index_names.first
+    if String === index_names.first
+      indexes = index_names.map{ |name| get_index name }
+    else
+      index_names = index_names.map{ |i| i.index_name.to_s }
+    end
+    key = index_names.sort.join(",")
+    ActsAsFerret::multi_indexes[key] ||= (remote? ? ActsAsFerret::RemoteMultiIndex : ActsAsFerret::MultiIndex).new(indexes)
   end
 
   # check for per-model conditions and return these if provided

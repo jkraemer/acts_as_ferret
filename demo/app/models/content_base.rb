@@ -14,10 +14,7 @@ class ContentBase < ActiveRecord::Base
                                :title         => { :boost => :title_boost }, 
                                :description   => { :boost => 1, :store => :yes },
                                :special       => {} },
-                  :store_class_name => true,
-                  :boost => :record_boost,
-                  :raise_drb_errors => ENV['RAISE_DRB_ERRORS'] == 'true',
-                  :remote           => ENV['AAF_REMOTE'] == 'true')
+                  :boost => :record_boost)
 
   def comment_count; 0 end
 
