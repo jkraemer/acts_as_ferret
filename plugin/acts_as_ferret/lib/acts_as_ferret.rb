@@ -146,12 +146,15 @@ module ActsAsFerret
 
   # Globally declares an index.
   #
-  # Use the index in your model classes with
-  #    acts_as_ferret :index => :index_name
-  #
   # This method is also used to implicitly declare an index when you use the
-  # acts_as_ferret call without the :index option as usual.
-  # Returns the created index instance
+  # acts_as_ferret call in your class. Returns the created index instance.
+  #
+  # === Options are:
+  #
+  # +models+:: Hash of model classes and their per-class option hashes which should
+  #            use this index. Any models mentioned here will automatically use
+  #            the index, there is no need to explicitly call +acts_as_ferret+ in the
+  #            model class definition.
   def self.define_index(name, options = {})
     name = name.to_sym
     pending_classes = nil
@@ -191,6 +194,13 @@ module ActsAsFerret
 
     index_definition[:user_default_field] = index_definition[:ferret][:default_field]
 
+    unless remote?
+      ActsAsFerret::ensure_directory index_definition[:index_dir] 
+      index_definition[:index_base_dir] = index_definition[:index_dir]
+      index_definition[:index_dir] = find_last_index_version(index_definition[:index_dir])
+      logger.debug "using index in #{index_definition[:index_dir]}"
+    end
+    
     # these properties are somewhat vital to the plugin and shouldn't
     # be overwritten by the user:
     index_definition[:ferret].update(
@@ -199,14 +209,6 @@ module ActsAsFerret
       :auto_flush        => true, # slower but more secure in terms of locking problems TODO disable when running in drb mode?
       :create_if_missing => true
     )
-
-
-    unless remote?
-      ActsAsFerret::ensure_directory index_definition[:index_dir] 
-      index_definition[:index_base_dir] = index_definition[:index_dir]
-      index_definition[:index_dir] = find_last_index_version(index_definition[:index_dir])
-      logger.debug "using index in #{index_definition[:index_dir]}"
-    end
 
     # field config
     index_definition[:ferret_fields] = build_field_config( options[:fields] )
@@ -217,6 +219,13 @@ module ActsAsFerret
     # re-register early loaded classes
     if pending_classes
       pending_classes.each { |clazz| idx.register_class clazz, { :force_re_registration => true }.merge(pending_classes_configs[clazz]) }
+    end
+
+    if models = options[:models]
+      models.each do |clazz, config|
+        clazz.send :include, ActsAsFerret::WithoutAR unless clazz.respond_to?(:acts_as_ferret)
+        clazz.acts_as_ferret config.merge(:index => name)
+      end
     end
 
     return idx
@@ -238,10 +247,25 @@ module ActsAsFerret
     return index
   end
 
+  def self.load_config
+    # using require_dependency to make the reloading in dev mode via AafLoader working.
+    require_dependency "#{RAILS_ROOT}/config/aaf.rb"
+    ActsAsFerret::logger.info "loaded configuration file aaf.rb"
+  rescue LoadError
+  ensure
+    @aaf_config_loaded = true
+  end
+
   # returns the index with the given name.
   def self.get_index(name)
     name = name.to_sym rescue nil
-    raise IndexNotDefined.new(name) unless ferret_indexes.has_key?(name)
+    unless ferret_indexes.has_key?(name)
+      if @aaf_config_loaded
+        raise IndexNotDefined.new(name.to_s)
+      else
+        load_config and return get_index name
+      end
+    end
     ferret_indexes[name]
   end
 
