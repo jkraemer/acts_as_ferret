@@ -29,7 +29,7 @@ module ActsAsFerret
       
       # count total_hits via sql when using conditions, multiple models, or when we're called
       # from an ActiveRecord association.
-      if id_arrays.size > 1 or ar_options[:conditions] or caller.find{ |call| call =~ %r{active_record/associations} }
+      if id_arrays.size > 1 or ar_options[:conditions]
         # chances are the ferret result count is not our total_hits value, so
         # we correct this here.
         if options[:limit] != :all || options[:page] || options[:offset] || ar_options[:limit] || ar_options[:offset]

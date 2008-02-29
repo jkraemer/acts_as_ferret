@@ -146,6 +146,14 @@ module ActsAsFerret
     # +page+ and +per_page+ are supposed to work regardless of any 
     # +conitions+ present in +find_options+.
     def find_with_ferret(q, options = {}, find_options = {})
+      if scope(:find, :conditions)
+        if find_options[:conditions]
+          find_options[:conditions] = "(#{find_options[:conditions]}) AND (#{scope(:find, :conditions)})"
+        else
+          find_options[:conditions] = scope(:find, :conditions)
+        end
+      end
+
       if options[:per_page]
         options[:page] = options[:page] ? options[:page].to_i : 1
         limit = options[:per_page]
