@@ -19,6 +19,7 @@ module ActsAsFerret
         'log_file'  => "#{RAILS_ROOT}/log/ferret_server.log",
         'log_level' => 'debug',
         'socket'    => nil,
+        'script'    => nil
       }
 
       ################################################################################
@@ -69,6 +70,11 @@ module ActsAsFerret
         ActiveRecord::Base.allow_concurrency = true
         ActiveRecord::Base.logger = @logger = Logger.new(@cfg.log_file)
         ActiveRecord::Base.logger.level = Logger.const_get(@cfg.log_level.upcase) rescue Logger::DEBUG
+        if @cfg.script
+          path = File.join(RAILS_ROOT, @cfg.script) 
+          load path
+          @logger.info "loaded custom startup script from #{path}"
+        end
       end
 
       ################################################################################
