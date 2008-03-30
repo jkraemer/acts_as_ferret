@@ -110,14 +110,20 @@ module ActsAsFerret
       def method_missing(name, *args)
         @logger.debug "\#method_missing(#{name.inspect}, #{args.inspect})"
 
+
+        index_name = args.shift
         index = if name.to_s =~ /^multi_(.+)/
           name = $1
-          index_names = args.shift
-          ActsAsFerret::multi_index(index_names)
+          ActsAsFerret::multi_index(index_name)
         else
-          index_name = args.shift
           ActsAsFerret::get_index(index_name)
         end
+
+        if index.nil?
+          @logger.error "\#index with name #{index_name} not found in call to #{name} with args #{args.inspect}"
+          raise ActsAsFerret::IndexNotDefined.new(index_name)
+        end
+
 
         # TODO find another way to implement the reconnection logic (maybe in
         # local_index or class_methods)

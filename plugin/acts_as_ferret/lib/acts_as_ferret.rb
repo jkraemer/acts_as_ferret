@@ -69,7 +69,7 @@ require 'rdig_adapter'
 #
 # Authors: 
 # Kasper Weibel Nielsen-Refs (original author)
-# Jens Kraemer <jk@jkraemer.net> (active maintainer)
+# Jens Kraemer <jk@jkraemer.net> (active maintainer since 2006)
 #
 #
 # == Global properties
