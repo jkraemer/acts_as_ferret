@@ -37,7 +37,7 @@ module ActsAsFerret
         index_definition[:registered_models].delete(clazz)
       end
 
-      if index_definition[:registered_models].include?(clazz)
+      if index_definition[:registered_models].map(&:name).include?(clazz.name)
         logger.info("refusing re-registration of class #{clazz}")
       else
         index_definition[:registered_models] << clazz
