@@ -79,8 +79,7 @@ module ActsAsFerret
             yield rows, offset
           end
         else
-          # sql server adapter won't batch correctly without defined ordering
-          order = "#{primary_key} ASC" if connection.class.name =~ /SQLServer/
+          order = "#{primary_key} ASC" # fixes #212
           0.step(self.count, batch_size) do |offset|
             yield find( :all, :limit => batch_size, :offset => offset, :order => order ), offset
           end
