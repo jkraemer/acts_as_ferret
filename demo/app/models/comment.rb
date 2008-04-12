@@ -17,10 +17,6 @@ class Comment < ActiveRecord::Base
   # simplest case: just index all fields of this model:
   # acts_as_ferret
   
-  # we use :store_class_name => true so that we can use 
-  # the multi_search method to run queries across multiple
-  # models (where each model has it's own index directory)
-  #
   # use the :additional_fields property to specify fields you intend 
   # to add in addition to those fields from your database table (which will be
   # autodiscovered by acts_as_ferret)
