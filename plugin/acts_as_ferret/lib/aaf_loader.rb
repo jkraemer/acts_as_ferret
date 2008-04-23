@@ -4,8 +4,14 @@
 # Include this module in your ApplicationController to make sure your
 # config/aaf.rb gets reloaded on every request in development mode.
 #
-module AafLoader
-  def self.included(target)
-    ActsAsFerret::load_config
+module ActsAsFerret
+  module AafLoader
+    def self.included(target)
+      target.before_filter :load_aaf_config
+    end
+
+    def load_aaf_config
+      ActsAsFerret::load_config
+    end
   end
 end

@@ -46,6 +46,7 @@ require 'remote_index'
 
 require 'ferret_server'
 
+require 'aaf_loader'
 require 'rdig_adapter'
 
 # The Rails ActiveRecord Ferret Mixin.
@@ -245,6 +246,25 @@ module ActsAsFerret
     end
     index.register_class(clazz, options)
     return index
+  end
+
+  # call this in environment.rb in case you use external index declarations in
+  # config/aaf.rb:
+  #
+  #   Rails::Initializer.run do |config|
+  #     ...
+  #     config.after_initialize do
+  #       ActsAsFerret::initialize
+  #     end
+  #   end
+  #
+  def self.initialize
+    load_config
+    # let the application reload the aaf config on each request so aaf stays
+    # active even when classes are reloaded in dev mode.
+    if RAILS_ENV == 'development'
+      ActionController::Base.send :include, ActsAsFerret::AafLoader
+    end
   end
 
   def self.load_config
@@ -564,5 +584,4 @@ end
 
 # include acts_as_ferret method into ActiveRecord::Base
 ActiveRecord::Base.extend ActsAsFerret::ActMethods
-
 
