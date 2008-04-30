@@ -20,3 +20,5 @@
 
 require 'acts_as_ferret'
 
+config.after_initialize { ActsAsFerret::load_config }
+config.to_prepare       { ActsAsFerret::load_config }
