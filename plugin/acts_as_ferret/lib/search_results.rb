@@ -4,8 +4,9 @@ module ActsAsFerret
   # paging support to search result arrays
   class SearchResults < ActsAsFerret::BlankSlate
     reveal :methods
-    attr_reader :current_page, :per_page, :total_hits
+    attr_reader :current_page, :per_page, :total_hits, :total_pages
     alias total_entries total_hits  # will_paginate compatibility
+    alias page_count total_pages    # will_paginate backwards compatibility
 
     def initialize(results, total_hits, current_page = 1, per_page = nil)
       @results = results
@@ -26,12 +27,6 @@ module ActsAsFerret
 
     # code from here on was directly taken from will_paginate's collection.rb
 
-    #
-    # The total number of pages.
-    def page_count
-      @total_pages
-    end
-
     # Current offset of the paginated collection. If we're on the first page,
     # it is always 0. If we're on the 2nd page and there are 30 entries per page,
     # the offset is 30. This property is useful if you want to render ordinals
@@ -48,7 +43,7 @@ module ActsAsFerret
 
     # current_page + 1 or nil if there is no next page
     def next_page
-      current_page < page_count ? (current_page + 1) : nil
+      current_page < total_pages ? (current_page + 1) : nil
     end
   end
 
