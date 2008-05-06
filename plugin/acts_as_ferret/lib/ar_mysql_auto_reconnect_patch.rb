@@ -6,7 +6,6 @@
 
 # in ActiveRecord, setting the verification_timeout to something less than
 # the interactive-timeout parameter; 14400 sec = 6 hours
-ActiveRecord::Base.allow_concurrency = true
 ActiveRecord::Base.verification_timeout = 14400
 ActiveRecord::Base.establish_connection
 
