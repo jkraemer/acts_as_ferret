@@ -12,6 +12,8 @@ both can be found on http://ferret.davebalmain.com/trac/wiki/FerretOnRails
 
 script/plugin install svn://projects.jkraemer.net/acts_as_ferret/trunk/plugin/acts_as_ferret
 
+Aaf is is also available via git from Rubyforge:
+git clone git://rubyforge.org/actsasferret.git
 
 === System-wide installation with Rubygems
 
