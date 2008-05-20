@@ -82,7 +82,7 @@ module ActsAsFerret
       result = []
       stored_fields = determine_stored_fields options
 
-      q = process_query(query)
+      q = process_query(query, options)
       q = scope_query_to_models q, options[:models] #if shared?
       logger.debug "query: #{query}\n-->#{q}"
       s = searcher
