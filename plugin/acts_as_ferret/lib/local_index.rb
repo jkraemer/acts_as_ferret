@@ -60,12 +60,24 @@ module ActsAsFerret
     end
 
     # Parses the given query string into a Ferret Query object.
-    def process_query(query)
-      # work around ferret bug in #process_query (doesn't ensure the
-      # reader is open)
+    def process_query(query, options = {})
+      return query unless String === query
       ferret_index.synchronize do
-        ferret_index.send(:ensure_reader_open)
-        original_query = ferret_index.process_query(query)
+        if options[:analyzer]
+          # use per-query analyzer if present
+          qp = Ferret::QueryParser.new ferret_index.instance_variable_get('@options').merge(options)
+          reader = ferret_index.reader
+          qp.fields =
+              reader.fields unless options[:all_fields] || options[:fields]
+          qp.tokenized_fields =
+              reader.tokenized_fields unless options[:tokenized_fields]
+          return qp.parse query
+        else
+          # work around ferret bug in #process_query (doesn't ensure the
+          # reader is open)
+          ferret_index.send(:ensure_reader_open)
+          return ferret_index.process_query(query)
+        end
       end
     end
 

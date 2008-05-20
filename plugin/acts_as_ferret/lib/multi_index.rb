@@ -57,13 +57,13 @@ module ActsAsFerret #:nodoc:
     end
     
     def search(query, options={})
-      query = process_query(query)
+      query = process_query(query, options)
       logger.debug "parsed query: #{query.to_s}"
       searcher.search(query, options)
     end
 
     def search_each(query, options = {}, &block)
-      query = process_query(query)
+      query = process_query(query, options)
       searcher.search_each(query, options, &block)
     end
 
@@ -92,7 +92,7 @@ module ActsAsFerret #:nodoc:
       @query_parser ||= Ferret::QueryParser.new(@options)
     end
     
-    def process_query(query)
+    def process_query(query, options = {})
       query = query_parser.parse(query) if query.is_a?(String)
       return query
     end
