@@ -11,6 +11,15 @@ class CommentTest < Test::Unit::TestCase
   def test_truth
     assert_kind_of Comment, comments(:first)
   end
+  
+  def test_issue_220_index_false_as_false
+    c = Comment.new :content => false
+    assert_equal false, c.content
+    assert_equal 'false', c.content_for_field_name(:content)
+    assert_equal 'false', c.to_doc[:content]
+    c.save
+    assert_equal c, Comment.find_with_ferret('content:false').first
+  end
 
   def test_if_option
     c = Comment.new :content => 'do not index'

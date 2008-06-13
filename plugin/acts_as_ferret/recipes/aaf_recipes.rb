@@ -65,7 +65,7 @@ namespace :ferret do
   namespace :index do
 
     desc "Rebuild the Ferret index. See aaf_recipes.rb for instructions."
-    task :rebuild => :environment, :roles => :app do
+    task :rebuild, :roles => :app do
       rake = fetch(:rake, 'rake')
       rails_env = fetch(:rails_env, 'production')
       indexes = fetch(:ferret_indexes, nil)
