@@ -321,7 +321,7 @@ module ActsAsFerret
       end
     elsif ar_options[:conditions]
       if multi
-        # multisearch ignores find_options limit and offset
+        # multisearch ignores ar_options limit and offset
         options[:limit] ||= ar_options.delete(:limit)
         options[:offset] ||= ar_options.delete(:offset)
       else
