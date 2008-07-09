@@ -158,7 +158,8 @@ module ActsAsFerret
     end
 
 
-
+    # retrieves stored fields from index definition in case the fields to retrieve 
+    # haven't been specified with the :lazy option
     def determine_stored_fields(options = {})
       stored_fields = options[:lazy]
       if stored_fields && !(Array === stored_fields)
@@ -170,15 +171,17 @@ module ActsAsFerret
 
     # loads data for fields declared as :lazy from the Ferret document
     def extract_stored_fields(doc, stored_fields) 
-      fields = index_definition[:ferret_fields] 
       data = {} 
-      logger.debug "extracting stored fields #{stored_fields.inspect} from document #{doc[:class_name]} / #{doc[:id]}"
-      stored_fields.each do |field|
-        if field_cfg = fields[field]
-          data[field_cfg[:via]] = doc[field]
+      unless stored_fields.nil?
+        logger.debug "extracting stored fields #{stored_fields.inspect} from document #{doc[:class_name]} / #{doc[:id]}"
+        fields = index_definition[:ferret_fields] 
+        stored_fields.each do |field|
+          if field_cfg = fields[field]
+            data[field_cfg[:via]] = doc[field]
+          end
         end
-      end if stored_fields 
-      logger.debug "done: #{data.inspect}"
+        logger.debug "done: #{data.inspect}"
+      end
       return data 
     end
 

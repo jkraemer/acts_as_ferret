@@ -605,6 +605,36 @@ class ContentTest < Test::Unit::TestCase
     assert_equal 3, r.page_count
   end
 
+  def test_pagination_with_ar_conditions_and_ferret_sort
+    more_contents
+
+    # r = Content.find_with_ferret 'title', { :page => 1, :per_page => 10,
+    #                                         :sort => Ferret::Search::SortField.new(:id,
+    #                                                                                :type => :integer,
+    #                                                                                :reverse => true ) }, 
+    #                                       { :conditions => "description != '0'" }
+    r = ActsAsFerret::find 'title', Content, { :page => 1, :per_page => 10,
+                                            :sort => Ferret::Search::SortField.new(:id,
+                                                                                   :type => :integer,
+                                                                                   :reverse => true ) }, 
+                                          { :conditions => "description != '29'" }
+    assert_equal 29, r.total_hits
+    assert_equal 10, r.size
+    assert_equal "28", r.first.description
+    assert_equal "19", r.last.description
+    assert_equal 1, r.current_page
+    assert_equal 3, r.page_count
+
+    r = Content.find_with_ferret 'title', { :page => 3, :per_page => 10 },
+                                          { :conditions => "description != '0'", :order => 'title ASC' }
+    assert_equal 9, r.size
+    assert_equal 29, r.total_hits
+    assert_equal "21", r.first.description
+    assert_equal "29", r.last.description
+    assert_equal 3, r.current_page
+    assert_equal 3, r.page_count
+  end
+
   def test_pagination_with_more_conditions
     more_contents
 
