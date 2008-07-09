@@ -13,8 +13,10 @@ module ActsAsFerret
       end
       if late_pagination
         limit = late_pagination[:limit]
-        offset = late_pagination[:offset]
-        result = result[offset..limit+offset-1]
+        offset = late_pagination[:offset] || 0
+        end_index = limit == :all ? -1 : limit+offset-1
+        # puts "late pagination: #{offset} : #{end_index}"
+        result = result[offset..end_index]
       end
       return [total_hits, result]
     end
