@@ -299,29 +299,35 @@ module ActsAsFerret
     # maybe put pagination stuff in a module to be included by all index
     # implementations
     models = [ models_or_index_name ] if Class === models_or_index_name
-    if models && models.size == 1
-      return models.shift.find_with_ferret query, options, ar_options
-    end
+    # if models && models.size == 1
+    #   return models.shift.find_with_ferret query, options, ar_options
+    # end
     index = find_index(models_or_index_name)
     multi = (MultiIndex === index or index.shared?)
     if options[:per_page]
+      # need pagination
       options[:page] = options[:page] ? options[:page].to_i : 1
       limit = options[:per_page]
       offset = (options[:page] - 1) * limit
-      if ar_options[:conditions] && !multi
+      
+      if multi or ((ar_options[:conditions] || ar_options[:order]) && options[:sort])
+        # do pagination as the last step after everything has been fetched
+        options[:late_pagination] = { :limit => limit, :offset => offset }
+        options[:offset] = nil
+        options[:limit] = :all
+      elsif ar_options[:conditions] or ar_options[:order]
+        # do pagination right in AR call (faster but only works in this case)
         ar_options[:limit] = limit
         ar_options[:offset] = offset
         options[:limit] = :all
         options.delete :offset
       else
-        # do pagination with ferret (or after everything is done in the case
-        # of multi_search)
         options[:limit] = limit
         options[:offset] = offset
       end
     elsif ar_options[:conditions]
       if multi
-        # multisearch ignores ar_options limit and offset
+        # multisearch does not use ar_options limit and offset directly but applies them later
         options[:limit] ||= ar_options.delete(:limit)
         options[:offset] ||= ar_options.delete(:offset)
       else
@@ -333,9 +339,9 @@ module ActsAsFerret
         options[:limit] = :all
       end
     end
-
+    ActsAsFerret::logger.debug "$$$$$$$$$ options: #{options.inspect}\nar_options: #{ar_options.inspect}"
     total_hits, result = index.find_records query, options.merge(:models => models), ar_options
-    logger.debug "Query: #{query}\ntotal hits: #{total_hits}, results delivered: #{result.size}"
+    ActsAsFerret::logger.debug "Query: #{query}\ntotal hits: #{total_hits}, results delivered: #{result.size}"
     SearchResults.new(result, total_hits, options[:page], options[:per_page])
   end
 

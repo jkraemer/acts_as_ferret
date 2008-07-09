@@ -152,30 +152,7 @@ module ActsAsFerret
           find_options[:conditions] = scope(:find, :conditions)
         end
       end
-
-      if options[:per_page]
-        options[:page] = options[:page] ? options[:page].to_i : 1
-        limit = options[:per_page]
-        offset = (options[:page] - 1) * limit
-        if find_options[:conditions]
-          find_options[:limit] = limit
-          find_options[:offset] = offset
-          options[:limit] = :all
-          options.delete :offset
-        else
-          # do pagination with ferret
-          options[:limit] = limit
-          options[:offset] = offset
-        end
-      elsif find_options[:conditions]
-        find_options[:limit] ||= options.delete(:limit) unless options[:limit] == :all
-        find_options[:offset] ||= options.delete(:offset)
-        options[:limit] = :all
-      end
-
-      total_hits, result = aaf_index.find_records q, options.merge(:models => [self]), find_options
-      logger.debug "Query: #{q}\ntotal hits: #{total_hits}, results delivered: #{result.size}"
-      SearchResults.new(result, total_hits, options[:page], options[:per_page])
+      return ActsAsFerret::find q, self, options, find_options
     end 
 
 
