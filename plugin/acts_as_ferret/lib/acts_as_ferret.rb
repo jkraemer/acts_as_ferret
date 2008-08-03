@@ -293,8 +293,17 @@ module ActsAsFerret
     end
   end
 
+  # models_or_index_name may be an index name as declared in config/aaf.rb,
+  # a single class or an array of classes to limit search to these classes.
   def self.find(query, models_or_index_name, options = {}, ar_options = {})
-    models = [ models_or_index_name ] if Class === models_or_index_name
+    models = case models_or_index_name
+    when Array
+      models_or_index_name
+    when Class
+      [ models_or_index_name ]
+    else
+      nil
+    end
     index = find_index(models_or_index_name)
     multi = (MultiIndex === index or index.shared?)
     unless options[:per_page]
