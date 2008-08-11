@@ -269,25 +269,27 @@ module ActsAsFerret
     ferret_indexes[name]
   end
 
-  # count hits for a query with multiple models
-  def self.total_hits(query, models, options = {})
-    find_index(models).total_hits query, options.merge( :models => models )
+  # count hits for a query
+  def self.total_hits(query, models_or_index_name, options = {})
+    options = add_models_to_options_if_necessary options, models_or_index_name
+    find_index(models).total_hits query, options
   end
 
-  # find ids of records with multiple models
-  # TODO pagination logic?
-  def self.find_ids(query, models, options = {}, &block)
-    find_index(models).find_ids query, options.merge( :models => models ), &block
+  # find ids of records
+  def self.find_ids(query, models_or_index_name, options = {}, &block)
+    options = add_models_to_options_if_necessary options, models_or_index_name
+    find_index(models).find_ids query, options, &block
   end
-
+  
+  # returns an index instance suitable for searching/updating the named index. Will 
+  # return a read only MultiIndex when multiple model classes are given that do not
+  # share the same physical index.
   def self.find_index(models_or_index_name)
     case models_or_index_name
     when Symbol
       get_index models_or_index_name
     when String
       get_index models_or_index_name.to_sym
-    #when Array
-    #  get_index_for models_or_index_name
     else
       get_index_for models_or_index_name
     end
@@ -305,7 +307,7 @@ module ActsAsFerret
       nil
     end
     index = find_index(models_or_index_name)
-    multi = (MultiIndex === index or index.shared?)
+    multi = (MultiIndexBase === index or index.shared?)
     unless options[:per_page]
       options[:limit] ||= ar_options.delete :limit
       options[:offset] ||= ar_options.delete :offset
@@ -555,6 +557,11 @@ module ActsAsFerret
   end
 
   protected
+
+  def self.add_models_to_options_if_necessary(options, models_or_index_name)
+    return options if String === models_or_index_name or Symbol === models_or_index_name
+    options.merge(:models => models)
+  end
 
   def self.field_config_for(fieldname, options = {})
     config = DEFAULT_FIELD_OPTIONS.merge options

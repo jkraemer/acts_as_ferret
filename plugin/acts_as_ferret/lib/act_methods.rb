@@ -103,10 +103,6 @@ module ActsAsFerret #:nodoc:
       add_fields aaf_configuration[:fields]
       add_fields aaf_configuration[:additional_fields]
 
-      # not good at class level, index might get initialized too early
-      #if options[:remote]
-      #  aaf_index.ensure_index_exists
-      #end
     end
 
 
@@ -135,10 +131,6 @@ module ActsAsFerret #:nodoc:
     end
 
     def add_fields(field_config)
-      # TODO
-        #field_config.each do |*args| 
-        #  define_to_field_method *args
-        #end                
       if field_config.is_a? Hash
         field_config.each_pair do |field, options|
           define_to_field_method field, options
