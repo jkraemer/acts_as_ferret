@@ -68,8 +68,8 @@ namespace :ferret do
     task :rebuild, :roles => :app do
       rake = fetch(:rake, 'rake')
       rails_env = fetch(:rails_env, 'production')
-      indexes = fetch(:ferret_indexes, nil)
-      if indexes and indexes.any?
+      indexes = fetch(:ferret_indexes, [])
+      if indexes.any?
         run "cd #{current_path}; RAILS_ENV=#{rails_env} INDEXES='#{indexes.join(' ')}' #{rake} ferret:rebuild"
       end
     end
@@ -84,6 +84,23 @@ namespace :ferret do
       run "mkdir -p  #{shared_path}/index && rm -rf #{release_path}/index && ln -nfs #{shared_path}/index #{release_path}/index"
     end
 
+    desc "Clean up old index versions"
+    task :cleanup, :roles => :app do
+    	indexes = fetch(:ferret_indexes, [])
+    	indexes.each do |index|
+    	  ferret_index_path = "#{shared_path}/index/#{rails_env}/#{index}"
+    	  releases = capture("ls -x #{ferret_index_path}").split.sort
+    	  count = 2
+    	  if count >= releases.length
+    	    logger.important "no old indexes to clean up"
+    	  else
+    	    logger.info "keeping #{count} of #{releases.length} indexes"
+    	    directories = (releases - releases.last(count)).map { |release|
+    	      File.join(ferret_index_path, release) }.join(" ")
+    	    sudo "rm -rf #{directories}"
+    	  end
+    	end
+    end
   end
 
 end
