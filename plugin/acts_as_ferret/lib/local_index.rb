@@ -83,7 +83,7 @@ module ActsAsFerret
 
     # Total number of hits for the given query. 
     def total_hits(query, options = {})
-      ferret_index.search(query, options).total_hits
+      ferret_index.search(process_query(query, options), options).total_hits
     end
 
     def searcher
