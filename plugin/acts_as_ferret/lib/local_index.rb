@@ -141,7 +141,7 @@ module ActsAsFerret
       docnum = ferret_index.doc_number(key)
       # hits = ferret_index.search query_for_record(key)
       # return hits.hits.first.doc if hits.total_hits == 1
-      raise "cannot determine document number for record #{key}\nresult was: #{hits.inspect}" if docnum.nil?
+      raise "cannot determine document number for record #{key}" if docnum.nil?
       docnum
     end
 

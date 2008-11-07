@@ -43,6 +43,9 @@ module ActsAsFerret
       def logger
         self.class.logger
       end
+      def new_record?
+        false
+      end
     end
   end
         
