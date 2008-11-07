@@ -51,7 +51,7 @@ module ActsAsFerret #:nodoc:
           #end
           clazz = options[:base_class]
           options[:base_class] = clazz.name
-          query = clazz.aaf_index.build_more_like_this_query(self.id, self.class.name, options)
+          query = clazz.aaf_index.build_more_like_this_query(self.ferret_key, self.id, options)
           options[:append_to_query].call(query) if options[:append_to_query]
           clazz.find_with_ferret(query, ferret_options, ar_options)
         end
@@ -63,20 +63,20 @@ module ActsAsFerret #:nodoc:
         # TODO to allow morelikethis for unsaved records, we have to give the
         # unsaved record's data to this method. check how this will work out
         # via drb...
-        def build_more_like_this_query(id, class_name, options)
+        def build_more_like_this_query(key, id, options)
           [:similarity, :analyzer].each { |sym| options[sym] = options[sym].constantize.new }
           ferret_index.synchronize do # avoid that concurrent writes close our reader
             ferret_index.send(:ensure_reader_open)
             reader = ferret_index.send(:reader)
-            term_freq_map = retrieve_terms(id, class_name, reader, options)
+            term_freq_map = retrieve_terms(key, id, reader, options)
             priority_queue = create_queue(term_freq_map, reader, options)
-            create_query(id, class_name, priority_queue, options)
+            create_query(key, priority_queue, options)
           end
         end
 
         protected
         
-        def create_query(id, class_name, priority_queue, options={})
+        def create_query(key, priority_queue, options={})
           query = Ferret::Search::BooleanQuery.new
           qterms = 0
           best_score = nil
@@ -98,7 +98,7 @@ module ActsAsFerret #:nodoc:
             break if options[:max_query_terms] > 0 && qterms >= options[:max_query_terms]
           end
           # exclude the original record 
-          query.add_query(query_for_record(id, class_name), :must_not)
+          query.add_query(query_for_record(key), :must_not)
           return query
         end
 
@@ -106,9 +106,9 @@ module ActsAsFerret #:nodoc:
 
         # creates a term/term_frequency map for terms from the fields
         # given in options[:field_names]
-        def retrieve_terms(id, class_name, reader, options)
-          raise "more_like_this atm only works on saved records" if id.nil?
-          document_number = document_number(id, class_name) rescue nil
+        def retrieve_terms(key, id, reader, options)
+          raise "more_like_this atm only works on saved records" if key.nil?
+          document_number = document_number(key) rescue nil
           field_names = options[:field_names]
           max_num_tokens = options[:max_num_tokens]
           term_freq_map = Hash.new(0)

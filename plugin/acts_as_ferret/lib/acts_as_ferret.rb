@@ -204,7 +204,7 @@ module ActsAsFerret
     # these properties are somewhat vital to the plugin and shouldn't
     # be overwritten by the user:
     index_definition[:ferret].update(
-      :key               => [:id, :class_name],
+      :key               => :key,
       :path              => index_definition[:index_dir],
       :auto_flush        => true, # slower but more secure in terms of locking problems TODO disable when running in drb mode?
       :create_if_missing => true
@@ -272,13 +272,13 @@ module ActsAsFerret
   # count hits for a query
   def self.total_hits(query, models_or_index_name, options = {})
     options = add_models_to_options_if_necessary options, models_or_index_name
-    find_index(models).total_hits query, options
+    find_index(models_or_index_name).total_hits query, options
   end
 
   # find ids of records
   def self.find_ids(query, models_or_index_name, options = {}, &block)
     options = add_models_to_options_if_necessary options, models_or_index_name
-    find_index(models).find_ids query, options, &block
+    find_index(models_or_index_name).find_ids query, options, &block
   end
   
   # returns an index instance suitable for searching/updating the named index. Will 
@@ -533,6 +533,8 @@ module ActsAsFerret
                                         :index => :yes, 
                                         :term_vector => :no,
                                         :boost => 1.0)
+    # unique key composed of classname and id
+    fi.add_field(:key, :store => :no, :index => :untokenized)
     # primary key
     fi.add_field(:id, :store => :yes, :index => :untokenized) 
     # class_name
@@ -565,7 +567,7 @@ module ActsAsFerret
 
   def self.add_models_to_options_if_necessary(options, models_or_index_name)
     return options if String === models_or_index_name or Symbol === models_or_index_name
-    options.merge(:models => models)
+    options.merge(:models => models_or_index_name)
   end
 
   def self.field_config_for(fieldname, options = {})

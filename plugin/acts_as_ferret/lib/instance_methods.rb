@@ -28,7 +28,7 @@ module ActsAsFerret #:nodoc:
     #                    probably want to change this to a Unicode elipsis
     #                    character.
     def highlight(query, options = {})
-      self.class.aaf_index.highlight(self.send(self.class.primary_key), self.class.name, query, options)
+      self.class.aaf_index.highlight(self.ferret_key, query, options)
     end
     
     # re-eneable ferret indexing for this instance after a call to #disable_ferret
@@ -96,7 +96,7 @@ module ActsAsFerret #:nodoc:
     # add to index
     def ferret_create
       if ferret_enabled?
-        logger.debug "ferret_create/update: #{self.class.name} : #{self.id}"
+        logger.debug "ferret_create/update: #{self.ferret_key}"
         self.class.aaf_index << self
       else
         ferret_enable if @ferret_disabled == :once
@@ -108,22 +108,28 @@ module ActsAsFerret #:nodoc:
 
     # remove from index
     def ferret_destroy
-      logger.debug "ferret_destroy: #{self.class.name} : #{self.id}"
+      logger.debug "ferret_destroy: #{self.ferret_key}"
       begin
-        self.class.aaf_index.remove self.id, self.class.name
+        self.class.aaf_index.remove self.ferret_key
       rescue
         logger.warn("Could not find indexed value for this object: #{$!}\n#{$!.backtrace}")
       end
       true # signal success to AR
     end
     
+    def ferret_key
+      "#{self.class.name}-#{self.send self.class.primary_key}" unless new_record?
+    end
+    
     # turn this instance into a ferret document (which basically is a hash of
     # fieldname => value pairs)
     def to_doc
-      logger.debug "creating doc for class: #{self.class.name}, id: #{self.id}"
+      logger.debug "creating doc for class: #{self.ferret_key}"
       returning Ferret::Document.new do |doc|
-        # store the id and class name of each item
-        doc[:id] = self.id
+        # store the id and class name of each item, and the unique key used for identifying the record
+        # even in multi-class indexes.
+        doc[:key] = self.ferret_key
+        doc[:id] = self.id.to_s
         doc[:class_name] = self.class.name
       
         # iterate through the fields and add them to the document
@@ -142,11 +148,11 @@ module ActsAsFerret #:nodoc:
     end
 
     def document_number
-      self.class.aaf_index.document_number(id, self.class.name)
+      self.class.aaf_index.document_number(self.ferret_key)
     end
 
     def query_for_record
-      self.class.aaf_index.query_for_record(id, self.class.name)
+      self.class.aaf_index.query_for_record(self.ferret_key)
     end
 
     def content_for_field_name(field, via = field, dynamic_boost = nil)
