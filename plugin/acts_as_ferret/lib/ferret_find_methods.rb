@@ -67,6 +67,7 @@ module ActsAsFerret
       count_options = ar_options.dup
       count_options.delete :limit
       count_options.delete :offset
+      count_options.delete :order
       count = 0
       id_arrays.each do |model, id_array|
         next if id_array.empty?
