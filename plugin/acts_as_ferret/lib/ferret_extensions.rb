@@ -71,7 +71,80 @@ module Ferret
       end
       @auto_flush = orig_flush
     end
+    
 
+    # bulk-inserts a number of ferret documents.
+    # The argument has to be an array of two-element arrays each holding the document data and the analyzer to 
+    # use for this document (which may be nil).
+    def update_batch(document_analyzer_pairs)
+      ids = document_analyzer_pairs.collect {|da| da.first[@id_field] }
+      @dir.synchrolock do
+        batch_delete(ids)
+        ensure_writer_open()
+        document_analyzer_pairs.each do |doc, analyzer|
+          if analyzer
+            old_analyzer = @writer.analyzer
+            @writer.analyzer = analyzer
+            @writer.add_document(doc)
+            @writer.analyzer = old_analyzer
+          else
+            @writer.add_document(doc)
+          end
+        end
+        flush()
+      end      
+    end
+    
+    # If +docs+ is a Hash or an Array then a batch delete will be performed.
+    # If +docs+ is an Array then it will be considered an array of +id+'s. If
+    # it is a Hash, then its keys will be used instead as the Array of
+    # document +id+'s. If the +id+ is an Integers then it is considered a
+    # Ferret document number and the corresponding document will be deleted.
+    # If the +id+ is a String or a Symbol then the +id+ will be considered a
+    # term and the documents that contain that term in the +:id_field+ will
+    # be deleted.
+    #
+    # docs:: An Array of docs to be deleted, or a Hash (in which case the keys
+    # are used)
+    #
+    # ripped from Ferret trunk.
+    def batch_delete(docs)
+      docs = docs.keys if docs.is_a?(Hash)
+      raise ArgumentError, "must pass Array or Hash" unless docs.is_a? Array
+      ids = []
+      terms = []
+      docs.each do |doc|
+        case doc
+        when String: terms << doc
+        when Symbol: terms << doc.to_s
+        when Integer: ids << doc
+        else
+          raise ArgumentError, "Cannot delete for arg of type #{id.class}"
+        end
+      end
+      if ids.size > 0
+        ensure_reader_open
+        ids.each {|id| @reader.delete(id)}
+      end
+      if terms.size > 0
+        ensure_writer_open()
+        terms.each { |t| @writer.delete(@id_field, t) }
+        # TODO with Ferret trunk this would work:
+        # @writer.delete(@id_field, terms)
+      end
+      return self
+    end
+
+    # search for the first document with +arg+ in the +id+ field and return it's internal document number. 
+    # The +id+ field is either :id or whatever you set
+    # :id_field parameter to when you create the Index object.
+    def doc_number(id)
+      @dir.synchronize do
+        ensure_reader_open()
+        term_doc_enum = @reader.term_docs_for(@id_field, id.to_s)
+        return term_doc_enum.next? ? term_doc_enum.doc : nil
+      end
+    end
   end
 
   # add marshalling support to SortFields
