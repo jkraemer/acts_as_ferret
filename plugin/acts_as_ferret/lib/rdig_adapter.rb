@@ -2,6 +2,8 @@ begin
   require 'rdig'
 rescue LoadError
 end
+require 'digest/md5'
+
 module ActsAsFerret
 
   # The RdigAdapter is automatically included into your model if you specify
@@ -15,6 +17,7 @@ module ActsAsFerret
       def self.included(target)
         target.extend ClassMethods
         target.send :include, InstanceMethods
+        target.alias_method_chain :ferret_key, :md5
       end
 
       # Indexer class to replace RDig's original indexer
@@ -131,6 +134,10 @@ module ActsAsFerret
           @id
         end
 
+        def ferret_key_with_md5
+          Digest::MD5.hexdigest(ferret_key_without_md5)
+        end
+        
         def to_s
           "Page at #{id}, title: #{title}"
         end
