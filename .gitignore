@@ -1,9 +1,9 @@
 *.swp
 *.log
-demo/log/*
-demo/tmp/*
-plugin/acts_as_ferret/index/*
-demo/index/*
-demo/db/schema.rb
-demo/vendor/plugins/acts_as_ferret
+doc/demo/log/*
+doc/demo/tmp/*
+index/*
+doc/demo/index/*
+doc/demo/db/schema.rb
+doc/demo/vendor/plugins/acts_as_ferret
 

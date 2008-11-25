@@ -1,5 +1,0 @@
-<todo version="0.1.19">
-    <note priority="medium" time="1166271242">
-        :key =&gt; :id nicht notwendig wenn rebuild
-    </note>
-</todo>
