@@ -6,19 +6,28 @@ It is heavily based on the original acts_as_ferret plugin done by
 Kasper Weibel and a modified version done by Thomas Lockney, which 
 both can be found on http://ferret.davebalmain.com/trac/wiki/FerretOnRails
 
+== Project Homepage
+
+http://rm.jkraemer.net/projects/show/aaf
+
 == Installation
+
+Aaf is available via git from rubyforge.org and github.com. Github also offers
+tarball downloads, check out http://github.com/jkraemer/acts_as_ferret/tree/master .
 
 === Installation inside your Rails project via script/plugin
 
-script/plugin install http://code.jkraemer.net/svn/acts_as_ferret/trunk/plugin/acts_as_ferret
+script/plugin install git://github.com/jkraemer/acts_as_ferret.git
 
-=== Git repositories
+The rubyforge repository is located at git://rubyforge.org/actsasferret.git
 
-Aaf is is also available via git from Rubyforge:
-git clone git://rubyforge.org/actsasferret.git
+=== Old SVN repository
 
-and from Github:
-git clone git://github.com/jkraemer/acts_as_ferret.git
+In november 2008 I stopped updating the svn repository that has been the main
+repository for aaf for several years. In case you want to retrieve any of the
+older versions of the plugin, it's still there at
+
+svn://code.jkraemer.net/acts_as_ferret/
 
 === System-wide installation with Rubygems
 
@@ -29,8 +38,9 @@ project's config/environment.rb:
 
 <tt>require 'acts_as_ferret'</tt>
 
-Call the aaf_install script inside your project directory to install the sample
-config file and the drb server start/stop script.
+Call the aaf_install script that came with the gem inside your project
+directory to install the sample config file and the drb server start/stop
+script.
 
 
 == Usage
