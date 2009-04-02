@@ -4,7 +4,7 @@ namespace :ferret do
   # environment variable:
   #
   # INDEXES="my_model shared" rake ferret:rebuild
-  desc "Rebuild a Ferret index. Specify what model to rebuild with the MODEL environment variable."
+  desc "Rebuild a Ferret index. Specify what model to rebuild with the INDEXES environment variable."
   task :rebuild => :environment do
     indexes = ENV['INDEXES'].split
     indexes.each do |index_name|

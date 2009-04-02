@@ -29,8 +29,8 @@ module ActsAsFerret #:nodoc:
         #                                           equals Ferret's internal similarity implementation)
         # :analyzer => 'Ferret::Analysis::StandardAnalyzer' # class name of the analyzer to use
         # :append_to_query => nil # proc taking a query object as argument, which will be called after generating the query. can be used to further manipulate the query used to find related documents, i.e. to constrain the search to a given class in single table inheritance scenarios
-        # ferret_options : Ferret options handed over to find_by_contents (i.e. for limits and sorting)
-        # ar_options : options handed over to find_by_contents for AR scoping
+        # ferret_options : Ferret options handed over to find_with_ferret (i.e. for limits and sorting)
+        # ar_options : options handed over to find_with_ferret for AR scoping
         def more_like_this(options = {}, ferret_options = {}, ar_options = {})
           options = {
             :field_names => nil,  # Default field names
@@ -44,7 +44,7 @@ module ActsAsFerret #:nodoc:
             :similarity => 'ActsAsFerret::MoreLikeThis::DefaultAAFSimilarity',  # class name of the similarity implementation to use
             :analyzer => 'Ferret::Analysis::StandardAnalyzer', # class name of the analyzer to use
             :append_to_query => nil,
-            :base_class => self.class # base class to use for querying, useful in STI scenarios where BaseClass.find_by_contents can be used to retrieve results from other classes, too
+            :base_class => self.class # base class to use for querying, useful in STI scenarios where BaseClass.find_with_ferret can be used to retrieve results from other classes, too
           }.update(options)
           #index.search_each('id:*') do |doc, score|
           #  puts "#{doc} == #{index[doc][:description]}"
