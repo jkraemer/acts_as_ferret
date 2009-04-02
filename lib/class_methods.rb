@@ -169,7 +169,7 @@ module ActsAsFerret
     # Useful e.g. if you want to search across models or do not want to fetch
     # all result records (yet).
     #
-    # Options are the same as for find_by_contents
+    # Options are the same as for find_with_ferret
     #
     # A block can be given too, it will be executed with every result:
     # find_ids_with_ferret(q, options) do |model, id, score|

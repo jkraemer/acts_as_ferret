@@ -60,7 +60,7 @@ require 'rdig_adapter'
 # include the following in your model class (specifiying the fields you want to get indexed):
 # acts_as_ferret :fields => [ :title, :description ]
 #
-# now you can use ModelClass.find_by_contents(query) to find instances of your model
+# now you can use ModelClass.find_with_ferret(query) to find instances of your model
 # whose indexed fields match a given query. All query terms are required by default, but 
 # explicit OR queries are possible. This differs from the ferret default, but imho is the more
 # often needed/expected behaviour (more query terms result in less results).
