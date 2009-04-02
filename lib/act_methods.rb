@@ -91,7 +91,7 @@ module ActsAsFerret #:nodoc:
 
       index = ActsAsFerret::register_class_with_index(self, index_name, options)
       self.aaf_configuration = index.index_definition.dup
-      logger.debug "configured index for class #{self.name}:\n#{aaf_configuration.inspect}"
+      # logger.debug "configured index for class #{self.name}:\n#{aaf_configuration.inspect}"
 
       # update our copy of the global index config with options local to this class
       aaf_configuration[:class_name] ||= self.name
