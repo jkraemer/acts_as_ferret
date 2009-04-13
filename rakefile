@@ -4,6 +4,8 @@
 # RELEASE creation:
 # rake release REL=x.y.z 
 
+require 'pathname'
+require 'yaml'
 require 'rake'
 require 'rake/rdoctask'
 require 'rake/packagetask'
@@ -55,7 +57,7 @@ if PKG_VERSION
     s.platform        = Gem::Platform::RUBY
     s.summary         = "acts_as_ferret - Ferret based full text search for any ActiveRecord model"
     s.files  = Dir.glob('**/*', File::FNM_DOTMATCH).reject do |f| 
-      [ /\.$/, /sqlite$/, /\.log$/, /^pkg/, /\.svn/, /\.\w+\.sw.$/,
+      [ /\.$/, /sqlite$/, /\.log$/, /^pkg/, /\.svn/, /\.git/, /\.\w+\.sw.$/,
         /^html/, /\~$/, /\/\._/, /\/#/ ].any? {|regex| f =~ regex }
     end
     #s.files           = FileList["{lib,test}/**/*"].to_a + %w(README MIT-LICENSE CHANGELOG)
@@ -70,6 +72,11 @@ if PKG_VERSION
     s.author          = "Jens Kraemer"
     s.email           = "jk@jkraemer.net"
     s.homepage        = "http://projects.jkraemer.net/acts_as_ferret"
+  end
+  
+  desc "Update the gemspec for GitHub's gem server"
+  task :gemspec do
+    Pathname("#{spec.name}.gemspec").open('w') {|f| f << YAML.dump(spec) }
   end
 
   package_task = Rake::GemPackageTask.new(spec) do |pkg|
