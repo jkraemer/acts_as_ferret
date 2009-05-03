@@ -115,9 +115,9 @@ module Ferret
       terms = []
       docs.each do |doc|
         case doc
-        when String: terms << doc
-        when Symbol: terms << doc.to_s
-        when Integer: ids << doc
+        when String   then terms << doc
+        when Symbol   then terms << doc.to_s
+        when Integer  then ids << doc
         else
           raise ArgumentError, "Cannot delete for arg of type #{id.class}"
         end
@@ -155,11 +155,11 @@ module Ferret
 
     def self._load(string)
       case string
-        when /<DOC(_ID)?>!/         : Ferret::Search::SortField::DOC_ID_REV
-        when /<DOC(_ID)?>/          : Ferret::Search::SortField::DOC_ID
-        when '<SCORE>!'             : Ferret::Search::SortField::SCORE_REV
-        when '<SCORE>'              : Ferret::Search::SortField::SCORE
-        when /^(\w+):<(\w+)>(!)?$/ : new($1.to_sym, :type => $2.to_sym, :reverse => !$3.nil?)
+        when /<DOC(_ID)?>!/         then Ferret::Search::SortField::DOC_ID_REV
+        when /<DOC(_ID)?>/          then Ferret::Search::SortField::DOC_ID
+        when '<SCORE>!'             then Ferret::Search::SortField::SCORE_REV
+        when '<SCORE>'              then Ferret::Search::SortField::SCORE
+        when /^(\w+):<(\w+)>(!)?$/  then new($1.to_sym, :type => $2.to_sym, :reverse => !$3.nil?)
         else raise "invalid value: #{string}"
       end
     end
