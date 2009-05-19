@@ -49,7 +49,7 @@ module ActsAsFerret
       #################################################################################
       # create the PID file and install an at_exit handler
       def write_pid_file
-        raise "ferret_server may already be running, a pid file exists: #{@cfg.pid_file}" if read_pid_file
+        ensure_stopped
         open(@cfg.pid_file, "w") {|f| f << Process.pid << "\n"}
         at_exit { File.unlink(@cfg.pid_file) if read_pid_file == Process.pid }
       end
@@ -57,6 +57,26 @@ module ActsAsFerret
       #################################################################################
       def read_pid_file
         File.read(@cfg.pid_file).to_i if File.exist?(@cfg.pid_file)
+      end
+
+      #################################################################################
+      def ensure_stopped
+        if pid = read_pid_file
+          if process_exists(pid)
+            raise "ferret_server may already be running, a pid file exists: #{@cfg.pid_file} and a ferret_server process exists with matching pid #{pid}"
+          else
+            $stdout.puts("removing stale pid file...")
+            File.unlink(@cfg.pid_file) if File.exist?(@cfg.pid_file)
+          end
+        end
+      end
+
+      #################################################################################
+      # Check for existence of ferret_server proces with PID from pid file
+      # checked on ubuntu and OSX only
+      def process_exists(pid)
+        ps = IO.popen("ps -fp #{pid}", "r")
+        ps.to_a[1] =~ /ferret_server/
       end
 
     end
