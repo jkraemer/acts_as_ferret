@@ -76,7 +76,9 @@ module ActsAsFerret
       # checked on ubuntu and OSX only
       def process_exists(pid)
         ps = IO.popen("ps -fp #{pid}", "r")
-        ps.to_a[1] =~ /ferret_server/
+        process = ps.to_a[1]
+        ps.close
+        process =~ /ferret_server/
       end
 
     end
