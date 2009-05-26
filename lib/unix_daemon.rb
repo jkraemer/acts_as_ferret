@@ -72,7 +72,7 @@ module ActsAsFerret
       end
 
       #################################################################################
-      # Check for existence of ferret_server proces with PID from pid file
+      # Check for existence of ferret_server process with PID from pid file
       # checked on ubuntu and OSX only
       def process_exists(pid)
         ps = IO.popen("ps -fp #{pid}", "r")
