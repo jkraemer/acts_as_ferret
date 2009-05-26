@@ -105,6 +105,7 @@ module ActsAsFerret
 
   # mapping from class name to index name
   @@index_using_classes = {}
+  def self.index_using_classes; @@index_using_classes end
 
   @@logger = Logger.new "#{RAILS_ROOT}/log/acts_as_ferret.log"
   @@logger.level = ActiveRecord::Base.logger.level rescue Logger::DEBUG

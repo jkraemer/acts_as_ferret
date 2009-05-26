@@ -32,6 +32,7 @@ module ActsAsFerret
       begin
         return yield
       rescue ActsAsFerret::IndexNotDefined
+        logger.warn "Recovering from ActsAsFerret::IndexNotDefined exception"
         ActsAsFerret::ferret_indexes[index_name] = ActsAsFerret::create_index_instance( index_definition )
         ActsAsFerret::ferret_indexes[index_name].register_class ActsAsFerret::index_using_classes.index(index_name).constantize, {}
         retry if (trys -= 1) > 0
