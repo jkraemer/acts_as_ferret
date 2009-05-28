@@ -9,7 +9,7 @@ autorequire: acts_as_ferret
 bindir: bin
 cert_chain: []
 
-date: 2009-04-13 00:00:00 -05:00
+date: 2009-05-28 00:00:00 +02:00
 default_executable: aaf_install
 dependencies: []
 
@@ -22,6 +22,7 @@ extensions: []
 extra_rdoc_files: []
 
 files: 
+- acts_as_ferret.gemspec
 - bin
 - bin/aaf_install
 - config
@@ -90,6 +91,7 @@ files:
 - doc/demo/doc
 - doc/demo/doc/howto.txt
 - doc/demo/doc/README_FOR_APP
+- doc/demo/log
 - doc/demo/public
 - doc/demo/public/.htaccess
 - doc/demo/public/404.html

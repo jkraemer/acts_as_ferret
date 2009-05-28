@@ -19,7 +19,11 @@ tarball downloads, check out http://github.com/jkraemer/acts_as_ferret/tree/mast
 
 Add this to your projects config/environment.rb:
 
-<tt>config.gem 'acts_as_ferret', :version => '~> 0.4.3'</tt>
+<tt>config.gem 'acts_as_ferret', :version => '~> 0.4.4'</tt>
+
+Or, use github:
+
+<tt>config.gem 'jkraemer-acts_as_ferret', :version => '~> 0.4.4', :lib => 'acts_as_ferret', :source => 'http://gems.github.com'"</tt>
 
 === Installation inside your Rails project via script/plugin
 
