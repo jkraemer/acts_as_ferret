@@ -15,6 +15,12 @@ http://rm.jkraemer.net/projects/show/aaf
 Aaf is available via git from rubyforge.org and github.com. Github also offers
 tarball downloads, check out http://github.com/jkraemer/acts_as_ferret/tree/master .
 
+=== Installation inside your Rails > 2.1 project via gem management
+
+Add this to your projects config/environment.rb:
+
+<tt>config.gem 'acts_as_ferret', :version => '~> 0.4.3'</tt>
+
 === Installation inside your Rails project via script/plugin
 
 script/plugin install git://github.com/jkraemer/acts_as_ferret.git
@@ -33,7 +39,7 @@ svn://code.jkraemer.net/acts_as_ferret/
 
 <tt>sudo gem install acts_as_ferret</tt>
 
-To use acts_as_ferret in your project, add the following line to your
+To use acts_as_ferret in your project, add the following line to the end of your
 project's config/environment.rb:
 
 <tt>require 'acts_as_ferret'</tt>
