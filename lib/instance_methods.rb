@@ -156,7 +156,8 @@ module ActsAsFerret #:nodoc:
     end
 
     def content_for_field_name(field, via = field, dynamic_boost = nil)
-      field_data = (respond_to?(via) ? send(via) : instance_variable_get("@#{via}")).to_s
+      field_data = (respond_to?(via) ? send(via) : instance_variable_get("@#{via}"))
+      field_data = (field_data.is_a?(Array) ? field_data.map{|d| d.to_s} : field_data.to_s)
       # field_data = self.send(via) || self.instance_variable_get("@#{via}")
       if (dynamic_boost && boost_value = self.send(dynamic_boost))
         field_data = Ferret::Field.new(field_data)
