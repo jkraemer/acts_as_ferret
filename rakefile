@@ -58,7 +58,7 @@ if PKG_VERSION
     s.summary         = "acts_as_ferret - Ferret based full text search for any ActiveRecord model"
     s.files  = Dir.glob('**/*', File::FNM_DOTMATCH).reject do |f| 
       [ /\.$/, /sqlite$/, /\.log$/, /^pkg/, /\.svn/, /\.git/, /\.\w+\.sw.$/,
-        /^html/, /\~$/, /\/\._/, /\/#/ ].any? {|regex| f =~ regex }
+        /^html/, /\~$/, /\/\._/, /\/#/, /\._/ ].any? {|regex| f =~ regex }
     end
     #s.files           = FileList["{lib,test}/**/*"].to_a + %w(README MIT-LICENSE CHANGELOG)
   # s.files.delete  ...    
@@ -90,21 +90,21 @@ if PKG_VERSION
     announce "* Making RubyGem Release #{PKG_VERSION}"
     announce "**************************************************************"
     announce  
-    # Are all source files checked in?
-    if ENV['RELTEST']
-      announce "Release Task Testing, skipping checked-in file test"
-    else
-      announce "Pulling in svn..."
-      `svk pull .`
-      announce "Checking for unchecked-in files..."
-      data = `svk st`
-      unless data =~ /^$/
-        fail "SVK status is not clean ... do you have unchecked-in files?"
-      end
-      announce "No outstanding checkins found ... OK"
-#      announce "Pushing to svn..."
-#      `svk push .`
-    end
+#     # Are all source files checked in?
+#     if ENV['RELTEST']
+#       announce "Release Task Testing, skipping checked-in file test"
+#     else
+#       announce "Pulling in svn..."
+#       `svk pull .`
+#       announce "Checking for unchecked-in files..."
+#       data = `svk st`
+#       unless data =~ /^$/
+#         fail "SVK status is not clean ... do you have unchecked-in files?"
+#       end
+#       announce "No outstanding checkins found ... OK"
+# #      announce "Pushing to svn..."
+# #      `svk push .`
+    # end
   end
   
   
@@ -116,9 +116,9 @@ if PKG_VERSION
     if ENV['RELTEST']
       announce "Release Task Testing, skipping tagging"
     else
-      `svn copy -m 'tagging version #{PKG_VERSION}' svn://projects.jkraemer.net/acts_as_ferret/trunk/plugin svn://projects.jkraemer.net/acts_as_ferret/tags/#{PKG_VERSION}`
-      `svn del -m 'remove old stable' svn://projects.jkraemer.net/acts_as_ferret/tags/stable`
-      `svn copy -m 'tagging version #{PKG_VERSION} as stable' svn://projects.jkraemer.net/acts_as_ferret/tags/#{PKG_VERSION} svn://projects.jkraemer.net/acts_as_ferret/tags/stable`
+      # `svn copy -m 'tagging version #{PKG_VERSION}' svn://projects.jkraemer.net/acts_as_ferret/trunk/plugin svn://projects.jkraemer.net/acts_as_ferret/tags/#{PKG_VERSION}`
+      # `svn del -m 'remove old stable' svn://projects.jkraemer.net/acts_as_ferret/tags/stable`
+      # `svn copy -m 'tagging version #{PKG_VERSION} as stable' svn://projects.jkraemer.net/acts_as_ferret/tags/#{PKG_VERSION} svn://projects.jkraemer.net/acts_as_ferret/tags/stable`
     end
   end
   
