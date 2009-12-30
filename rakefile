@@ -62,6 +62,7 @@ if PKG_VERSION
     end
     #s.files           = FileList["{lib,test}/**/*"].to_a + %w(README MIT-LICENSE CHANGELOG)
   # s.files.delete  ...    
+    s.add_dependency  'ferret'
     s.require_path    = 'lib'
     s.bindir          = "bin"
     s.executables     = ["aaf_install"]
