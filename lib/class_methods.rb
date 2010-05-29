@@ -132,7 +132,8 @@ module ActsAsFerret
     #
     # +find_options+ is a hash passed on to active_record's find when
     # retrieving the data from db, useful to i.e. prefetch relationships with
-    # :include or to specify additional filter criteria with :conditions.
+    # :include or to specify additional filter criteria with :conditions (only string and array syntax supported).
+    # You can also call find_with_ferret inside named or dynamic scopes, if you like the conditions hash syntax more.
     #
     # This method returns a +SearchResults+ instance, which really is an Array that has 
     # been decorated with a total_hits attribute holding the total number of hits.
