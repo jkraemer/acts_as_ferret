@@ -45,34 +45,36 @@ Rake::RDocTask.new(:rdoc) do |rdoc|
   rdoc.rdoc_files.include('lib/**/*.rb')
 end
 
+# FIXME 
 desc "Publish the API documentation"
 task :pdoc => [:rdoc] do
-  Rake::RubyForgePublisher.new(RUBYFORGE_PROJECT, RUBYFORGE_USER).upload
+  # Rake::RubyForgePublisher.new(RUBYFORGE_PROJECT, RUBYFORGE_USER).upload
 end
 
 if PKG_VERSION
   spec = Gem::Specification.new do |s|
     s.name            = PKG_NAME
-    s.version         = PKG_VERSION
+    s.version         = PKG_VERSION.dup
     s.platform        = Gem::Platform::RUBY
+    s.rubyforge_project = 'acts_as_ferret'
     s.summary         = "acts_as_ferret - Ferret based full text search for any ActiveRecord model"
+    s.description     = "Rails plugin that adds powerful full text search capabilities to ActiveRecord models."
     s.files  = Dir.glob('**/*', File::FNM_DOTMATCH).reject do |f| 
       [ /\.$/, /sqlite$/, /\.log$/, /^pkg/, /\.svn/, /\.git/, /\.\w+\.sw.$/,
-        /^html/, /\~$/, /\/\._/, /\/#/, /\._/ ].any? {|regex| f =~ regex }
+        /^html/, /\~$/, /\/\._/, /\/#/, /\._/, /tmp\// ].any? {|regex| f =~ regex }
     end
     #s.files           = FileList["{lib,test}/**/*"].to_a + %w(README MIT-LICENSE CHANGELOG)
-  # s.files.delete  ...    
     s.add_dependency  'ferret'
     s.require_path    = 'lib'
     s.bindir          = "bin"
     s.executables     = ["aaf_install"]
     s.default_executable = "aaf_install"
-    s.autorequire     = 'acts_as_ferret'
+    # s.autorequire     = 'acts_as_ferret'
     s.has_rdoc        = true
   # s.test_files      = Dir['test/**/*_test.rb']
     s.author          = "Jens Kraemer"
     s.email           = "jk@jkraemer.net"
-    s.homepage        = "http://projects.jkraemer.net/acts_as_ferret"
+    s.homepage        = "http://github.com/jkraemer/acts_as_ferret"
   end
   
   desc "Update the gemspec for GitHub's gem server"
@@ -80,63 +82,36 @@ if PKG_VERSION
     Pathname("#{spec.name}.gemspec").open('w') {|f| f << YAML.dump(spec) }
   end
 
-  package_task = Rake::GemPackageTask.new(spec) do |pkg|
-    pkg.need_tar = true
+  desc 'build the gem'
+  task :package => :gemspec do
+    `gem build acts_as_ferret.gemspec`
+    `mv #{PKG_FILE_NAME}.gem pkg/#{PKG_FILE_NAME}.gem`
   end
-
-  # Validate that everything is ready to go for a release.
-  task :prerelease do
-    announce 
-    announce "**************************************************************"
-    announce "* Making RubyGem Release #{PKG_VERSION}"
-    announce "**************************************************************"
-    announce  
-#     # Are all source files checked in?
-#     if ENV['RELTEST']
-#       announce "Release Task Testing, skipping checked-in file test"
-#     else
-#       announce "Pulling in svn..."
-#       `svk pull .`
-#       announce "Checking for unchecked-in files..."
-#       data = `svk st`
-#       unless data =~ /^$/
-#         fail "SVK status is not clean ... do you have unchecked-in files?"
-#       end
-#       announce "No outstanding checkins found ... OK"
-# #      announce "Pushing to svn..."
-# #      `svk push .`
-    # end
+  
+  desc 'publish to rubygems.org'
+  task :push => [ :package, :tag ] do
+    if ENV['RELTEST']
+      announce "Release Task Testing, not pushing to rubygems.org"
+    else
+      `gem push pkg/#{PKG_FILE_NAME}.gem`
+    end
   end
   
   
   desc "tag the new release"
-  task :tag => [ :prerelease ] do
-    reltag = "REL_#{PKG_VERSION.gsub(/\./, '_')}"
-    reltag << ENV['REUSE'].gsub(/\./, '_') if ENV['REUSE']
+  task :tag do
+    reltag = "rel_#{PKG_VERSION.gsub(/\./, '_')}"
     announce "Tagging with [#{PKG_VERSION}]"
     if ENV['RELTEST']
       announce "Release Task Testing, skipping tagging"
     else
-      # `svn copy -m 'tagging version #{PKG_VERSION}' svn://projects.jkraemer.net/acts_as_ferret/trunk/plugin svn://projects.jkraemer.net/acts_as_ferret/tags/#{PKG_VERSION}`
-      # `svn del -m 'remove old stable' svn://projects.jkraemer.net/acts_as_ferret/tags/stable`
-      # `svn copy -m 'tagging version #{PKG_VERSION} as stable' svn://projects.jkraemer.net/acts_as_ferret/tags/#{PKG_VERSION} svn://projects.jkraemer.net/acts_as_ferret/tags/stable`
+      `git tag -m 'tagging release #{reltag}' -s #{reltag} HEAD`
+      `git tag -d stable`
+      `git tag -m 'tagging HEAD as stable' -s stable HEAD`
     end
   end
-  
-  # Upload release to rubyforge
-  desc "Upload release to rubyforge"
-  task :prel => [ :tag, :prerelease, :package ] do
-    `rubyforge login`
-    release_command = "rubyforge add_release #{RUBYFORGE_PROJECT} #{PKG_NAME} '#{PKG_VERSION}' pkg/#{PKG_NAME}-#{PKG_VERSION}.gem"
-    puts release_command
-    system(release_command)
-    `rubyforge config #{RUBYFORGE_PROJECT}`
-    release_command = "rubyforge add_file #{RUBYFORGE_PROJECT} #{PKG_NAME} '#{PKG_VERSION}' pkg/#{PKG_NAME}-#{PKG_VERSION}.tgz"
-    puts release_command
-    system(release_command)
-  end
-  
+    
   desc 'Publish the gem and API docs'
-  task :release => [:pdoc, :prel ]
+  task :release => [:pdoc, :push ]
   
 end

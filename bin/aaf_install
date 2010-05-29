@@ -1,3 +1,4 @@
+#!/usr/bin/env ruby
 # acts_as_ferret gem install script
 # Use inside the root of your Rails project
 require 'fileutils'
