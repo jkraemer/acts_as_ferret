@@ -1,11 +1,13 @@
-if defined?(BlankSlate)
-  # Rails 2.x has it already
-  module ActsAsFerret
+module ActsAsFerret
+  if defined?(BasicObject)
+    # Ruby 1.9.x
+    class BlankSlate < BasicObject
+    end
+  elsif defined?(BlankSlate)
+    # Rails 2.x has it already
     class BlankSlate < ::BlankSlate
     end
-  end
-else
-  module ActsAsFerret
+  else
     # 'backported' for Rails pre 2.0
     #
     #--
@@ -47,7 +49,6 @@ else
       instance_methods.each { |m| hide(m) }
 
     end
+
   end
-
 end
-
