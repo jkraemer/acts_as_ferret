@@ -5,7 +5,7 @@ version: !ruby/object:Gem::Version
   segments: 
   - 0
   - 4
-  - 5
+  - 6
   version: 0.4.6
 platform: ruby
 authors: 
@@ -38,7 +38,6 @@ extensions: []
 extra_rdoc_files: []
 
 files: 
-- acts_as_ferret-0.4.5.gem
 - acts_as_ferret.gemspec
 - bin
 - bin/aaf_install
@@ -108,7 +107,6 @@ files:
 - doc/demo/doc
 - doc/demo/doc/howto.txt
 - doc/demo/doc/README_FOR_APP
-- doc/demo/log
 - doc/demo/public
 - doc/demo/public/.htaccess
 - doc/demo/public/404.html
@@ -247,7 +245,6 @@ files:
 - script/ferret_service
 - tasks
 - tasks/ferret.rake
-- tmp
 has_rdoc: true
 homepage: http://github.com/jkraemer/acts_as_ferret
 licenses: []
