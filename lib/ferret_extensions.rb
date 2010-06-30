@@ -78,7 +78,7 @@ module Ferret
     # use for this document (which may be nil).
     def update_batch(document_analyzer_pairs)
       ids = document_analyzer_pairs.collect {|da| da.first[@id_field] }
-      @dir.synchrolock do
+      @dir.synchronize do
         batch_delete(ids)
         ensure_writer_open()
         document_analyzer_pairs.each do |doc, analyzer|
