@@ -5,8 +5,8 @@ version: !ruby/object:Gem::Version
   segments: 
   - 0
   - 4
-  - 6
-  version: 0.4.6
+  - 7
+  version: 0.4.7
 platform: ruby
 authors: 
 - Jens Kraemer
@@ -14,7 +14,7 @@ autorequire:
 bindir: bin
 cert_chain: []
 
-date: 2010-05-29 00:00:00 +02:00
+date: 2010-07-06 13:50:00 +02:00
 default_executable: aaf_install
 dependencies: 
 - !ruby/object:Gem::Dependency 
