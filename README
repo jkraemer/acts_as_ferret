@@ -13,45 +13,32 @@ http://j-k.lighthouseapp.com/projects/45560-acts-as-ferret
 
 == Installation
 
-Aaf is available via git from rubyforge.org and github.com. Github also offers
-tarball downloads, check out http://github.com/jkraemer/acts_as_ferret/tree/master .
+Aaf is available as a gem (gem install acts_as_ferret), or via git from github.com.
+Github also offers tarball downloads, check out
+http://github.com/jkraemer/acts_as_ferret/tree/master .
 
-=== Installation inside your Rails > 2.1 project via gem management
+=== Set up your Rails > 2.1 project to use the acts_as_ferret gem.
 
-Add this to your projects config/environment.rb:
+Add this to your project's config/environment.rb:
 
-<tt>config.gem 'acts_as_ferret', :version => '~> 0.4.4'</tt>
+<tt>config.gem 'acts_as_ferret', :version => '~> 0.4.7'</tt>
 
-Or, use github:
+With Rails 3 of course instead you have to update your Gemfile, but I guess you already knew that ;-) 
+With the gem installed, change into your RAILS_ROOT and run the supplied aaf_install script.
+This will copy rake tasks, capistrano recipes and the ferret server config and startup script
+into your project.
 
-<tt>config.gem 'jkraemer-acts_as_ferret', :version => '~> 0.4.4', :lib => 'acts_as_ferret', :source => 'http://gems.github.com'"</tt>
+In order to have the capistrano recipe loaded you'll have to patch your Capfile a bit. I use to have
+a line like that in my Capfiles, loading everything found below RAILS_ROOT/lib/recipes:
+
+<tt>Dir['lib/recipes/**/*.rb'].each { |plugin| load(plugin) }</tt>
+
 
 === Installation inside your Rails project via script/plugin
 
 script/plugin install git://github.com/jkraemer/acts_as_ferret.git
 
-The rubyforge repository is located at git://rubyforge.org/actsasferret.git
-
-=== Old SVN repository
-
-In november 2008 I stopped updating the svn repository that has been the main
-repository for aaf for several years. In case you want to retrieve any of the
-older versions of the plugin, it's still there at
-
-svn://code.jkraemer.net/acts_as_ferret/
-
-=== System-wide installation with Rubygems
-
-<tt>sudo gem install acts_as_ferret</tt>
-
-To use acts_as_ferret in your project, add the following line to the end of your
-project's config/environment.rb:
-
-<tt>require 'acts_as_ferret'</tt>
-
-Call the aaf_install script that came with the gem inside your project
-directory to install the sample config file and the drb server start/stop
-script.
+No additional setup needed.
 
 
 == Usage

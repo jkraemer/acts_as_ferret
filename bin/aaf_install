@@ -5,20 +5,25 @@ require 'fileutils'
 
 @basedir = File.join(File.dirname(__FILE__), '..')
 
-def install(dir, file, executable=false)
-  puts "Installing: #{file}"
-  target = File.join('.', dir, file)
+def install(src, target_dir, executable=false)
+  puts "Installing: #{src}"
+  src = File.join(@basedir, src)
+  fname = File.basename(src)
+  target = File.join(target_dir, fname)
   if File.exists?(target)
     puts "#{target} already exists, skipping"
   else
-    FileUtils.cp File.join(@basedir, dir, file), target
+    FileUtils.mkdir_p target_dir
+    FileUtils.cp src, target
     FileUtils.chmod 0755, target if executable
   end
 end
 
 
-install 'script', 'ferret_server', true
-install 'config', 'ferret_server.yml'
+install 'script/ferret_server', 'script', true
+install 'config/ferret_server.yml', 'config'
+install 'tasks/ferret.rake', 'lib/tasks'
+install 'recipes/aaf_recipes.rb', 'lib/recipes'
 
 puts IO.read(File.join(@basedir, 'README'))
 
