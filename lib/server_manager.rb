@@ -37,19 +37,32 @@ OptionParser.new do |optparser|
 end
 
 ################################################################################
+
+def determine_rails_root
+  possible_rails_roots = [
+    $ferret_server_options['root'],
+    (defined?(FERRET_SERVER) ? File.join(File.dirname(FERRET_SERVER), '..') : nil),
+    File.join(File.dirname(__FILE__), *(['..']*4)),
+    '.'
+  ].compact
+  # take the first dir where environment.rb can be found
+  possible_rails_roots.find{ |dir| File.readable?(File.join(dir, 'config', 'environment.rb')) }
+end
+
 begin
   ENV['FERRET_USE_LOCAL_INDEX'] = 'true'
   ENV['RAILS_ENV'] = $ferret_server_options['environment']
-  
   # determine RAILS_ROOT unless already set
-  RAILS_ROOT = $ferret_server_options['root'] || File.join(File.dirname(__FILE__), *(['..']*4)) unless defined? RAILS_ROOT
-  # check if environment.rb is present
-  rails_env_file = File.join(RAILS_ROOT, 'config', 'environment')
-  raise "Unable to find Rails environment.rb at \n#{rails_env_file}.rb\nPlease use the --root option of ferret_server to point it to your RAILS_ROOT." unless File.exists?(rails_env_file+'.rb')
-  # load it
-  require rails_env_file
+  RAILS_ROOT = determine_rails_root unless defined?(RAILS_ROOT)
+  
+  begin
+    require File.join(RAILS_ROOT, 'config', 'environment')
+  rescue LoadError
+    puts "Unable to find Rails environment.rb in any of these locations:\n#{possible_rails_roots.join("\n")}\nPlease use the --root option of ferret_server to point it to your RAILS_ROOT."
+    raise $!
+  end
 
-  require 'acts_as_ferret'
+  # require 'acts_as_ferret'
   ActsAsFerret::Remote::Server.new.send($ferret_server_action)
 rescue Exception => e
   $stderr.puts(e.message)

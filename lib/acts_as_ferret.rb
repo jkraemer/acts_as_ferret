@@ -145,10 +145,15 @@ module ActsAsFerret
   remote?
 
 
-  # Globally declares an index.
+  # Declares an index.
   #
-  # This method is also used to implicitly declare an index when you use the
-  # acts_as_ferret call in your class. Returns the created index instance.
+  # Use this method to define your indexes in a global initializer (i.e. config/initializers/aaf.rb).
+  # This is especially useful if you want to have multiple classes share the same index for cross-model
+  # searching as you only need a single call to declare the index for all models.
+  #
+  # This method is also used internally to declare an index when you use the
+  # acts_as_ferret call inside your class (which in turn can be omitted if the initializer is used).
+  # Returns the created index instance.
   #
   # === Options are:
   #

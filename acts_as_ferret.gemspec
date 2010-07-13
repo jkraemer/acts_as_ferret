@@ -5,8 +5,8 @@ version: !ruby/object:Gem::Version
   segments: 
   - 0
   - 4
-  - 7
-  version: 0.4.7
+  - 8
+  version: 0.4.8
 platform: ruby
 authors: 
 - Jens Kraemer
@@ -14,7 +14,7 @@ autorequire:
 bindir: bin
 cert_chain: []
 
-date: 2010-07-06 13:50:00 +02:00
+date: 2010-07-13 14:10:00 +02:00
 default_executable: aaf_install
 dependencies: 
 - !ruby/object:Gem::Dependency 
@@ -208,7 +208,7 @@ files:
 - doc/demo/vendor/plugins/will_paginate/test/pagination_test.rb
 - doc/monit-example
 - doc/README.win32
-- init.rb
+- rails/init.rb
 - install.rb
 - lib
 - lib/act_methods.rb

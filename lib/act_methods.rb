@@ -75,7 +75,7 @@ module ActsAsFerret #:nodoc:
         # set up AR hooks
         after_create  :ferret_create
         after_update  :ferret_update
-        after_destroy :ferret_destroy      
+        after_destroy :ferret_destroy
       end
 
       cattr_accessor :aaf_configuration

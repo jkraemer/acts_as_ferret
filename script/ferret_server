@@ -1,5 +1,7 @@
 #!/usr/bin/env ruby
 
+FERRET_SERVER = File.expand_path(__FILE__)
+
 begin
   require File.join(File.dirname(__FILE__), '../vendor/plugins/acts_as_ferret/lib/server_manager')
 rescue LoadError

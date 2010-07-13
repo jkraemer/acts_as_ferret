@@ -21,9 +21,8 @@ http://github.com/jkraemer/acts_as_ferret/tree/master .
 
 Add this to your project's config/environment.rb:
 
-<tt>config.gem 'acts_as_ferret', :version => '~> 0.4.7'</tt>
+<tt>config.gem 'acts_as_ferret', :version => '~> 0.4.8'</tt>
 
-With Rails 3 of course instead you have to update your Gemfile, but I guess you already knew that ;-) 
 With the gem installed, change into your RAILS_ROOT and run the supplied aaf_install script.
 This will copy rake tasks, capistrano recipes and the ferret server config and startup script
 into your project.
@@ -50,7 +49,7 @@ acts_as_ferret in each model pointing to the same index every time.
 
 === central configuration file
 
-create a config file like that in RAILS_ROOT/config/initializers:
+With this option, all acts_as_ferret indexes are configured in a single file, RAILS_ROOT/config/aaf.rb:
 
 ActsAsFerret::define_index( 'my_index',
                             :models => {
@@ -70,7 +69,7 @@ ActsAsFerret::define_index( 'some_other_index',
                             } )
 
 
-as you can see for every index you want to define there's a single call, and each model that should go
+As you can see for every index you want to define there's a single call, and each model that should go
 into the index gets it's own ferret options hash (see the acts_as_ferret class method docs for all available options).
 
 === In your models (the old fashioned way)
@@ -86,6 +85,9 @@ less results).
 
 Please see ActsAsFerret::ActMethods#acts_as_ferret for more information.
 
+== Known issues
+
+aaf is not yet ready for Rails3. Feel free to submit patches!
 
 == License
 
