@@ -6,7 +6,8 @@ version: !ruby/object:Gem::Version
   - 0
   - 4
   - 8
-  version: 0.4.8
+  - rails3
+  version: 0.4.8.rails3
 platform: ruby
 authors: 
 - Jens Kraemer

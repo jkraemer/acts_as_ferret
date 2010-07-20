@@ -82,7 +82,7 @@ require 'rdig_adapter'
 #                    whatever reason.
 #
 # remote:: Set this to false to force acts_as_ferret into local (non-DRb) mode even if
-#          config/ferret_server.yml contains a section for the current RAILS_ENV
+#          config/ferret_server.yml contains a section for the current Rails.env
 #          Usually you won't need to touch this option - just configure DRb for
 #          production mode in ferret_server.yml.
 #
@@ -107,7 +107,7 @@ module ActsAsFerret
   @@index_using_classes = {}
   def self.index_using_classes; @@index_using_classes end
 
-  @@logger = Logger.new "#{RAILS_ROOT}/log/acts_as_ferret.log"
+  @@logger = Logger.new "#{Rails.root || '.'}/log/acts_as_ferret.log"
   @@logger.level = ActiveRecord::Base.logger.level rescue Logger::DEBUG
   mattr_accessor :logger
 
@@ -255,7 +255,7 @@ module ActsAsFerret
 
   def self.load_config
     # using require_dependency to make the reloading in dev mode work.
-    require_dependency "#{RAILS_ROOT}/config/aaf.rb"
+    require_dependency "#{Rails.root}/config/aaf.rb"
     ActsAsFerret::logger.info "loaded configuration file aaf.rb"
   rescue LoadError
   ensure
@@ -518,10 +518,10 @@ module ActsAsFerret
 
   
   # make sure the default index base dir exists. by default, all indexes are created
-  # under RAILS_ROOT/index/RAILS_ENV
+  # under Rails.root/index/Rails.env
   def self.init_index_basedir
-    index_base = "#{RAILS_ROOT}/index"
-    @@index_dir = "#{index_base}/#{RAILS_ENV}"
+    index_base = "#{Rails.root || '.'}/index"
+    @@index_dir = "#{index_base}/#{Rails.env}"
   end
   
   mattr_accessor :index_dir
