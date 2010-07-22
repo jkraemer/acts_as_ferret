@@ -1,5 +1,6 @@
 *.swp
 *.log
+*.gem
 doc/demo/log/*
 doc/demo/tmp/*
 index/*

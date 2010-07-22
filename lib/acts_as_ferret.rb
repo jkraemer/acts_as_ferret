@@ -20,33 +20,34 @@
 
 require 'active_support'
 require 'active_record'
+
 require 'set'
 require 'enumerator'
 require 'ferret'
 
-require 'ferret_find_methods'
-require 'remote_functions'
-require 'blank_slate'
-require 'bulk_indexer'
-require 'ferret_extensions'
-require 'act_methods'
-require 'search_results'
-require 'class_methods'
-require 'ferret_result'
-require 'instance_methods'
-require 'without_ar'
+require 'acts_as_ferret/ferret_find_methods'
+require 'acts_as_ferret/remote_functions'
+require 'acts_as_ferret/blank_slate'
+require 'acts_as_ferret/bulk_indexer'
+require 'acts_as_ferret/ferret_extensions'
+require 'acts_as_ferret/act_methods'
+require 'acts_as_ferret/search_results'
+require 'acts_as_ferret/class_methods'
+require 'acts_as_ferret/ferret_result'
+require 'acts_as_ferret/instance_methods'
+require 'acts_as_ferret/without_ar'
 
-require 'multi_index'
-require 'remote_multi_index'
-require 'more_like_this'
+require 'acts_as_ferret/multi_index'
+require 'acts_as_ferret/remote_multi_index'
+require 'acts_as_ferret/more_like_this'
 
-require 'index'
-require 'local_index'
-require 'remote_index'
+require 'acts_as_ferret/index'
+require 'acts_as_ferret/local_index'
+require 'acts_as_ferret/remote_index'
 
-require 'ferret_server'
+require 'acts_as_ferret/server/server'
 
-require 'rdig_adapter'
+require 'acts_as_ferret/rdig_adapter'
 
 # The Rails ActiveRecord Ferret Mixin.
 #
@@ -129,10 +130,10 @@ module ActsAsFerret
   mattr_accessor :remote
   def self.remote?
     if @@remote.nil?
-      if ENV["FERRET_USE_LOCAL_INDEX"] || ActsAsFerret::Remote::Server.running
+      if ENV["FERRET_USE_LOCAL_INDEX"] || ActsAsFerret::Server::Server.running
         @@remote = false
       else
-        @@remote = ActsAsFerret::Remote::Config.new.uri rescue false
+        @@remote = ActsAsFerret::Server::Config.new.uri rescue false
       end
       if @@remote
         logger.info "Will use remote index server which should be available at #{@@remote}"

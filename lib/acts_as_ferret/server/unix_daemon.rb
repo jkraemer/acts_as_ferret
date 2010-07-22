@@ -1,8 +1,6 @@
-################################################################################
 module ActsAsFerret
-  module Remote
+  module Server
 
-    ################################################################################
     # methods for becoming a daemon on Unix-like operating systems
     module UnixDaemon
 
