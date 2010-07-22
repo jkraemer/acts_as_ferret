@@ -209,7 +209,7 @@ files:
 - doc/demo/vendor/plugins/will_paginate/test/pagination_test.rb
 - doc/monit-example
 - doc/README.win32
-- rails/init.rb
+- init.rb
 - install.rb
 - lib
 - lib/acts_as_ferret.rb
