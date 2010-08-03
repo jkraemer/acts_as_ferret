@@ -89,6 +89,8 @@ require 'acts_as_ferret/rdig_adapter'
 #
 module ActsAsFerret
 
+  require 'acts_as_ferret/railtie' if defined?(Rails)
+
   class ActsAsFerretError < StandardError; end
   class IndexNotDefined < ActsAsFerretError; end
   class IndexAlreadyDefined < ActsAsFerretError; end
@@ -588,4 +590,6 @@ end
 
 # include acts_as_ferret method into ActiveRecord::Base
 ActiveRecord::Base.extend ActsAsFerret::ActMethods
+
+
 

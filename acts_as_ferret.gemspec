@@ -33,7 +33,7 @@ Gem::Specification.new do |s|
   
 
 	s.has_rdoc = true
-  s.rdoc_options = ["--charset=UTF-8"]
+  s.rdoc_options << "--charset=UTF-8" << '--title' << 'ActsAsFeret - Ferret powered full text search for Rails' << '--main' << 'README'
 
 
 	s.extra_rdoc_files = [
@@ -42,6 +42,9 @@ Gem::Specification.new do |s|
 	]
 	s.test_files = Dir['test/**/*rb']
 	s.files = [
+	  '*rb',
+		'README',
+		'LICENSE',
 		'bin/*',
 		'config/*',
 		'doc/**/*',
@@ -49,13 +52,6 @@ Gem::Specification.new do |s|
 		'script/*',
 		'tasks/*',
 		'lib/**/*rb'
-	].map{|p| Dir[p]}.flatten +
-	[
-		'acts_as_ferret.gemspec',
-		'init.rb',
-		'install.rb',
-		'README',
-		'LICENSE',
-	]
+	].map{|p| Dir[p]}.flatten
 	
 end
