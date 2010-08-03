@@ -2,7 +2,7 @@
 #
 # acts_as_ferret gem install script
 #
-# Call this from Rails.root to install start/stop script, sample config, rake tasks and
+# Call this from Rails.root to install start/stop script, sample config and
 # Capistrano recipes into your rails project.
 
 require 'fileutils'
@@ -27,7 +27,6 @@ end
 
 install 'script/ferret_server', 'script', true, true
 install 'config/ferret_server.yml', 'config'
-install 'tasks/ferret.rake', 'lib/tasks', false, true
 install 'recipes/aaf_recipes.rb', 'lib/recipes', false, true
 
 puts IO.read(File.join(@basedir, 'README'))
