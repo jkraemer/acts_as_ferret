@@ -490,14 +490,13 @@ module ActsAsFerret
   
   # combine our conditions with those given by user, if any
   def self.combine_conditions(conditions, additional_conditions = [])
-    returning conditions do
-      if additional_conditions && additional_conditions.any?
-        cust_opts = (Array === additional_conditions) ? additional_conditions.dup : [ additional_conditions ]
-        logger.debug "cust_opts: #{cust_opts.inspect}"
-        conditions.first << " and " << cust_opts.shift
-        conditions.concat(cust_opts)
-      end
+    if additional_conditions && additional_conditions.any?
+      cust_opts = (Array === additional_conditions) ? additional_conditions.dup : [ additional_conditions ]
+      logger.debug "cust_opts: #{cust_opts.inspect}"
+      conditions.first << " and " << cust_opts.shift
+      conditions.concat(cust_opts)
     end
+    return conditions
   end
 
   def self.build_field_config(fields)

@@ -125,7 +125,7 @@ module ActsAsFerret #:nodoc:
     # fieldname => value pairs)
     def to_doc
       logger.debug "creating doc for class: #{self.ferret_key}"
-      returning Ferret::Document.new do |doc|
+      Ferret::Document.new.tap do |doc|
         # store the id and class name of each item, and the unique key used for identifying the record
         # even in multi-class indexes.
         doc[:key] = self.ferret_key

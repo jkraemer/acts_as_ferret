@@ -227,7 +227,7 @@ module ActsAsFerret
                             :create      => true,
                             :field_infos => ActsAsFerret::field_infos(index_definition),
                             :path        => File.join(index_definition[:index_base_dir], 'rebuild')
-          returning Ferret::Index::Index.new(ferret_cfg) do |i|
+          Ferret::Index::Index.new(ferret_cfg).tap do |i|
             i.batch_size = index_definition[:reindex_batch_size]
             i.logger = @logger
           end

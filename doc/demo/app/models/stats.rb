@@ -9,7 +9,7 @@ class Stats < ActiveRecord::Base
       where kind=? group by time;
   END
     result = connection.execute sanitize_sql([sql, start_date, start_date, kind.to_s])
-    returning [] do |res|
+    [].tap do |res|
       while row = result.fetch_row
         data = row.last.split(',').map{|t|t.to_i}
         median = data.size.odd? ? data[data.size/2] : ((data[data.size/2-1]+data[data.size/2]) / 2.0)
