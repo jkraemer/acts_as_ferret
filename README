@@ -11,15 +11,30 @@ both can be found on http://ferret.davebalmain.com/trac/wiki/FerretOnRails
 http://wiki.github.com/jkraemer/acts_as_ferret/
 http://j-k.lighthouseapp.com/projects/45560-acts-as-ferret
 
+== Supported Rails versions
+
+From version 0.5 onwards acts_as_ferret requires Rails 3. For earlier Rails versions (2.3.x, ymmv for earlier versions)
+please use acts_as_ferret versions 0.4.x or the rails-2.3.x branch on github.
+
 == Installation
 
 Aaf is available as a gem (gem install acts_as_ferret), or via git from github.com.
 Github also offers tarball downloads, check out
 http://github.com/jkraemer/acts_as_ferret/tree/master .
 
-=== Set up your Rails > 2.1 project to use the acts_as_ferret gem.
+=== Rails 3
 
-Add this to your project's config/environment.rb:
+add
+
+<tt>gem 'acts_as_ferret', '>= 0.5'</tt>
+
+to your Gemfile. Bundler will pull in the jk-ferret gem as a dependency, which is an 'unofficial'
+Ferret gem built by me based on Ferret's master branch on github (the latest official ferret gem is 0.11.6
+and is missing quite some bug fixes that happened since then).
+
+=== Rails 2.x
+
+To set up your Rails project to use the acts_as_ferret gem, add this to your project's config/environment.rb:
 
 <tt>config.gem 'acts_as_ferret', :version => '~> 0.4.8'</tt>
 
