@@ -6,10 +6,12 @@ It is heavily based on the original acts_as_ferret plugin done by
 Kasper Weibel and a modified version done by Thomas Lockney, which 
 both can be found on http://ferret.davebalmain.com/trac/wiki/FerretOnRails
 
-== Project Wiki and Issue tracker
 
-http://wiki.github.com/jkraemer/acts_as_ferret/
-http://j-k.lighthouseapp.com/projects/45560-acts-as-ferret
+== Project URLs
+
+Wiki: http://wiki.github.com/jkraemer/acts_as_ferret/
+Please post issues on Lighthouse: http://j-k.lighthouseapp.com/projects/45560-acts-as-ferret
+API docs: http://rdoc.info/github/jkraemer/acts_as_ferret
 
 == Supported Rails versions
 

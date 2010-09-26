@@ -1,4 +1,4 @@
-module Ferret
+  module Ferret
 
   module Analysis
   
