@@ -456,6 +456,8 @@ module ActsAsFerret
     # get objects for each model
     id_arrays.each do |model, id_array|
       next if id_array.empty?
+      # logger.debug "id array from index: #{id_array.inspect}"
+      
       model_class = model.constantize
 
       # merge conditions
@@ -484,7 +486,9 @@ module ActsAsFerret
     
     # order results as they were found by ferret, unless an AR :order
     # option was given
+    # logger.debug "unsorted result: #{result.map{|a| "#{a.id} / #{a.title} / #{a.ferret_rank}"}.inspect}"
     result.sort! { |a, b| a.ferret_rank <=> b.ferret_rank } unless find_options[:order]
+    # logger.debug "sorted result: #{result.map{|a| "#{a.id} / #{a.ferret_rank}"}.inspect}"
     return result
   end
   

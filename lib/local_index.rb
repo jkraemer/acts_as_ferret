@@ -73,9 +73,6 @@ module ActsAsFerret
               reader.tokenized_fields unless options[:tokenized_fields]
           return qp.parse query
         else
-          # work around ferret bug in #process_query (doesn't ensure the
-          # reader is open)
-          ferret_index.send(:ensure_reader_open)
           return ferret_index.process_query(query)
         end
       end

@@ -94,6 +94,20 @@ module Ferret
         flush()
       end      
     end
+
+    # search for the first document with +arg+ in the +id+ field and return it's internal document number. 
+    # The +id+ field is either :id or whatever you set
+    # :id_field parameter to when you create the Index object.
+    def doc_number(id)
+      @dir.synchronize do
+        ensure_reader_open()
+        term_doc_enum = @reader.term_docs_for(@id_field, id.to_s)
+        return term_doc_enum.next? ? term_doc_enum.doc : nil
+      end
+    end
+    
+    private
+    
     
     # If +docs+ is a Hash or an Array then a batch delete will be performed.
     # If +docs+ is an Array then it will be considered an array of +id+'s. If
@@ -134,17 +148,7 @@ module Ferret
       end
       return self
     end
-
-    # search for the first document with +arg+ in the +id+ field and return it's internal document number. 
-    # The +id+ field is either :id or whatever you set
-    # :id_field parameter to when you create the Index object.
-    def doc_number(id)
-      @dir.synchronize do
-        ensure_reader_open()
-        term_doc_enum = @reader.term_docs_for(@id_field, id.to_s)
-        return term_doc_enum.next? ? term_doc_enum.doc : nil
-      end
-    end
+    
   end
 
   # add marshalling support to SortFields
@@ -175,7 +179,7 @@ module Ferret
       # we exclude the last <DOC> sorting as it is appended by new anyway
       if string =~ /^Sort\[(.*?)(<DOC>(!)?)?\]$/
         sort_fields = $1.split(',').map do |value| 
-        value.strip!
+          value.strip!
           Ferret::Search::SortField._load value unless value.blank?
         end
         new sort_fields.compact
