@@ -12,8 +12,15 @@ module ActsAsFerret #:nodoc:
       default_fields = indexes.inject([]) do |fields, idx| 
         fields + [ idx.index_definition[:ferret][:default_field] ]
       end.flatten.uniq
+      # Patch to pass an or_default setting on to ferret.
+      # Without an or_default set, ferret will use OR queries by default.
+      # This implementation will use OR if any model asks for OR, otherwise 
+      # AND. -- Paul Fitzpatrick, 11/1/2010 (contributed to public domain)
+      or_default = 
+        indexes.select{|idx| idx.index_definition[:ferret][:or_default]}.size>0
       @options = {
-        :default_field => default_fields
+        :default_field => default_fields,
+        :or_default => or_default
       }.update(options)
       @logger = IndexLogger.new(ActsAsFerret::logger, "multi: #{indexes.map(&:index_name).join(',')}")
     end
