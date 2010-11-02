@@ -46,13 +46,15 @@ namespace :ferret do
   desc "Stop the Ferret DRb server"
   task :stop, :roles => :app do
     rails_env = fetch(:rails_env, 'production')
-    run "cd #{current_path}; script/ferret_server -e #{rails_env} stop || true"
+    ruby = fetch(:ruby, '/usr/bin/env ruby')
+    run "cd #{current_path}; #{ruby} script/ferret_server -e #{rails_env} stop || true"
   end
 
   desc "Start the Ferret DRb server"
   task :start, :roles => :app do
     rails_env = fetch(:rails_env, 'production')
-    run "cd #{current_path}; script/ferret_server -e #{rails_env} start"
+    ruby = fetch(:ruby, '/usr/bin/env ruby')
+    run "cd #{current_path}; #{ruby} script/ferret_server -e #{rails_env} start"
   end
 
   desc "Restart the Ferret DRb server"

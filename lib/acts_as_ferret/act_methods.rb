@@ -26,7 +26,7 @@ module ActsAsFerret #:nodoc:
     #      to determine if it should be indexed or not.
     #
     # index_dir:: declares the directory where to put the index for this class.
-    #             The default is RAILS_ROOT/index/RAILS_ENV/CLASSNAME. 
+    #             The default is Rails.root/index/Rails.env/CLASSNAME. 
     #             The index directory will be created if it doesn't exist.
     #
     # reindex_batch_size:: reindexing is done in batches of this size, default is 1000

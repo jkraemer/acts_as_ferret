@@ -1,52 +1,18 @@
 require 'drb'
 require 'thread'
-require 'yaml'
-require 'erb'
 
-################################################################################
+require 'acts_as_ferret/server/unix_daemon'
+require 'acts_as_ferret/server/config'
+
 module ActsAsFerret
-  module Remote
+  module Server
 
-    ################################################################################
-    class Config
 
-      ################################################################################
-      DEFAULTS = {
-        'host'      => 'localhost',
-        'port'      => '9009',
-        'cf'        => "#{RAILS_ROOT}/config/ferret_server.yml",
-        'pid_file'  => "#{RAILS_ROOT}/log/ferret_server.pid",
-        'log_file'  => "#{RAILS_ROOT}/log/ferret_server.log",
-        'log_level' => 'debug',
-        'socket'    => nil,
-        'script'    => nil
-      }
-
-      ################################################################################
-      # load the configuration file and apply default settings
-      def initialize (file=DEFAULTS['cf'])
-        @everything = YAML.load(ERB.new(IO.read(file)).result)
-        raise "malformed ferret server config" unless @everything.is_a?(Hash)
-        @config = DEFAULTS.merge(@everything[RAILS_ENV] || {})
-        if @everything[RAILS_ENV]
-          @config['uri'] = socket.nil? ? "druby://#{host}:#{port}" : "drbunix:#{socket}"
-        end
-      end
-
-      ################################################################################
-      # treat the keys of the config data as methods
-      def method_missing (name, *args)
-        @config.has_key?(name.to_s) ? @config[name.to_s] : super
-      end
-
-    end
-
-    #################################################################################
     # This class acts as a drb server listening for indexing and
     # search requests from models declared to 'acts_as_ferret :remote => true'
     #
     # Usage: 
-    # - modify RAILS_ROOT/config/ferret_server.yml to suit your needs. 
+    # - modify Rails.root/config/ferret_server.yml to suit your needs. 
     # - environments for which no section in the config file exists will use 
     #   the index locally (good for unit tests/development mode)
     # - run script/ferret_server to start the server:
@@ -55,41 +21,31 @@ module ActsAsFerret
     # script/ferret_server -e production stop
     #
     class Server
-
-      #################################################################################
-      # FIXME include detection of OS and include the correct file
-      require 'unix_daemon'
-      include(ActsAsFerret::Remote::UnixDaemon)
+      include UnixDaemon
 
 
-      ################################################################################
       cattr_accessor :running
 
-      ################################################################################
       def initialize
-        ActiveRecord::Base.allow_concurrency = true
-        require 'ar_mysql_auto_reconnect_patch'
-        @cfg = ActsAsFerret::Remote::Config.new
+        @cfg = Config.new
         ActiveRecord::Base.logger = @logger = Logger.new(@cfg.log_file)
         ActiveRecord::Base.logger.level = Logger.const_get(@cfg.log_level.upcase) rescue Logger::DEBUG
         if @cfg.script
-          path = File.join(RAILS_ROOT, @cfg.script) 
+          path = File.join(Rails.root, @cfg.script) 
           load path
           @logger.info "loaded custom startup script from #{path}"
         end
       end
 
-      ################################################################################
       # start the server as a daemon process
       def start
-        raise "ferret_server not configured for #{RAILS_ENV}" unless (@cfg.uri rescue nil)
+        raise "ferret_server not configured for #{Rails.env}" unless (@cfg.uri rescue nil)
         platform_daemon { run_drb_service }
       end
 
-      ################################################################################
       # run the server and block until it exits
       def run
-        raise "ferret_server not configured for #{RAILS_ENV}" unless (@cfg.uri rescue nil)
+        raise "ferret_server not configured for #{Rails.env}" unless (@cfg.uri rescue nil)
         run_drb_service
       end
 
@@ -103,7 +59,6 @@ module ActsAsFerret
         raise
       end
 
-      #################################################################################
       # handles all incoming method calls, and sends them on to the correct local index
       # instance.
       #
@@ -227,7 +182,7 @@ module ActsAsFerret
                             :create      => true,
                             :field_infos => ActsAsFerret::field_infos(index_definition),
                             :path        => File.join(index_definition[:index_base_dir], 'rebuild')
-          returning Ferret::Index::Index.new(ferret_cfg) do |i|
+          Ferret::Index::Index.new(ferret_cfg).tap do |i|
             i.batch_size = index_definition[:reindex_batch_size]
             i.logger = @logger
           end

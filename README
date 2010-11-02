@@ -6,10 +6,17 @@ It is heavily based on the original acts_as_ferret plugin done by
 Kasper Weibel and a modified version done by Thomas Lockney, which 
 both can be found on http://ferret.davebalmain.com/trac/wiki/FerretOnRails
 
-== Project Wiki and Issue tracker
 
-http://wiki.github.com/jkraemer/acts_as_ferret/
-http://j-k.lighthouseapp.com/projects/45560-acts-as-ferret
+== Project URLs
+
+Wiki: http://wiki.github.com/jkraemer/acts_as_ferret/
+Please post issues on Lighthouse: http://j-k.lighthouseapp.com/projects/45560-acts-as-ferret
+API docs: http://rdoc.info/github/jkraemer/acts_as_ferret
+
+== Supported Rails versions
+
+From version 0.5 onwards acts_as_ferret requires Rails 3. For earlier Rails versions (2.3.x, ymmv for earlier versions)
+please use acts_as_ferret versions 0.4.x or the rails-2.3.x branch on github.
 
 == Installation
 
@@ -17,9 +24,33 @@ Aaf is available as a gem (gem install acts_as_ferret), or via git from github.c
 Github also offers tarball downloads, check out
 http://github.com/jkraemer/acts_as_ferret/tree/master .
 
-=== Set up your Rails > 2.1 project to use the acts_as_ferret gem.
 
-Add this to your project's config/environment.rb:
+=== Rails 3
+
+add
+
+<tt>gem 'acts_as_ferret', '>= 0.5'</tt>
+
+to your Gemfile. Bundler will pull in the jk-ferret gem as a dependency, which is an 'unofficial'
+Ferret gem built by me based on Ferret's master branch on github (the latest official ferret gem is 0.11.6
+and is missing quite some bug fixes that happened since then).
+
+After running 'bundle install', have bundler execute the aaf_install script:
+
+<tt>bundle exec aaf_install</tt>
+
+This will copy the capistrano recipe, the ferret server config and it's startup script
+into your project.
+
+In order to have the capistrano recipe loaded you'll have to patch your Capfile a bit. I use to have
+a line like that in my Capfiles, loading everything found below RAILS_ROOT/lib/recipes:
+
+<tt>Dir['lib/recipes/**/*.rb'].each { |plugin| load(plugin) }</tt>
+
+
+=== Rails 2.x
+
+To set up your Rails project to use the acts_as_ferret gem, add this to your project's config/environment.rb:
 
 <tt>config.gem 'acts_as_ferret', :version => '~> 0.4.8'</tt>
 
@@ -27,10 +58,7 @@ With the gem installed, change into your RAILS_ROOT and run the supplied aaf_ins
 This will copy rake tasks, capistrano recipes and the ferret server config and startup script
 into your project.
 
-In order to have the capistrano recipe loaded you'll have to patch your Capfile a bit. I use to have
-a line like that in my Capfiles, loading everything found below RAILS_ROOT/lib/recipes:
-
-<tt>Dir['lib/recipes/**/*.rb'].each { |plugin| load(plugin) }</tt>
+If you're using Capistrano, patch your Capfile as described above for Rails 3.
 
 
 === Installation inside your Rails project via script/plugin

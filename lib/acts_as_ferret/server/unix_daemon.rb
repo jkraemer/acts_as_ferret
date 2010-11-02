@@ -1,8 +1,6 @@
-################################################################################
 module ActsAsFerret
-  module Remote
+  module Server
 
-    ################################################################################
     # methods for becoming a daemon on Unix-like operating systems
     module UnixDaemon
 
@@ -13,7 +11,7 @@ module ActsAsFerret
           trap("TERM") { exit(0) }
           sess_id = Process.setsid
           STDIN.reopen("/dev/null")
-          STDOUT.reopen("#{RAILS_ROOT}/log/ferret_server.out", "a")
+          STDOUT.reopen("#{Rails.root}/log/ferret_server.out", "a")
           STDERR.reopen(STDOUT)
           block.call
         end

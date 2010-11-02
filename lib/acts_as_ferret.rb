@@ -20,33 +20,34 @@
 
 require 'active_support'
 require 'active_record'
+
 require 'set'
 require 'enumerator'
 require 'ferret'
 
-require 'ferret_find_methods'
-require 'remote_functions'
-require 'blank_slate'
-require 'bulk_indexer'
-require 'ferret_extensions'
-require 'act_methods'
-require 'search_results'
-require 'class_methods'
-require 'ferret_result'
-require 'instance_methods'
-require 'without_ar'
+require 'acts_as_ferret/ferret_find_methods'
+require 'acts_as_ferret/remote_functions'
+require 'acts_as_ferret/blank_slate'
+require 'acts_as_ferret/bulk_indexer'
+require 'acts_as_ferret/ferret_extensions'
+require 'acts_as_ferret/act_methods'
+require 'acts_as_ferret/search_results'
+require 'acts_as_ferret/class_methods'
+require 'acts_as_ferret/ferret_result'
+require 'acts_as_ferret/instance_methods'
+require 'acts_as_ferret/without_ar'
 
-require 'multi_index'
-require 'remote_multi_index'
-require 'more_like_this'
+require 'acts_as_ferret/multi_index'
+require 'acts_as_ferret/remote_multi_index'
+require 'acts_as_ferret/more_like_this'
 
-require 'index'
-require 'local_index'
-require 'remote_index'
+require 'acts_as_ferret/index'
+require 'acts_as_ferret/local_index'
+require 'acts_as_ferret/remote_index'
 
-require 'ferret_server'
+require 'acts_as_ferret/server/server'
 
-require 'rdig_adapter'
+require 'acts_as_ferret/rdig_adapter'
 
 # The Rails ActiveRecord Ferret Mixin.
 #
@@ -82,11 +83,13 @@ require 'rdig_adapter'
 #                    whatever reason.
 #
 # remote:: Set this to false to force acts_as_ferret into local (non-DRb) mode even if
-#          config/ferret_server.yml contains a section for the current RAILS_ENV
+#          config/ferret_server.yml contains a section for the current Rails.env
 #          Usually you won't need to touch this option - just configure DRb for
 #          production mode in ferret_server.yml.
 #
 module ActsAsFerret
+
+  require 'acts_as_ferret/railtie' if defined?(Rails)
 
   class ActsAsFerretError < StandardError; end
   class IndexNotDefined < ActsAsFerretError; end
@@ -107,7 +110,7 @@ module ActsAsFerret
   @@index_using_classes = {}
   def self.index_using_classes; @@index_using_classes end
 
-  @@logger = Logger.new "#{RAILS_ROOT}/log/acts_as_ferret.log"
+  @@logger = Logger.new "#{Rails.root || '.'}/log/acts_as_ferret.log"
   @@logger.level = ActiveRecord::Base.logger.level rescue Logger::DEBUG
   mattr_accessor :logger
 
@@ -129,10 +132,10 @@ module ActsAsFerret
   mattr_accessor :remote
   def self.remote?
     if @@remote.nil?
-      if ENV["FERRET_USE_LOCAL_INDEX"] || ActsAsFerret::Remote::Server.running
+      if ENV["FERRET_USE_LOCAL_INDEX"] || ActsAsFerret::Server::Server.running
         @@remote = false
       else
-        @@remote = ActsAsFerret::Remote::Config.new.uri rescue false
+        @@remote = ActsAsFerret::Server::Config.new.uri rescue false
       end
       if @@remote
         logger.info "Will use remote index server which should be available at #{@@remote}"
@@ -255,7 +258,7 @@ module ActsAsFerret
 
   def self.load_config
     # using require_dependency to make the reloading in dev mode work.
-    require_dependency "#{RAILS_ROOT}/config/aaf.rb"
+    require_dependency "#{Rails.root}/config/aaf.rb"
     ActsAsFerret::logger.info "loaded configuration file aaf.rb"
   rescue LoadError
   ensure
@@ -490,14 +493,13 @@ module ActsAsFerret
   
   # combine our conditions with those given by user, if any
   def self.combine_conditions(conditions, additional_conditions = [])
-    returning conditions do
-      if additional_conditions && additional_conditions.any?
-        cust_opts = (Array === additional_conditions) ? additional_conditions.dup : [ additional_conditions ]
-        logger.debug "cust_opts: #{cust_opts.inspect}"
-        conditions.first << " and " << cust_opts.shift
-        conditions.concat(cust_opts)
-      end
+    if additional_conditions && additional_conditions.any?
+      cust_opts = (Array === additional_conditions) ? additional_conditions.dup : [ additional_conditions ]
+      logger.debug "cust_opts: #{cust_opts.inspect}"
+      conditions.first << " and " << cust_opts.shift
+      conditions.concat(cust_opts)
     end
+    return conditions
   end
 
   def self.build_field_config(fields)
@@ -518,10 +520,10 @@ module ActsAsFerret
 
   
   # make sure the default index base dir exists. by default, all indexes are created
-  # under RAILS_ROOT/index/RAILS_ENV
+  # under Rails.root/index/Rails.env
   def self.init_index_basedir
-    index_base = "#{RAILS_ROOT}/index"
-    @@index_dir = "#{index_base}/#{RAILS_ENV}"
+    index_base = "#{Rails.root || '.'}/index"
+    @@index_dir = "#{index_base}/#{Rails.env}"
   end
   
   mattr_accessor :index_dir
@@ -587,4 +589,6 @@ end
 
 # include acts_as_ferret method into ActiveRecord::Base
 ActiveRecord::Base.extend ActsAsFerret::ActMethods
+
+
 

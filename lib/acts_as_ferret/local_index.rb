@@ -16,9 +16,9 @@ module ActsAsFerret
     # The 'real' Ferret Index instance
     def ferret_index
       ensure_index_exists
-      returning @ferret_index ||= Ferret::Index::Index.new(index_definition[:ferret]) do
-        @ferret_index.batch_size = index_definition[:reindex_batch_size]
-        @ferret_index.logger = logger
+      (@ferret_index ||= Ferret::Index::Index.new(index_definition[:ferret])).tap do |idx|
+        idx.batch_size = index_definition[:reindex_batch_size]
+        idx.logger = logger
       end
     end
 
@@ -73,9 +73,6 @@ module ActsAsFerret
               reader.tokenized_fields unless options[:tokenized_fields]
           return qp.parse query
         else
-          # work around ferret bug in #process_query (doesn't ensure the
-          # reader is open)
-          ferret_index.send(:ensure_reader_open)
           return ferret_index.process_query(query)
         end
       end
@@ -151,7 +148,7 @@ module ActsAsFerret
       return Ferret::Search::TermQuery.new(:key, key.to_s)
       # if shared?
       #   raise InvalidArgumentError.new("shared index needs class_name argument") if class_name.nil?
-      #   returning bq = Ferret::Search::BooleanQuery.new do
+      #   Ferret::Search::BooleanQuery.new.tap do |bq|
       #     bq.add_query(Ferret::Search::TermQuery.new(:id,         id.to_s),    :must)
       #     bq.add_query(Ferret::Search::TermQuery.new(:class_name, class_name), :must)
       #   end
