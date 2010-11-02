@@ -19,9 +19,13 @@ http://github.com/jkraemer/acts_as_ferret/tree/master .
 
 === Set up your Rails > 2.1 project to use the acts_as_ferret gem.
 
-Add this to your project's config/environment.rb:
+Add this to your project's config/environment.rb (inside the Rails::Initializer.run block):
 
-<tt>config.gem 'acts_as_ferret', :version => '~> 0.4.8'</tt>
+<tt>
+  config.gem 'acts_as_ferret', :version => '~> 0.4.8'
+  config.after_initialize { ActsAsFerret::load_config }
+  config.to_prepare       { ActsAsFerret::load_config }  
+</tt>
 
 With the gem installed, change into your RAILS_ROOT and run the supplied aaf_install script.
 This will copy rake tasks, capistrano recipes and the ferret server config and startup script

@@ -1,7 +1,7 @@
 Gem::Specification.new do |s|
 
 	s.name = 'acts_as_ferret'
-	s.version = '0.4.8.1'
+	s.version = '0.4.8.2'
 	s.authors = ['Jens Kraemer']
 	s.summary = 'acts_as_ferret - Ferret based full text search for any ActiveRecord model'
 	s.description = 'Rails plugin that adds powerful full text search capabilities to ActiveRecord models.'
@@ -23,12 +23,12 @@ Gem::Specification.new do |s|
     s.specification_version = 3
     
     if Gem::Version.new(Gem::RubyGemsVersion) >= Gem::Version.new('1.2.0') then
-      s.add_runtime_dependency('ferret', [">= 0.11.6"])
+      s.add_runtime_dependency('jk-ferret', [">= 0.11.8"])
     else
-      s.add_dependency('ferret', [">= 0.11.6"])
+      s.add_dependency('jk-ferret', [">= 0.11.8"])
     end
   else
-    s.add_dependency('ferret', [">= 0.11.6"])
+    s.add_dependency('jk-ferret', [">= 0.11.8"])
   end
   
 
