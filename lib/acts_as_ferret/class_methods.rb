@@ -65,7 +65,7 @@ module ActsAsFerret
         logger.warn "#{self.name}: Override records_modified_since(time) to keep the index up to date with records changed during rebuild."
         []
       else
-        find :all, :conditions => [ condition.join(' AND '), *([time]*condition.size) ]
+        where([ condition.join(' AND '), *([time]*condition.size) ]).all
       end
     end
 
@@ -74,14 +74,14 @@ module ActsAsFerret
       transaction do
         if use_fast_batches?
           offset = 0
-          while (rows = find :all, :conditions => [ "#{table_name}.id > ?", offset ], :limit => batch_size).any?
+          while (rows = where([ "#{table_name}.id > ?", offset ]).limit(batch_size).all).any?
             offset = rows.last.id
             yield rows, offset
           end
         else
           order = "#{primary_key} ASC" # fixes #212
           0.step(self.count, batch_size) do |offset|
-            yield find( :all, :limit => batch_size, :offset => offset, :order => order ), offset
+            yield scoped.limit(batch_size).offset(offset).order(order).all, offset
           end
         end
       end
@@ -92,9 +92,9 @@ module ActsAsFerret
       transaction do
         offset = 0
         ids.each_slice(batch_size) do |id_slice|
-          records = find( :all, :conditions => ["id in (?)", id_slice] )
+          records = where(:id => id_slice).all
           #yield records, offset
-          yield find( :all, :conditions => ["id in (?)", id_slice] ), offset
+          yield where(:id => id_slice).all, offset
           offset += batch_size
         end
       end
