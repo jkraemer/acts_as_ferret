@@ -1,6 +1,6 @@
 require File.dirname(__FILE__) + '/../test_helper'
 
-class SortTest < Test::Unit::TestCase
+class SortTest < ActiveSupport::TestCase
   include Ferret::Search
 
   def test_sort_marshalling

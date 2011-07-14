@@ -1,7 +1,6 @@
 require File.dirname(__FILE__) + '/../test_helper'
 
-class CommentTest < Test::Unit::TestCase
-  fixtures :comments
+class CommentTest < ActiveSupport::TestCase
 
   def setup
     Comment.rebuild_index
@@ -34,7 +33,7 @@ class CommentTest < Test::Unit::TestCase
   end
 
   def test_class_index_dir
-    assert Comment.aaf_configuration[:index_dir] =~ %r{^#{RAILS_ROOT}/index/test/comment}
+    assert Comment.aaf_configuration[:index_dir] =~ %r{^./index/test/comment}
   end
 
   def test_aliased_field

@@ -5,7 +5,6 @@ require 'searches_controller'
 class SearchesController; def rescue_action(e) raise e end; end
 
 class SearchesControllerTest < Test::Unit::TestCase
-  fixtures :contents
 
   def setup
     @controller = SearchesController.new

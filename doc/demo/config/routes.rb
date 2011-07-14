@@ -1,5 +1,4 @@
-ActionController::Routing::Routes.draw do |map|
-
+Demo::Application.routes.draw do |map|
   map.resources :contents
   map.search 'search', :controller => 'searches', :action => 'search'
 

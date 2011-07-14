@@ -2,10 +2,9 @@ require File.dirname(__FILE__) + '/../test_helper'
 require 'pp'
 require 'fileutils'
 
-class MultiIndexTest < Test::Unit::TestCase
+class MultiIndexTest < ActiveSupport::TestCase
   include Ferret::Index
   include Ferret::Search
-  fixtures :contents, :comments
 
   def setup
     #make sure the fixtures are in the index
