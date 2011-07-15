@@ -49,5 +49,10 @@ module ActsAsFerret
       end
       @ar_record
     end
+    
+    def to_param
+      return @id
+    end
+    
   end
 end

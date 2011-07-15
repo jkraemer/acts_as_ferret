@@ -474,7 +474,8 @@ module ActsAsFerret
       end
 
       # fetch
-      tmp_result = model_class.where(find_options.merge(:conditions => conditions)[:conditions]).includes(filtered_include_options).all
+      options = find_options.merge(:conditions => conditions, :include => filtered_include_options)
+      tmp_result = model_class.where(options[:conditions]).includes(options[:include]).order(options[:order]).limit(options[:limit]).offset(options[:offset])
 
       # set scores and rank
       tmp_result.each do |record|
