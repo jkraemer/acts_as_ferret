@@ -4,7 +4,7 @@ require 'admin/backend_controller'
 # Re-raise errors caught by the controller.
 class Admin::BackendController; def rescue_action(e) raise e end; end
 
-class Admin::BackendControllerTest < Test::Unit::TestCase
+class Admin::BackendControllerTest < ActionController::TestCase
   def setup
     @controller = Admin::BackendController.new
     @request    = ActionController::TestRequest.new

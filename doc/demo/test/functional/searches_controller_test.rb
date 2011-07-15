@@ -4,7 +4,7 @@ require 'searches_controller'
 # Re-raise errors caught by the controller.
 class SearchesController; def rescue_action(e) raise e end; end
 
-class SearchesControllerTest < Test::Unit::TestCase
+class SearchesControllerTest < ActionController::TestCase
 
   def setup
     @controller = SearchesController.new

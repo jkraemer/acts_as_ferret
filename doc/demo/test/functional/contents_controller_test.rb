@@ -4,7 +4,7 @@ require 'contents_controller'
 # Re-raise errors caught by the controller.
 class ContentsController; def rescue_action(e) raise e end; end
 
-class ContentsControllerTest < Test::Unit::TestCase
+class ContentsControllerTest < ActionController::TestCase
 
   def setup
     @controller = ContentsController.new
