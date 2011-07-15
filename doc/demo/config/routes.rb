@@ -1,8 +1,8 @@
-Demo::Application.routes.draw do |map|
-  map.resources :contents
-  map.search 'search', :controller => 'searches', :action => 'search'
+Demo::Application.routes.draw do
+  resources :contents
+  match 'search', :to => 'searches#search'
 
 
   # Install the default route as the lowest priority.
-  map.connect ':controller/:action/:id'
+  match ':controller(/:action(/:id))'
 end
