@@ -45,7 +45,7 @@ module ActsAsFerret
         @ar_record.ferret_rank  = ferret_rank
         @ar_record.ferret_score = ferret_score
         # don't try to fetch attributes from RDig based records
-        @use_record = !@ar_record.class.included_modules.include?(ActsAsFerret::RdigAdapter)
+        @use_record = !@ar_record.class.included_modules.include?(::ActsAsFerret::RdigAdapter)
       end
       @ar_record
     end

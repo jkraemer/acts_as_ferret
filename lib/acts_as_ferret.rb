@@ -493,7 +493,21 @@ module ActsAsFerret
   
   # combine our conditions with those given by user, if any
   def self.combine_conditions(conditions, additional_conditions = [])
-    if additional_conditions && additional_conditions.any?
+
+    any_additional_conditions = false
+
+    if additional_conditions
+      if additional_conditions.kind_of?(Enumerable)
+        # We are pre-ruby 1.9.x
+        any_additional_conditions = additional_conditions.any?
+      else
+        # This ruby 1.9.x - String is no longer an Enumerable
+        # http://www.ivanenviroman.com/string-is-not-an-enumerable-in-ruby-1-9/
+        any_additional_conditions = ! additional_conditions.empty?
+      end
+    end
+    
+    if any_additional_conditions
       cust_opts = (Array === additional_conditions) ? additional_conditions.dup : [ additional_conditions ]
       logger.debug "cust_opts: #{cust_opts.inspect}"
       conditions.first << " and " << cust_opts.shift

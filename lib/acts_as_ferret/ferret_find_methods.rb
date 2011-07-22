@@ -108,7 +108,11 @@ module ActsAsFerret
 
       q = process_query(query, options)
       q = scope_query_to_models q, options[:models] #if shared?
-      logger.debug "query: #{query}\n-->#{q}"
+      
+      # Force q to be encoded as UTF-8 to avoid barfing when unicode passed in.
+      # Was not an issue pre ruby 1.9.x force_encoding method is only available in ruby 1.9.x
+      q_to_s = q.to_s.respond_to?('force_encoding') ? q.to_s.force_encoding('UTF-8') : q
+      logger.debug "query: #{query}\n-->#{q_to_s}"
       s = searcher
       total_hits = s.search_each(q, options) do |hit, score|
         doc = s[hit]
