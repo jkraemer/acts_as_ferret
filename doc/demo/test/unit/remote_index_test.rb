@@ -1,6 +1,6 @@
-require File.dirname(__FILE__) + '/../test_helper'
+require File.expand_path(File.dirname(__FILE__)) + '/../test_helper'
 
-class RemoteIndexTest < Test::Unit::TestCase
+class RemoteIndexTest < ActiveSupport::TestCase
   def setup
     ActsAsFerret::remote = 'druby://localhost:9999'
   end

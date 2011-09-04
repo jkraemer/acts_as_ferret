@@ -1,9 +1,8 @@
-require File.dirname(__FILE__) + '/../test_helper'
+require File.expand_path(File.dirname(__FILE__)) + '/../test_helper'
 require 'pp'
 require 'fileutils'
 
-class FerretResultTest < Test::Unit::TestCase
-  fixtures :contents
+class FerretResultTest < ActiveSupport::TestCase
 
   def teardown
   end

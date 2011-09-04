@@ -1,7 +1,6 @@
-require File.dirname(__FILE__) + '/../test_helper'
+require File.expand_path(File.dirname(__FILE__)) + '/../test_helper'
 
-class SharedIndex1Test < Test::Unit::TestCase
-  fixtures :shared_index1s, :shared_index2s
+class SharedIndex1Test < ActiveSupport::TestCase
 
   def setup
     SharedIndex1.rebuild_index

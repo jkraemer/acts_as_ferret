@@ -117,6 +117,12 @@ Please see ActsAsFerret::ActMethods#acts_as_ferret for more information.
 
 aaf is not yet ready for Rails3. Feel free to submit patches!
 
+Rails 3 :More Like this no longer works for unsaved records (test fails in 
+content_test.rb test_more_like_this_new_record)
+
+Rails 3: Sorting does not work - causes failure in sorting test & pagination test.
+
+
 == License
 
 Released under the MIT license.

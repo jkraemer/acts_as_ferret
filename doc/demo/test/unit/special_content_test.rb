@@ -1,9 +1,8 @@
-require File.dirname(__FILE__) + '/../test_helper'
+require File.expand_path(File.dirname(__FILE__)) + '/../test_helper'
 
-class SpecialContentTest < Test::Unit::TestCase
+class SpecialContentTest < ActiveSupport::TestCase
   include Ferret::Index
   include Ferret::Search
-  fixtures :contents, :comments
 
   def setup
     ContentBase.rebuild_index
@@ -11,7 +10,7 @@ class SpecialContentTest < Test::Unit::TestCase
   end
   
   def test_class_index_dir
-    assert SpecialContent.aaf_configuration[:index_dir] =~ %r{^#{RAILS_ROOT}/index/test/content_base}
+    assert SpecialContent.aaf_configuration[:index_dir] =~ %r{^./index/test/content_base}
   end
 
   def test_find_with_ferret

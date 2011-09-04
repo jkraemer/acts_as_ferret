@@ -1,0 +1,18 @@
+source 'http://rubygems.org'
+
+# Don't use latest version of rake:
+# http://stackoverflow.com/questions/6199301/global-access-to-rake-dsl-methods-is-deprecated
+
+gem 'rake', '0.8.7'
+gem 'rails', '3.0.9'
+
+# Bundle edge Rails instead:
+# gem 'rails', :git => 'git://github.com/rails/rails.git'
+
+gem 'mysql'
+
+# Until branch is merged into master, the tests will fail.
+# To get everything running use the brightchimp gem.
+gem 'acts_as_ferret'
+#gem 'acts_as_ferret', :git => 'git://github.com/brightchimp/acts_as_ferret.git'
+gem 'will_paginate', '3.0.pre2'

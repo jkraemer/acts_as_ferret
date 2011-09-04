@@ -474,7 +474,8 @@ module ActsAsFerret
       end
 
       # fetch
-      tmp_result = model_class.where(find_options.merge(:conditions => conditions)[:conditions]).includes(filtered_include_options).all
+      options = find_options.merge(:conditions => conditions, :include => filtered_include_options)
+      tmp_result = model_class.where(options[:conditions]).includes(options[:include]).order(options[:order]).limit(options[:limit]).offset(options[:offset])
 
       # set scores and rank
       tmp_result.each do |record|
@@ -492,7 +493,21 @@ module ActsAsFerret
   
   # combine our conditions with those given by user, if any
   def self.combine_conditions(conditions, additional_conditions = [])
-    if additional_conditions && additional_conditions.any?
+
+    any_additional_conditions = false
+
+    if additional_conditions
+      if additional_conditions.kind_of?(Enumerable)
+        # We are pre-ruby 1.9.x
+        any_additional_conditions = additional_conditions.any?
+      else
+        # This ruby 1.9.x - String is no longer an Enumerable
+        # http://www.ivanenviroman.com/string-is-not-an-enumerable-in-ruby-1-9/
+        any_additional_conditions = ! additional_conditions.empty?
+      end
+    end
+    
+    if any_additional_conditions
       cust_opts = (Array === additional_conditions) ? additional_conditions.dup : [ additional_conditions ]
       logger.debug "cust_opts: #{cust_opts.inspect}"
       conditions.first << " and " << cust_opts.shift

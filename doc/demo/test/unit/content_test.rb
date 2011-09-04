@@ -1,11 +1,12 @@
-require File.dirname(__FILE__) + '/../test_helper'
+# encoding: UTF-8
+require File.expand_path(File.dirname(__FILE__)) + '/../test_helper'
 require 'pp'
 require 'fileutils'
 
-class ContentTest < Test::Unit::TestCase
+
+class ContentTest < ActiveSupport::TestCase
   include Ferret::Index
   include Ferret::Search
-  fixtures :contents, :comments
 
   def setup
     #make sure the fixtures are in the index
@@ -299,7 +300,7 @@ class ContentTest < Test::Unit::TestCase
   end
 
   def test_class_index_dir
-    assert Content.aaf_configuration[:index_dir] =~ %r{^#{RAILS_ROOT}/index/test/content_base}
+    assert Content.aaf_configuration[:index_dir] =~ %r{./index/test/content_base}
   end
   
   def test_update
@@ -554,6 +555,7 @@ class ContentTest < Test::Unit::TestCase
 
     r = Content.find_with_ferret 'title', { :limit => 10, :offset => 0 }, 
                                           { :conditions => "description != '0'", :order => 'title ASC' }
+                
     assert_equal 29, r.total_hits
     assert_equal 10, r.size
     assert_equal "1", r.first.description
