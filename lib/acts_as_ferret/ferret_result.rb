@@ -12,7 +12,6 @@ module ActsAsFerret
   class FerretResult < ActsAsFerret::BlankSlate
     include ResultAttributes
     attr_accessor :id
-    reveal :methods
 
     def initialize(model, id, score, rank, data = {})
       @model = model.constantize
@@ -24,7 +23,7 @@ module ActsAsFerret
     end
 
     def inspect
-      "#<FerretResult wrapper for #{@model} with id #{@id}"
+      "#<FerretResult wrapper for #{@model} with id #{@id}>"
     end
 
     def method_missing(method, *args, &block)
@@ -36,7 +35,10 @@ module ActsAsFerret
     end
 
     def respond_to?(name)
-      methods.include?(name.to_s) || @data.has_key?(name.to_sym) || to_record.respond_to?(name)
+      [ :ferret_score, :ferret_rank,
+        :inspect, :method_missing, :respond_to?, :to_record, :to_param, :id
+      ].include?(name) ||
+        @data.has_key?(name.to_sym) || to_record.respond_to?(name)
     end
 
     def to_record
