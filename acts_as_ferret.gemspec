@@ -21,7 +21,7 @@ Gem::Specification.new do |s|
 	
   # the latest official published ferret gem is 0.11.6 which is incompatible with Ruby 1.9.x.
   # Therefore I decided to publish the jk-ferret gem built from git head.
-  s.add_dependency 'jk-ferret', ">= 0.11.8"
+  s.add_dependency 'ferret', ">= 0.11.8"
   s.add_dependency 'rails', ">= 3.0"
   
 	s.has_rdoc = true
